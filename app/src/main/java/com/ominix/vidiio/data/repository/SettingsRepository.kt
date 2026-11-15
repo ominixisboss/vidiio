@@ -94,6 +94,10 @@ class SettingsRepository(private val context: Context) {
         val AVOID_CAMERA_CUTOUT = booleanPreferencesKey("avoid_camera_cutout")
         val SOURCES = stringSetPreferencesKey("sources")
         val STREMIO_ADDONS = stringSetPreferencesKey("stremio_addons")
+        /** Live TV links the viewer pasted: "name<TAB>url" per entry. */
+        val LIVE_LINKS = stringSetPreferencesKey("live_links")
+        /** Stremio addon manifests added for Live TV only (sports, channels). */
+        val LIVE_ADDONS = stringSetPreferencesKey("live_addons")
         val SUBDL_API_KEY = stringPreferencesKey("subdl_api_key")
         val SUBTITLE_LANGUAGES = stringPreferencesKey("subtitle_languages")
         val SUBTITLE_TEXT_SCALE = floatPreferencesKey("subtitle_text_scale")
@@ -185,7 +189,7 @@ class SettingsRepository(private val context: Context) {
 
     /** List and auto-pick streams from the PenguPlay addon (pengu.uk) ahead of other sources. */
     val prioritizePenguFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.PRIORITIZE_PENGU] ?: false
+        preferences[PreferencesKeys.PRIORITIZE_PENGU] ?: true
     }
 
     suspend fun setPrioritizePengu(enabled: Boolean) {
@@ -324,6 +328,52 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    /** Playlists and streams the viewer added for Live TV, in name order. */
+    val liveLinksFlow: Flow<List<LiveLink>> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LIVE_LINKS].orEmpty()
+            .mapNotNull { entry ->
+                val name = entry.substringBefore('\t', "")
+                val url = entry.substringAfter('\t', "")
+                if (url.isBlank()) null else LiveLink(name.ifBlank { url }, url)
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    suspend fun addLiveLinks(links: List<LiveLink>) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.LIVE_LINKS].orEmpty()
+            val urls = links.map { it.url }.toSet()
+            // Re-adding a URL replaces its old name instead of listing it twice.
+            preferences[PreferencesKeys.LIVE_LINKS] =
+                current.filterNot { it.substringAfter('\t', "") in urls }.toSet() +
+                    links.map { "${it.name.replace('\t', ' ').trim()}\t${it.url.trim()}" }
+        }
+    }
+
+    /** Manifest URLs of the addons added for Live TV. */
+    val liveAddonsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.LIVE_ADDONS].orEmpty()
+    }
+
+    suspend fun addLiveAddons(urls: Collection<String>) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIVE_ADDONS] = preferences[PreferencesKeys.LIVE_ADDONS].orEmpty() + urls.map { it.trim() }
+        }
+    }
+
+    suspend fun removeLiveAddon(url: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIVE_ADDONS] = preferences[PreferencesKeys.LIVE_ADDONS].orEmpty() - url
+        }
+    }
+
+    suspend fun removeLiveLink(url: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.LIVE_LINKS] =
+                preferences[PreferencesKeys.LIVE_LINKS].orEmpty().filterNot { it.substringAfter('\t', "") == url }.toSet()
+        }
+    }
+
     suspend fun setStremioAddons(addons: Set<String>) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.STREMIO_ADDONS] = addons
@@ -408,3 +458,6 @@ class SettingsRepository(private val context: Context) {
 }
 
 private const val TAG = "SettingsRepository"
+
+/** A playlist (M3U) or single stream the viewer added to Live TV. */
+data class LiveLink(val name: String, val url: String)

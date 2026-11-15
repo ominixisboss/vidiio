@@ -41,13 +41,18 @@ import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalIsTv
 
 /** One shelf of posters, optionally flagged "TODAY" for episodes airing today. */
-data class FlixShelf(val title: String, val movies: List<Movie>, val todayRibbon: Boolean = false)
+data class FlixShelf(
+    val title: String,
+    val movies: List<Movie>,
+    val todayRibbon: Boolean = false,
+    /** Fetches the next page; rows with one keep growing as they scroll. */
+    val onLoadMore: (() -> Unit)? = null,
+)
 
 /** A curated studio list shown as a wide card ("Top MovieLists"). */
-private class MovieList(val title: String, val count: String?, val studioId: Int?, val colors: List<Color>)
+private class MovieList(val title: String, val count: String?, val studioId: Int, val colors: List<Color>)
 
 private val MovieLists = listOf(
-    MovieList("Top 100 Halloween Movies", "100", null, listOf(Color(0xFF7B2CBF), Color(0xFFFF7518))),
     MovieList("Marvel Studios", null, 420, listOf(Color(0xFF8E0F24), Color(0xFFF2506B))),
     MovieList("Disney", null, 2, listOf(Color(0xFF2A2FC0), Color(0xFF4F9BFF))),
     MovieList("Pixar", null, 3, listOf(Color(0xFF3B2BB0), Color(0xFF8E5CE0))),
@@ -73,7 +78,6 @@ fun FlixHomeContent(
     onOpenMovies: () -> Unit,
     onOpenTv: () -> Unit,
     onOpenGuide: () -> Unit,
-    onOpenHalloween: () -> Unit,
     onOpenCollection: (String, Int) -> Unit,
 ) {
     val heroScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -132,7 +136,7 @@ fun FlixHomeContent(
                 if (shelf.movies.isEmpty()) return@forEachIndexed
                 item(key = "shelf-$index-${shelf.title}") { PosterShelf(shelf, onOpen) }
                 // The curated lists sit after the first two shelves, like a streaming guide.
-                if (index == 1) item(key = "lists") { MovieListsRow(onOpenHalloween, onOpenCollection) }
+                if (index == 1) item(key = "lists") { MovieListsRow(onOpenCollection) }
             }
         }
 
@@ -143,7 +147,10 @@ fun FlixHomeContent(
 private fun PosterShelf(shelf: FlixShelf, onOpen: (Movie) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         FlixHeader(shelf.title)
+        val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
+        com.ominix.vidiio.ui.components.LoadMoreOnScroll(rowState, shelf.movies.size, shelf.onLoadMore)
         LazyRow(
+            state = rowState,
             contentPadding = PaddingValues(horizontal = 14.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -171,7 +178,7 @@ private fun PosterShelf(shelf: FlixShelf, onOpen: (Movie) -> Unit) {
 }
 
 @Composable
-private fun MovieListsRow(onOpenHalloween: () -> Unit, onOpenCollection: (String, Int) -> Unit) {
+private fun MovieListsRow(onOpenCollection: (String, Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         FlixHeader("Top MovieLists")
         LazyRow(
@@ -185,7 +192,7 @@ private fun MovieListsRow(onOpenHalloween: () -> Unit, onOpenCollection: (String
                         .width(240.dp)
                         .height(120.dp)
                         .tvClickable(
-                            onClick = { list.studioId?.let { onOpenCollection(list.title, it) } ?: onOpenHalloween() },
+                            onClick = { onOpenCollection(list.title, list.studioId) },
                             shape = shape
                         )
                         .clip(shape)

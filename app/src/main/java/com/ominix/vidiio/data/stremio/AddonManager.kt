@@ -14,6 +14,15 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 
+/** One catalogue of a live addon and its events (possibly none right now). */
+data class AddonLiveCatalog(val addonName: String, val catalogName: String, val events: List<LiveAddonEvent>)
+
+/** Live addon catalogues, and the Live TV addon URLs that could not be reached. */
+data class AddonLiveResult(val catalogs: List<AddonLiveCatalog>, val unreachable: List<String>)
+
+/** One live event or channel from an installed addon's catalogue, and where to ask for its streams. */
+data class LiveAddonEvent(val addonName: String, val baseUrl: String, val type: String, val meta: StremioMeta)
+
 /** url + resolved manifest for one installed Stremio addon. */
 data class InstalledAddon(val url: String, val manifest: Manifest) {
     val baseUrl: String get() = url.substringBeforeLast('/') + "/"
@@ -32,8 +41,11 @@ class AddonManager(
             .sortedByDescending { it.contains("torrentio") }
     }
 
-    suspend fun getInstalledAddons(): List<InstalledAddon> = coroutineScope {
-        allAddonUrls().map { url ->
+    suspend fun getInstalledAddons(): List<InstalledAddon> = loadAddons(allAddonUrls())
+
+    /** Manifests for [urls]; an addon that fails or is slow is left out. */
+    private suspend fun loadAddons(urls: List<String>): List<InstalledAddon> = coroutineScope {
+        urls.map { url ->
             async {
                 val m = manifestCache[url] ?: try {
                     // One slow addon must not hold up the rest (or the Home screen): give each a few seconds.
@@ -102,6 +114,8 @@ class AddonManager(
                 }
             }
         }.awaitAll().flatten()
+            // Two installs of one addon (same manifest id, different config) return the same tracks.
+            .distinctBy { it.url }
     }
 
     /** Full metadata (with episode list) for one item from whichever addon serves it. */
@@ -165,6 +179,123 @@ class AddonManager(
             }.awaitAll().filterNotNull().filter { it.second.isNotEmpty() }
     }
 
+    /**
+     * PenguPlay's live sports and TV catalogues (Live Now, Soccer, Channels, ...), with the events in
+     * each. Only non-empty catalogues are returned; between events most of them are empty.
+     */
+    suspend fun penguLiveCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
+        val manifest = try {
+            kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) { stremioService.getManifest("${PENGU_LIVE_BASE}manifest.json") }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.w("AddonManager", "PenguPlay live manifest failed", e); null
+        } ?: return@coroutineScope emptyList()
+        manifest.catalogs.orEmpty().map { catalog ->
+            async {
+                runCatching {
+                    val metas = kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) {
+                        stremioService.getCatalog("${PENGU_LIVE_BASE}catalog/${catalog.type}/${catalog.id}.json").metas
+                    }.orEmpty()
+                    (catalog.name ?: catalog.id).removeSuffix(" - TV") to metas
+                }.getOrNull()
+            }
+        }.awaitAll().filterNotNull().filter { it.second.isNotEmpty() }
+    }
+
+    /**
+     * Every live catalogue with its events: all catalogues of the Live TV addons, plus the non-movie
+     * catalogues of the regular addons. Empty catalogues are kept, so an addon with nothing on right now
+     * still shows; [AddonLiveResult.unreachable] lists Live TV addons whose manifest could not be loaded.
+     */
+    suspend fun addonLiveCatalogs(): AddonLiveResult = coroutineScope {
+        val sources = liveSources()
+        val catalogs = sources.catalogs.filter { (_, catalog) -> catalog.extra.orEmpty().none { it.isRequired } }
+            .map { (addon, catalog) ->
+                async {
+                    val metas = runCatching {
+                        kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) {
+                            stremioService.getCatalog("${addon.baseUrl}catalog/${catalog.type}/${catalog.id}.json").metas
+                        }.orEmpty()
+                    }.getOrDefault(emptyList())
+                    AddonLiveCatalog(
+                        addonName = addon.manifest.name,
+                        catalogName = catalog.name?.takeIf { it.isNotBlank() } ?: catalog.id,
+                        events = metas.map { LiveAddonEvent(addon.manifest.name, addon.baseUrl, catalog.type, it) },
+                    )
+                }
+            }.awaitAll()
+        AddonLiveResult(catalogs, sources.unreachable)
+    }
+
+    /**
+     * Events in the installed addons' live catalogues whose name contains [query] (a team name, say).
+     * Uses an addon's search where it has one, else filters the catalogue's own list.
+     */
+    suspend fun addonLiveSearch(query: String): List<LiveAddonEvent> = coroutineScope {
+        val q = java.net.URLEncoder.encode(query, "UTF-8").replace("+", "%20")
+        val needle = query.lowercase()
+        liveSources().catalogs.map { (addon, catalog) ->
+            async {
+                runCatching {
+                    val searchable = catalog.extra.orEmpty().any { it.name == "search" }
+                    val requiredOther = catalog.extra.orEmpty().any { it.isRequired && it.name != "search" }
+                    if (requiredOther) return@runCatching emptyList()
+                    val url = if (searchable) "${addon.baseUrl}catalog/${catalog.type}/${catalog.id}/search=$q.json"
+                    else "${addon.baseUrl}catalog/${catalog.type}/${catalog.id}.json"
+                    kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) { stremioService.getCatalog(url).metas }.orEmpty()
+                        .filter { it.name.lowercase().contains(needle) }
+                        .map { LiveAddonEvent(addon.manifest.name, addon.baseUrl, catalog.type, it) }
+                }.getOrDefault(emptyList())
+            }
+        }.awaitAll().flatten()
+    }
+
+    /** The streams one addon offers for one of its live events. */
+    suspend fun addonLiveStreams(event: LiveAddonEvent): List<StremioStream> =
+        kotlinx.coroutines.withTimeoutOrNull(STREAM_TIMEOUT_MS) {
+            val id = java.net.URLEncoder.encode(event.meta.id, "UTF-8").replace("+", "%20")
+            stremioService.getStreams("${event.baseUrl}stream/${event.type}/$id.json").streams
+        }.orEmpty()
+
+    private class LiveSources(
+        val catalogs: List<Pair<InstalledAddon, com.ominix.vidiio.data.model.stremio.Catalog>>,
+        val unreachable: List<String>,
+    )
+
+    /**
+     * Where Live TV reads from: every catalogue of the addons added for Live TV, and the catalogues of the
+     * regular addons that are not movies, series or anime (sport, sports, tv, events, ...).
+     */
+    private suspend fun liveSources(): LiveSources = coroutineScope {
+        val liveUrls = settingsRepository.liveAddonsFlow.first().toList()
+        val live = async { loadAddons(liveUrls) }
+        val regular = async {
+            getInstalledAddons().filter { it.url !in BUILTIN_ADDON_URLS && it.url !in liveUrls && !it.baseUrl.startsWith(PENGU_LIVE_BASE) }
+        }
+        val liveAddons = live.await()
+        val catalogs = liveAddons.flatMap { addon -> addon.manifest.catalogs.orEmpty().map { addon to it } } +
+            regular.await().filter { it.manifest.hasResource("stream") }
+                .flatMap { addon -> addon.manifest.catalogs.orEmpty().filter { it.type.lowercase() !in VOD_TYPES }.map { addon to it } }
+        val loaded = liveAddons.map { it.url }.toSet()
+        LiveSources(catalogs, liveUrls.filter { it !in loaded })
+    }
+
+    /** PenguPlay live events in [catalogId] (e.g. pp-live-basketball) matching [query]. Empty on failure. */
+    suspend fun penguLiveSearch(catalogId: String, query: String): List<StremioMeta> = try {
+        val q = java.net.URLEncoder.encode(query, "UTF-8").replace("+", "%20")
+        kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) {
+            stremioService.getCatalog("${PENGU_LIVE_BASE}catalog/tv/$catalogId/search=$q.json").metas
+        }.orEmpty()
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        Log.w("AddonManager", "PenguPlay live search failed", e)
+        emptyList()
+    }
+
+    /** The playable streams for one PenguPlay live event or channel. */
+    suspend fun penguLiveStreams(type: String, id: String): List<StremioStream> =
+        stremioService.getStreams("${PENGU_LIVE_BASE}stream/$type/${java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")}.json").streams
+
     private fun Manifest.hasResource(name: String): Boolean {
         val res = resources ?: return false
         return res.any { r ->
@@ -178,6 +309,16 @@ class AddonManager(
         private const val CATALOG_TIMEOUT_MS = 8_000L
 
         const val STREAMING_CATALOGS_BASE = "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club"
+
+        /**
+         * PenguPlay with its "Live TV" option on. Its config is URL-encoded JSON in the path; the
+         * plain pengu.uk manifest lists no catalogues because Live TV is off by default.
+         */
+        const val PENGU_LIVE_BASE = "https://pengu.uk/%7B%22source_live-sports%22%3A%22on%22%7D/"
+
+        /** Catalogue types that are on-demand video; every other type an addon uses counts as live. */
+        private val VOD_TYPES = setOf("movie", "series", "anime", "other")
+        private const val STREAM_TIMEOUT_MS = 15_000L
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(

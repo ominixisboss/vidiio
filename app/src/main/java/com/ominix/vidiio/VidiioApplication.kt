@@ -32,6 +32,7 @@ import com.ominix.vidiio.data.api.StremioService
 import com.ominix.vidiio.data.api.SubdlService
 import com.ominix.vidiio.data.api.TmdbApiKeyInterceptor
 import com.ominix.vidiio.data.stremio.AddonManager
+import okhttp3.Dns
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -198,7 +199,26 @@ class VidiioApplication : Application() {
         .readTimeout(35, TimeUnit.SECONDS)
         .writeTimeout(15, TimeUnit.SECONDS)
 
-    private val dns by lazy {
+    /**
+     * DNS-over-HTTPS, falling back to the device's resolver when it fails. DoH is an extra here, not
+     * a requirement: a network, antivirus or stale store that breaks cloudflare-dns.com must not
+     * take every other site down with it.
+     */
+    private val dns: Dns by lazy {
+        val doh = dnsOverHttps
+        Dns { hostname ->
+            try {
+                doh.lookup(hostname)
+            } catch (e: IOException) {
+                // IOException, not just UnknownHostException: a certificate failure arrives here as
+                // the plain IOException thrown by the interceptor in baseClientBuilder.
+                Log.w(TAG, "DNS-over-HTTPS failed for $hostname - using system DNS", e)
+                Dns.SYSTEM.lookup(hostname)
+            }
+        }
+    }
+
+    private val dnsOverHttps by lazy {
         val bootstrapClient = baseClientBuilder()
             .addInterceptor(loggingInterceptor)
             .connectTimeout(5, TimeUnit.SECONDS)
@@ -291,6 +311,10 @@ class VidiioApplication : Application() {
     }
 
     val sourceVerifier: SourceVerifier by lazy { SourceVerifier(playbackHttpClient) }
+
+    val appUpdater: com.ominix.vidiio.data.update.AppUpdater by lazy {
+        com.ominix.vidiio.data.update.AppUpdater(this, playbackHttpClient)
+    }
 
     val tvGuideService: com.ominix.vidiio.data.guide.TvGuideService by lazy {
         com.ominix.vidiio.data.guide.TvGuideService(okHttpClient)

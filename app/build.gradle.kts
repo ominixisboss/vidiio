@@ -33,8 +33,8 @@ android {
         targetSdk = 37
         // Single source of truth for the shipped version. CI can override without
         // editing the file: -PversionCode=42 -PversionName=1.4.2
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 10
-        versionName = (project.findProperty("versionName") as String?) ?: "1.9.2"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 19
+        versionName = (project.findProperty("versionName") as String?) ?: "1.9.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -219,7 +219,8 @@ dependencies {
 // or point at pre-downloaded binaries with the TORRSERVER_LOCAL_BINARIES env var
 // (a directory containing files named e.g. TorrServer-android-arm64).
 // ─────────────────────────────────────────────────────────────────────────────
-val torrServerVersion = "MatriX.144.1"
+// MatriX.144.1 was withdrawn from GitHub Releases (404), so this pins the 144 release it patched.
+val torrServerVersion = "MatriX.144"
 val torrServerAssets = mapOf(
     "arm64-v8a" to "TorrServer-android-arm64",
     "armeabi-v7a" to "TorrServer-android-arm7",
@@ -228,10 +229,10 @@ val torrServerAssets = mapOf(
 )
 // sha256 of each raw release asset for torrServerVersion (empty => integrity check skipped).
 val torrServerSha256 = mapOf(
-    "TorrServer-android-arm64" to "fe5418b53ec9dfc1b9b0e5428ebf62fce0e277034dd4ab037bfcceafaf76903d",
-    "TorrServer-android-arm7" to "5bee8786fab5c30ac9db20ef5c9d3236ab2fdb181564ea97a351b7c02b7ca2c6",
-    "TorrServer-android-amd64" to "d59181dcf623ebc74e7f0ee3ad4f9f287b3849997d35500aa661ebff2e091e5a",
-    "TorrServer-android-386" to "2782c91fca27fd4fb7daa3816b222e623bef07d6fd8d6b1da0a0ed66eb23d833",
+    "TorrServer-android-arm64" to "5b0f5bcfa1258fb181c4958097d2948ee771d2fd068be88415ce385b0df87eb1",
+    "TorrServer-android-arm7" to "99a5a6da0e857c8fea4f2ff6919c9cd6f5e5d60eaf37f9caa2b74ffb5b793a62",
+    "TorrServer-android-amd64" to "75dbcf66e12ef064ff6e1acaecbb2c87ece66214c28919d985e212a9deec653f",
+    "TorrServer-android-386" to "b3ba72ecb35087f3faf5ac0fabd246bf370651d93b8485627706fb3189b4d7b4",
 )
 
 val downloadTorrServer = tasks.register("downloadTorrServer") {

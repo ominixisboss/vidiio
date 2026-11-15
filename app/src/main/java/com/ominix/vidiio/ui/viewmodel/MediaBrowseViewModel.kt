@@ -33,8 +33,6 @@ data class BrowseState(
     val fresh: List<Movie>? = null,
     val soon: List<Movie>? = null,
     val topRated: List<Movie>? = null,
-    /** Movies page only: the 100 best Halloween films, once loaded. */
-    val halloween: List<Movie>? = null,
     /** What the viewer has narrowed the page to, and the matching titles (null while loading). */
     val filter: BrowseFilter = BrowseFilter(),
     val filterResults: List<Movie>? = null,
@@ -81,6 +79,8 @@ class MediaBrowseViewModel(
         if (force) {
             cache.clear()
             repository.invalidateCache()
+            pages.clear()
+            exhausted.clear()
         }
         _state.update { it.copy(isRefreshing = force, failures = 0) }
         loadJob = viewModelScope.launch {
@@ -90,7 +90,6 @@ class MediaBrowseViewModel(
                 launch { shelf(BrowseList.FRESH) { s, v -> s.copy(fresh = v) } }
                 launch { shelf(BrowseList.SOON) { s, v -> s.copy(soon = v) } }
                 launch { shelf(BrowseList.TOP_RATED) { s, v -> s.copy(topRated = v) } }
-                if (kind == BrowseKind.MOVIES) launch { loadHalloween() }
                 BrowseOptions.services.forEach { s -> launch { loadServiceShelf(s) } }
             }
             _state.update { it.copy(isRefreshing = false) }
@@ -111,23 +110,57 @@ class MediaBrowseViewModel(
         }
     }
 
-    /** One shelf per streaming service. Optional furniture, like the Halloween list. */
+    /** The last page loaded per shelf, and the shelves fetching their next page or out of pages. */
+    private val pages = HashMap<BrowseList, Int>()
+    private val loadingMore = HashSet<BrowseList>()
+    private val exhausted = HashSet<BrowseList>()
+
+    /** Appends the next page of [list] (about 20 titles), for rows and grids that grow as they scroll. */
+    fun loadMore(list: BrowseList) {
+        if (list in loadingMore || list in exhausted) return
+        val current = list.get(_state.value) ?: return
+        loadingMore += list
+        viewModelScope.launch {
+            try {
+                val next = (pages[list] ?: 1) + 1
+                val more = repository.browsePage(kind, list, next)
+                pages[list] = next
+                val seen = current.mapTo(HashSet()) { it.id }
+                val fresh = more.filter { it.id !in seen }
+                if (more.isEmpty() || next >= MAX_PAGES) exhausted += list
+                if (fresh.isNotEmpty()) _state.update { s -> list.set(s, (list.get(s) ?: emptyList()) + fresh) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "More of $list failed", e)
+            } finally {
+                loadingMore -= list
+            }
+        }
+    }
+
+    private fun BrowseList.get(s: BrowseState): List<Movie>? = when (this) {
+        BrowseList.TRENDING -> s.trending
+        BrowseList.POPULAR -> s.popular
+        BrowseList.TOP_RATED -> s.topRated
+        BrowseList.FRESH -> s.fresh
+        BrowseList.SOON -> s.soon
+    }
+
+    private fun BrowseList.set(s: BrowseState, v: List<Movie>): BrowseState = when (this) {
+        BrowseList.TRENDING -> s.copy(trending = v)
+        BrowseList.POPULAR -> s.copy(popular = v)
+        BrowseList.TOP_RATED -> s.copy(topRated = v)
+        BrowseList.FRESH -> s.copy(fresh = v)
+        BrowseList.SOON -> s.copy(soon = v)
+    }
+
+    /** One shelf per streaming service. Optional furniture: a failure just leaves it out. */
     private suspend fun loadServiceShelf(service: StreamingService) {
         val titles = runCatching { repository.streamingCatalog(kind, service.id) }.getOrDefault(emptyList())
         if (titles.isNotEmpty()) _state.update { it.copy(serviceShelves = it.serviceShelves + (service.id to titles)) }
     }
 
-    /** The Halloween list is optional furniture: if it fails the page just doesn't show it. */
-    private suspend fun loadHalloween() {
-        try {
-            val films = cache.getOrPut("halloween") { repository.halloweenTop100() }
-            _state.update { it.copy(halloween = films.takeIf { list -> list.isNotEmpty() }) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Log.w(TAG, "Halloween list failed", e)
-        }
-    }
 
     // ── Filters ──────────────────────────────────────────────────────────────
 
@@ -190,5 +223,8 @@ class MediaBrowseViewModel(
 
     private companion object {
         const val TAG = "MediaBrowseViewModel"
+
+        /** TMDB serves at most 500 pages; stop well before so a row never grows without bound. */
+        const val MAX_PAGES = 25
     }
 }

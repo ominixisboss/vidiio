@@ -39,6 +39,10 @@
             <certificates src="@raw/isrg_root_x2" />
             <certificates src="@raw/sectigo_e46" />
             <certificates src="@raw/sectigo_r46" />
+            <certificates src="@raw/sslcom_root_ecc" />
+            <certificates src="@raw/sslcom_root_rsa" />
+            <certificates src="@raw/sslcom_tls_ecc_2022" />
+            <certificates src="@raw/sslcom_tls_rsa_2022" />
             <certificates src="@raw/starfield_services_g2" />
             <certificates src="@raw/usertrust_ecc" />
             <certificates src="@raw/usertrust_rsa" />
@@ -81,6 +85,10 @@
             <certificates src="@raw/isrg_root_x2" />
             <certificates src="@raw/sectigo_e46" />
             <certificates src="@raw/sectigo_r46" />
+            <certificates src="@raw/sslcom_root_ecc" />
+            <certificates src="@raw/sslcom_root_rsa" />
+            <certificates src="@raw/sslcom_tls_ecc_2022" />
+            <certificates src="@raw/sslcom_tls_rsa_2022" />
             <certificates src="@raw/starfield_services_g2" />
             <certificates src="@raw/usertrust_ecc" />
             <certificates src="@raw/usertrust_rsa" />

@@ -126,7 +126,6 @@ private fun styleFor(kind: BrowseKind) = when (kind) {
 fun MediaBrowseScreen(
     viewModel: MediaBrowseViewModel,
     onOpenMovie: (Movie) -> Unit,
-    onOpenHalloween: () -> Unit = {},
     onTab: (Int) -> Unit = {},
     /** Flix gets the tile-and-grid page; every other Home style gets shelves, like its Home. */
     homeStyle: com.ominix.vidiio.data.repository.HomeStyle = com.ominix.vidiio.data.repository.HomeStyle.FLIX,
@@ -146,9 +145,9 @@ fun MediaBrowseScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (homeStyle != com.ominix.vidiio.data.repository.HomeStyle.FLIX && !showFilters) {
-                    ShelfBrowseContent(style, state, homeStyle, onOpenMovie, onOpenHalloween, onTab, { showFilters = true }, viewModel.kind == BrowseKind.MOVIES)
+                    ShelfBrowseContent(style, state, homeStyle, onOpenMovie, onTab, { showFilters = true }, viewModel.kind == BrowseKind.MOVIES, viewModel::loadMore)
                 } else {
-                    BrowseContent(style, state, viewModel, onOpenMovie, onOpenHalloween, onTab)
+                    BrowseContent(style, state, viewModel, onOpenMovie, onTab)
                 }
             }
         }
@@ -162,7 +161,6 @@ private fun BrowseContent(
     state: BrowseState,
     viewModel: MediaBrowseViewModel,
     onOpen: (Movie) -> Unit,
-    onOpenHalloween: () -> Unit,
     onTab: (Int) -> Unit,
 ) {
     val filter = state.filter
@@ -178,6 +176,12 @@ private fun BrowseContent(
     val isMovies = viewModel.kind == BrowseKind.MOVIES
     val gridState = rememberLazyGridState()
     val scope = rememberCoroutineScope()
+
+    // The plain lists (Trending, Popular, ...) keep loading pages as the grid nears its end.
+    com.ominix.vidiio.ui.components.LoadMoreOnScroll(
+        gridState, results?.size ?: 0,
+        onLoadMore = if (state.service == null && filter.isEmpty) ({ viewModel.loadMore(state.list) }) else null
+    )
 
     // The filters live at the bottom, so bring the results into view when one is picked.
     val resultsIndex = 2
@@ -205,11 +209,7 @@ private fun BrowseContent(
             Column(Modifier.padding(top = 4.dp)) {
                 FlixCaption(if (isMovies) "Movies" else "TV Shows")
                 TileRow {
-                    var i = 0
-                    if (isMovies && state.halloween != null) {
-                        item(key = "halloween") { GradientTile("Top 100 Halloween Movies", 1, false, onOpenHalloween) }
-                        i++
-                    }
+                    val i = 0
                     items(style.lists, key = { it.first.name }) { (list, label) ->
                         GradientTile(label, i + style.lists.indexOf(list to label), filter.isEmpty && state.service == null && state.list == list, { viewModel.setList(list) })
                     }
@@ -343,10 +343,10 @@ private fun ShelfBrowseContent(
     state: BrowseState,
     homeStyle: com.ominix.vidiio.data.repository.HomeStyle,
     onOpen: (Movie) -> Unit,
-    onOpenHalloween: () -> Unit,
     onTab: (Int) -> Unit,
     onShowFilters: () -> Unit,
     isMovies: Boolean,
+    onLoadMore: (BrowseList) -> Unit,
 ) {
     val spec = remember(homeStyle) { homeStyle }.let { hs ->
         val accent = androidx.compose.material3.MaterialTheme.colorScheme.primary
@@ -375,9 +375,6 @@ private fun ShelfBrowseContent(
         item(key = "tabs") {
             FlixTabs(selected = if (isMovies) 1 else 2, labels = listOf("Featured", "Movies", "TV Shows", "TV Guide"), onSelect = onTab)
         }
-        if (isMovies && state.halloween != null) item(key = "halloween") {
-            CategorySection("Top 100 Halloween Movies", state.halloween.take(20), spec, onOpen)
-        }
         style.lists.forEach { (list, label) ->
             val movies = when (list) {
                 BrowseList.TRENDING -> state.trending
@@ -386,7 +383,7 @@ private fun ShelfBrowseContent(
                 BrowseList.FRESH -> state.fresh
                 BrowseList.SOON -> state.soon
             }.orEmpty()
-            if (movies.isNotEmpty()) item(key = "list-$label") { CategorySection(label, movies, spec, onOpen) }
+            if (movies.isNotEmpty()) item(key = "list-$label") { CategorySection(label, movies, spec, onOpen, onLoadMore = { onLoadMore(list) }) }
         }
         BrowseOptions.services.forEach { svc ->
             val titles = state.serviceShelves[svc.id].orEmpty()

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Environment
+import android.util.Log
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.ominix.vidiio.VidiioApplication
@@ -48,7 +49,15 @@ class DownloadService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // ACTION_REMOVE is handled by cancelling the job in processQueue() once the row is gone.
 
-        startForeground(NOTIFICATION_ID, createNotification("Starting downloads...", 0f))
+        // A sticky restart by the system happens in the background, where Android 12+ refuses
+        // startForeground(). Stop quietly instead of crashing; the queue resumes next time the app starts it.
+        try {
+            startForeground(NOTIFICATION_ID, createNotification("Starting downloads...", 0f))
+        } catch (e: Exception) {
+            Log.w("DownloadService", "Couldn't go foreground; stopping until the app restarts downloads", e)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         processQueue()
         return START_STICKY
     }
