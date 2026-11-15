@@ -82,7 +82,6 @@ fun HomeScreen(
     onOpenTv: () -> Unit = {},
     onOpenAnime: () -> Unit = {},
     onOpenGuide: () -> Unit = {},
-    onOpenHalloween: () -> Unit = {},
     onOpenCollection: (String, Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
@@ -166,11 +165,12 @@ fun HomeScreen(
                         val covered = setOf("Trending Movies", "Popular Movies", TOP10_LABEL)
                         val shelves = remember(movies, tv, rows) {
                             buildList {
-                                add(FlixShelf("Today's Hot Movies", movies.trending.orEmpty()))
-                                add(FlixShelf("Top Rated Movies", movies.topRated.orEmpty()))
-                                add(FlixShelf("Latest Uploaded Movies", movies.fresh.orEmpty()))
-                                add(FlixShelf("Latest TV Updates", tv.soon.orEmpty().ifEmpty { tv.fresh.orEmpty() }, todayRibbon = true))
-                                add(FlixShelf("Popular TV Shows", tv.popular.orEmpty()))
+                                add(FlixShelf("Today's Hot Movies", movies.trending.orEmpty(), onLoadMore = { moviesVm.loadMore(com.ominix.vidiio.data.repository.BrowseList.TRENDING) }))
+                                add(FlixShelf("Top Rated Movies", movies.topRated.orEmpty(), onLoadMore = { moviesVm.loadMore(com.ominix.vidiio.data.repository.BrowseList.TOP_RATED) }))
+                                add(FlixShelf("Latest Uploaded Movies", movies.fresh.orEmpty(), onLoadMore = { moviesVm.loadMore(com.ominix.vidiio.data.repository.BrowseList.FRESH) }))
+                                val tvLatest = if (tv.soon.orEmpty().isNotEmpty()) com.ominix.vidiio.data.repository.BrowseList.SOON else com.ominix.vidiio.data.repository.BrowseList.FRESH
+                                add(FlixShelf("Latest TV Updates", tv.soon.orEmpty().ifEmpty { tv.fresh.orEmpty() }, todayRibbon = true, onLoadMore = { tvVm.loadMore(tvLatest) }))
+                                add(FlixShelf("Popular TV Shows", tv.popular.orEmpty(), onLoadMore = { tvVm.loadMore(com.ominix.vidiio.data.repository.BrowseList.POPULAR) }))
                                 rows.filter { row -> row.name !in covered && row.name != "Popular TV" && row.name != "Popular TV Shows" &&
                                     com.ominix.vidiio.data.repository.BrowseOptions.services.none { svc -> row.name.split(" ").filter { it.isNotBlank() }.joinToString(" ").equals(svc.label, ignoreCase = true) } }
                                     .forEach { add(FlixShelf(it.name, it.movies)) }
@@ -188,7 +188,6 @@ fun HomeScreen(
                             onOpenMovies = onOpenMovies,
                             onOpenTv = onOpenTv,
                             onOpenGuide = onOpenGuide,
-                            onOpenHalloween = onOpenHalloween,
                             onOpenCollection = onOpenCollection,
                         )
                     } else LazyColumn(
@@ -249,7 +248,10 @@ fun HomeScreen(
                                 category.name == TOP10_LABEL && spec.showTop10 ->
                                     Top10Section(category.movies, spec, onNavigateToDetails)
                                 category.name == TOP10_LABEL -> Unit // hidden for this style
-                                else -> CategorySection(category.name, category.movies, spec, onNavigateToDetails)
+                                else -> CategorySection(
+                                    category.name, category.movies, spec, onNavigateToDetails,
+                                    onLoadMore = if (viewModel.canLoadMore(category.name)) ({ viewModel.loadMore(category.name) }) else null
+                                )
                             }
                         }
                     }
@@ -882,11 +884,16 @@ fun CategorySection(
     name: String,
     movies: List<Movie>,
     spec: HomeStyleSpec,
-    onMovieClick: (Movie) -> Unit
+    onMovieClick: (Movie) -> Unit,
+    /** Set for rows that can fetch more titles; called as the row nears its end. */
+    onLoadMore: (() -> Unit)? = null,
 ) {
     Column {
         RowHeader(name, spec)
+        val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
+        com.ominix.vidiio.ui.components.LoadMoreOnScroll(rowState, movies.size, onLoadMore)
         LazyRow(
+            state = rowState,
             contentPadding = PaddingValues(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {

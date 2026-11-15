@@ -17,34 +17,34 @@ import retrofit2.http.Query
 interface TMDBService {
 
     @GET("trending/movie/day")
-    suspend fun getTrendingMovies(): TMDBResponse<TMDBMovie>
+    suspend fun getTrendingMovies(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("trending/tv/day")
-    suspend fun getTrendingTVShows(): TMDBResponse<TMDBMovie>
+    suspend fun getTrendingTVShows(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("movie/popular")
-    suspend fun getPopularMovies(): TMDBResponse<TMDBMovie>
+    suspend fun getPopularMovies(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("tv/popular")
-    suspend fun getPopularTVShows(): TMDBResponse<TMDBMovie>
+    suspend fun getPopularTVShows(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("movie/top_rated")
-    suspend fun getTopRatedMovies(): TMDBResponse<TMDBMovie>
+    suspend fun getTopRatedMovies(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("movie/now_playing")
-    suspend fun getNowPlayingMovies(): TMDBResponse<TMDBMovie>
+    suspend fun getNowPlayingMovies(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("movie/upcoming")
-    suspend fun getUpcomingMovies(): TMDBResponse<TMDBMovie>
+    suspend fun getUpcomingMovies(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("tv/top_rated")
-    suspend fun getTopRatedTVShows(): TMDBResponse<TMDBMovie>
+    suspend fun getTopRatedTVShows(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("tv/on_the_air")
-    suspend fun getOnTheAirTVShows(): TMDBResponse<TMDBMovie>
+    suspend fun getOnTheAirTVShows(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("tv/airing_today")
-    suspend fun getAiringTodayTVShows(): TMDBResponse<TMDBMovie>
+    suspend fun getAiringTodayTVShows(@Query("page") page: Int = 1): TMDBResponse<TMDBMovie>
 
     @GET("search/multi")
     suspend fun searchMulti(

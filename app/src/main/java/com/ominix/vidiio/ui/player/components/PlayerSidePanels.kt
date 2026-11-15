@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.ominix.vidiio.ui.components.tvClickable
 import androidx.compose.material.icons.Icons
@@ -107,7 +108,8 @@ fun EpisodeSidebar(
             Spacer(Modifier.height(8.dp))
 
             LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                items(episodes, key = { it.id }) { episode ->
+                // Keyed by position too: an addon's episode list can repeat an id.
+                itemsIndexed(episodes, key = { i, e -> "${e.id}#$i" }) { _, episode ->
                     EpisodeItem(
                         episode = episode,
                         isSelected = episode.id == currentEpisode?.id,

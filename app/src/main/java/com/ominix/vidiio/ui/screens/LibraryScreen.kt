@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +54,8 @@ fun LibraryScreen(
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(bottom = 16.dp)
         )
+        LibraryRow(Icons.Rounded.LiveTv, "Live TV", "Live channels and sports") { onOpen(VidiioRoute.LiveTv) }
+        Spacer(Modifier.padding(6.dp))
         LibraryRow(Icons.Rounded.Favorite, "My List", "Titles you saved") { onOpen(VidiioRoute.Favorites) }
         Spacer(Modifier.padding(6.dp))
         LibraryRow(Icons.Rounded.Download, "Downloads", "Available offline") { onOpen(VidiioRoute.Downloads) }

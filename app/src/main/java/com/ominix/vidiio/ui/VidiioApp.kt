@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
@@ -61,7 +62,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 fun VidiioApp() {
     val navigationState = rememberNavigationState(
         startRoute = VidiioRoute.Splash,
-        topLevelRoutes = setOf(VidiioRoute.Home, VidiioRoute.Movies, VidiioRoute.TvShows, VidiioRoute.Anime, VidiioRoute.Library, VidiioRoute.Search(), VidiioRoute.Favorites, VidiioRoute.Downloads, VidiioRoute.Settings, VidiioRoute.Splash)
+        topLevelRoutes = setOf(VidiioRoute.Home, VidiioRoute.Movies, VidiioRoute.TvShows, VidiioRoute.Anime, VidiioRoute.LiveTv, VidiioRoute.Library, VidiioRoute.Search(), VidiioRoute.Favorites, VidiioRoute.Downloads, VidiioRoute.Settings, VidiioRoute.Splash)
     )
 
     val navigator = remember { Navigator(navigationState) }
@@ -108,7 +109,6 @@ fun VidiioApp() {
                 onOpenTv = { navigator.navigate(VidiioRoute.TvShows) },
                 onOpenAnime = { navigator.navigate(VidiioRoute.Anime) },
                 onOpenGuide = { navigator.navigate(VidiioRoute.TvGuide) },
-                onOpenHalloween = { navigator.navigate(VidiioRoute.Halloween) },
                 onOpenCollection = { title, studio -> navigator.navigate(VidiioRoute.Collection(title, studio)) },
                 modifier = Modifier.fillMaxSize()
             )
@@ -126,7 +126,6 @@ fun VidiioApp() {
                 viewModel = viewModel,
                 homeStyle = homeStyle,
                 onOpenMovie = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
-                onOpenHalloween = { navigator.navigate(VidiioRoute.Halloween) },
                 onTab = { index ->
                     when (index) {
                         0 -> navigator.navigate(VidiioRoute.Home)
@@ -148,6 +147,18 @@ fun VidiioApp() {
                 modifier = Modifier.fillMaxSize()
             )
         }
+        entry<VidiioRoute.LiveTv>(
+            metadata = metadata {
+                put(NavDisplay.TransitionKey) { homeStyle.topLevelTransition() }
+            }
+        ) {
+            val viewModel: com.ominix.vidiio.ui.viewmodel.LiveTvViewModel = viewModel(factory = VidiioViewModelFactories.liveTv(application))
+            LiveTvScreen(
+                viewModel = viewModel,
+                onPlay = { movie, source -> navigator.navigate(VidiioRoute.Player(movie, null, source)) },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         entry<VidiioRoute.Collection> { key ->
             val viewModel: com.ominix.vidiio.ui.viewmodel.CollectionViewModel = viewModel(
                 key = "collection_${key.studioId}",
@@ -155,17 +166,6 @@ fun VidiioApp() {
             )
             CollectionScreen(
                 title = key.title,
-                viewModel = viewModel,
-                onOpenMovie = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-        entry<VidiioRoute.Halloween> {
-            val viewModel: com.ominix.vidiio.ui.viewmodel.MediaBrowseViewModel = viewModel(
-                key = "browse_movies",
-                factory = VidiioViewModelFactories.browse(application, BrowseKind.MOVIES)
-            )
-            HalloweenScreen(
                 viewModel = viewModel,
                 onOpenMovie = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
                 modifier = Modifier.fillMaxSize()
@@ -393,9 +393,10 @@ fun VidiioApp() {
     val movies = item(VidiioRoute.Movies, top == VidiioRoute.Movies, Icons.Rounded.Movie, "Movies")
     val tv = item(VidiioRoute.TvShows, top == VidiioRoute.TvShows, Icons.Rounded.Tv, "TV Shows")
     val anime = item(VidiioRoute.Anime, top == VidiioRoute.Anime, Icons.Rounded.AutoAwesome, "Anime")
+    val liveTv = item(VidiioRoute.LiveTv, top == VidiioRoute.LiveTv, Icons.Rounded.LiveTv, "Live TV")
     val search = item(VidiioRoute.Search(), top is VidiioRoute.Search, Icons.Rounded.Search, "Search")
     val railItems = listOf(
-        home, movies, tv, anime, search,
+        home, movies, tv, anime, liveTv, search,
         item(VidiioRoute.Favorites, top == VidiioRoute.Favorites, Icons.Rounded.Favorite, "My List"),
         item(VidiioRoute.Downloads, top == VidiioRoute.Downloads, Icons.Rounded.Download, "Downloads"),
         item(VidiioRoute.Settings, top == VidiioRoute.Settings, Icons.Rounded.Settings, "Settings"),
@@ -460,6 +461,8 @@ fun VidiioApp() {
                 }
             }
         }
+        // After the splash, so the first frame isn't held up and the dialog lands on a real page.
+        com.ominix.vidiio.ui.update.UpdatePrompt(application.appUpdater, checkOnStart = !isSplashScreen && !isPlayerScreen)
     }
 }
 

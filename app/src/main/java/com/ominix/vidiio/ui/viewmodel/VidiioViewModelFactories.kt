@@ -41,6 +41,15 @@ object VidiioViewModelFactories {
         initializer { TvGuideViewModel(app.tvGuideService, app.movieRepository) }
     }
 
+    fun liveTv(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
+        initializer { LiveTvViewModel(
+            app.addonManager,
+            com.ominix.vidiio.data.live.IptvChannels(app.okHttpClient),
+            com.ominix.vidiio.data.live.SportsScores(app.okHttpClient),
+            app.settingsRepository,
+        ) }
+    }
+
     fun collection(app: VidiioApplication, title: String, studioId: Int): ViewModelProvider.Factory = viewModelFactory {
         initializer { CollectionViewModel(app.movieRepository, title, studioId) }
     }

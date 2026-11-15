@@ -69,6 +69,7 @@ class TorrServerEngine(private val context: Context) {
         // Shut down any TorrServer left behind by a previous run / crash so it can't hold
         // the BoltDB lock on our data dir, then take the first free port in our range.
         shutdownStaleInstances()
+        prepareSettings(dir)
         val chosenPort = pickPort()
 
         val proc = try {
@@ -140,6 +141,30 @@ class TorrServerEngine(private val context: Context) {
         Log.e(TAG, "TorrServer did not become ready within ${STARTUP_TIMEOUT_MS}ms")
         stop()
         return false
+    }
+
+    /**
+     * Turns Bonjour and DLNA off in the engine's settings file before it starts. Inside an app's sandbox the
+     * Bonjour announcement blocks on network access Android denies, so the engine never opens its web port
+     * and every torrent failed with "failed to fetch torrent metadata". These can't wait for [TorrentTuning]:
+     * it only runs once the engine answers. A fresh install gets the engine's full defaults (a partial
+     * file would zero the cache and connection limits).
+     */
+    private fun prepareSettings(dir: File) {
+        val file = File(dir, "settings.json")
+        runCatching {
+            val text = if (file.exists()) file.readText()
+            else context.assets.open("torrserver/settings.json").bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(text)
+            val bt = json.optJSONObject("BitTorr") ?: org.json.JSONObject().also { json.put("BitTorr", it) }
+            val needsWrite = !file.exists() || bt.optBoolean("EnableBonjour", true) || bt.optBoolean("EnableDLNA", false)
+            if (needsWrite) {
+                bt.put("EnableBonjour", false)
+                bt.put("EnableDLNA", false)
+                file.writeText(json.toString(2))
+                Log.i(TAG, "TorrServer settings prepared (Bonjour and DLNA off)")
+            }
+        }.onFailure { Log.w(TAG, "Couldn't prepare TorrServer settings", it) }
     }
 
     @Synchronized

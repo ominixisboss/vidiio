@@ -40,13 +40,13 @@ sealed interface VidiioRoute : NavKey {
     @Serializable
     data object TvGuide : VidiioRoute
 
+    /** Live sports and TV channels from PenguPlay. */
+    @Serializable
+    data object LiveTv : VidiioRoute
+
     /** A studio's best films (Marvel, Pixar, ...), opened from the Top MovieLists row on Home. */
     @Serializable
     data class Collection(val title: String, val studioId: Int) : VidiioRoute
-
-    /** The ranked Top 100 Halloween movies; opened from the Movies page. */
-    @Serializable
-    data object Halloween : VidiioRoute
 
     @Serializable
     data object Anime : VidiioRoute {

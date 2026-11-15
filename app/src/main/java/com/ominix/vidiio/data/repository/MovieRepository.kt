@@ -145,24 +145,28 @@ class MovieRepository(
         }
 
     /** One shelf on the Movies or TV page. */
-    suspend fun browse(kind: BrowseKind, list: BrowseList): List<Movie> = cached("browse-$kind-$list") { loadBrowse(kind, list) }
+    suspend fun browse(kind: BrowseKind, list: BrowseList): List<Movie> = cached("browse-$kind-$list") { loadBrowse(kind, list, 1) }
 
-    private suspend fun loadBrowse(kind: BrowseKind, list: BrowseList): List<Movie> {
+    /** A further page (2, 3, ...) of a browse shelf, for rows that load more as they scroll. Not cached. */
+    suspend fun browsePage(kind: BrowseKind, list: BrowseList, page: Int): List<Movie> =
+        if (page <= 1) browse(kind, list) else loadBrowse(kind, list, page)
+
+    private suspend fun loadBrowse(kind: BrowseKind, list: BrowseList, page: Int): List<Movie> {
         val type = if (kind == BrowseKind.MOVIES) MovieType.MOVIE else MovieType.TV_SHOW
         val response = when (kind) {
             BrowseKind.MOVIES -> when (list) {
-                BrowseList.TRENDING -> tmdbService.getTrendingMovies()
-                BrowseList.POPULAR -> tmdbService.getPopularMovies()
-                BrowseList.TOP_RATED -> tmdbService.getTopRatedMovies()
-                BrowseList.FRESH -> tmdbService.getNowPlayingMovies()
-                BrowseList.SOON -> tmdbService.getUpcomingMovies()
+                BrowseList.TRENDING -> tmdbService.getTrendingMovies(page)
+                BrowseList.POPULAR -> tmdbService.getPopularMovies(page)
+                BrowseList.TOP_RATED -> tmdbService.getTopRatedMovies(page)
+                BrowseList.FRESH -> tmdbService.getNowPlayingMovies(page)
+                BrowseList.SOON -> tmdbService.getUpcomingMovies(page)
             }
             BrowseKind.TV -> when (list) {
-                BrowseList.TRENDING -> tmdbService.getTrendingTVShows()
-                BrowseList.POPULAR -> tmdbService.getPopularTVShows()
-                BrowseList.TOP_RATED -> tmdbService.getTopRatedTVShows()
-                BrowseList.FRESH -> tmdbService.getOnTheAirTVShows()
-                BrowseList.SOON -> tmdbService.getAiringTodayTVShows()
+                BrowseList.TRENDING -> tmdbService.getTrendingTVShows(page)
+                BrowseList.POPULAR -> tmdbService.getPopularTVShows(page)
+                BrowseList.TOP_RATED -> tmdbService.getTopRatedTVShows(page)
+                BrowseList.FRESH -> tmdbService.getOnTheAirTVShows(page)
+                BrowseList.SOON -> tmdbService.getAiringTodayTVShows(page)
             }
         }
         return response.results.map { it.toMovie(type) }.filter { it.posterUrl.isNotBlank() }

@@ -85,7 +85,15 @@ class TorrentService : Service() {
             val url = torrentManager.startStreaming(fileIndex, season, episode, fileName)
             if (!url.isNullOrEmpty()) {
                 Log.d("TorrentService", "Stream ready: $url")
-                startForeground(1, createNotification("Streaming torrent...", "Playback in progress"))
+                // Android 12+ refuses startForeground() once the app has gone to the background (the viewer
+                // left, or the TV dimmed while the torrent was resolving). That used to crash the whole app;
+                // the stream works without the notification while the player is open, so carry on.
+                try {
+                    startForeground(1, createNotification("Streaming torrent...", "Playback in progress"))
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    Log.w("TorrentService", "Couldn't go foreground; streaming without the notification", e)
+                }
                 onReady(url)
             } else {
                 Log.e("TorrentService", "Failed to start torrent stream")

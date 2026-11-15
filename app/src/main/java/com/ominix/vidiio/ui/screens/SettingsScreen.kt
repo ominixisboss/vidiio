@@ -35,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.ominix.vidiio.BuildConfig
 import com.ominix.vidiio.data.repository.AppTheme
 import com.ominix.vidiio.data.repository.ColorTheme
@@ -89,6 +90,12 @@ fun SettingsScreen(
 
     var showProxyDialog by rememberSaveable { mutableStateOf(false) }
     var showAddAddonDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddFromPcDialog by rememberSaveable { mutableStateOf(false) }
+    val liveLinks by viewModel.liveLinks.collectAsState()
+    var showAddLiveLinkDialog by rememberSaveable { mutableStateOf(false) }
+    var liveLinkToRemove by remember { mutableStateOf<com.ominix.vidiio.data.repository.LiveLink?>(null) }
+    val liveAddons by viewModel.liveAddons.collectAsState()
+    var liveAddonToRemove by remember { mutableStateOf<String?>(null) }
     var addonToRemove by remember { mutableStateOf<String?>(null) }
     var focusAddAfterRemoval by remember { mutableStateOf(false) }
     var addonUrlToAdd by rememberSaveable { mutableStateOf("") }
@@ -395,6 +402,60 @@ fun SettingsScreen(
                             onClick = { showAddAddonDialog = true }
                         )
                     }
+                    PreferenceItem(
+                        title = "Add from your computer",
+                        summary = "Paste addon links in a browser on the same Wi-Fi",
+                        icon = Icons.Rounded.Computer,
+                        onClick = { showAddFromPcDialog = true }
+                    )
+                }
+            }
+
+            // --- Live TV links & addons ---
+            item {
+                ExpandableSettingsSection(
+                    title = "Live TV Links & Addons",
+                    summary = when {
+                        liveLinks.isEmpty() && liveAddons.isEmpty() -> "Add sports addons, channel playlists or streams"
+                        else -> listOfNotNull(
+                            liveAddons.size.takeIf { it > 0 }?.let { "$it addon${if (it == 1) "" else "s"}" },
+                            liveLinks.size.takeIf { it > 0 }?.let { "$it link${if (it == 1) "" else "s"}" },
+                        ).joinToString(", ")
+                    },
+                    icon = Icons.Rounded.LiveTv,
+                    expanded = openSection == "live",
+                    onExpandedChange = { openSection = if (it) "live" else null }
+                ) {
+                    liveAddons.sortedBy { addonLabel(it).lowercase() }.forEach { url ->
+                        PreferenceItem(
+                            title = addonLabel(url),
+                            summary = "Live TV addon \u00b7 OK to remove",
+                            icon = Icons.Rounded.Extension,
+                            onClick = { liveAddonToRemove = url }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    liveLinks.forEach { link ->
+                        PreferenceItem(
+                            title = link.name,
+                            summary = link.url,
+                            icon = Icons.Rounded.LiveTv,
+                            onClick = { liveLinkToRemove = link }
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                    PreferenceItem(
+                        title = "Add link or addon",
+                        summary = "A sports or TV addon (manifest.json), an M3U playlist or a stream link",
+                        icon = Icons.Rounded.Add,
+                        onClick = { showAddLiveLinkDialog = true }
+                    )
+                    PreferenceItem(
+                        title = "Add from your computer",
+                        summary = "Paste links in a browser on the same Wi-Fi",
+                        icon = Icons.Rounded.Computer,
+                        onClick = { showAddFromPcDialog = true }
+                    )
                 }
             }
 
@@ -422,6 +483,19 @@ fun SettingsScreen(
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val updater = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.ominix.vidiio.VidiioApplication).appUpdater
+                        val updateScope = androidx.compose.runtime.rememberCoroutineScope()
+                        var updateStatus by remember { mutableStateOf<String?>(null) }
+                        TextButton(onClick = {
+                            updateStatus = "Checking…"
+                            updateScope.launch {
+                                val update = updater.check()
+                                updateStatus = if (update == null) "You're on the latest version." else null
+                                updater.offered.value = update
+                            }
+                        }) { Text("Check for updates") }
+                        updateStatus?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
                             "I made this app for my family and my homies. Enjoy! ❤️",
@@ -511,6 +585,59 @@ fun SettingsScreen(
                     Text("Cancel", color = Color.Gray)
                 }
             }
+        )
+    }
+
+    if (showAddFromPcDialog) {
+        AddFromComputerDialog(
+            onLinks = { addons, live, liveAddonUrls ->
+                if (addons.isNotEmpty()) viewModel.addStremioAddons(addons)
+                viewModel.addLiveLinks(live)
+                viewModel.addLiveAddons(liveAddonUrls)
+            },
+            onDismiss = { showAddFromPcDialog = false }
+        )
+    }
+
+    liveLinkToRemove?.let { link ->
+        AlertDialog(
+            onDismissRequest = { liveLinkToRemove = null },
+            title = { Text("Remove this link?") },
+            text = { Text("${link.name}\n${link.url}") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeLiveLink(link.url)
+                    liveLinkToRemove = null
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { liveLinkToRemove = null }) { Text("Keep") } }
+        )
+    }
+
+    liveAddonToRemove?.let { url ->
+        AlertDialog(
+            onDismissRequest = { liveAddonToRemove = null },
+            title = { Text("Remove this Live TV addon?") },
+            text = { Text(addonLabel(url)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.removeLiveAddon(url)
+                    liveAddonToRemove = null
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { liveAddonToRemove = null }) { Text("Keep") } }
+        )
+    }
+
+    if (showAddLiveLinkDialog) {
+        AddLiveLinkDialog(
+            onAdd = { name, url ->
+                // A Stremio manifest is a Live TV addon; anything else is a playlist or stream.
+                val normalized = url.replaceFirst(Regex("^stremio://", RegexOption.IGNORE_CASE), "https://")
+                if (normalized.substringBefore('?').endsWith("manifest.json")) viewModel.addLiveAddons(listOf(normalized))
+                else viewModel.addLiveLinks(listOf(com.ominix.vidiio.data.repository.LiveLink(name.ifBlank { url }, url)))
+            },
+            onDismiss = { showAddLiveLinkDialog = false }
         )
     }
 
@@ -618,6 +745,88 @@ fun SettingsScreen(
             onDismiss = { viewModel.clearProxyTestResult(); showProxyDialog = false }
         )
     }
+}
+
+/** One Live TV addon, playlist or stream link, typed (or pasted) on the device. */
+@Composable
+private fun AddLiveLinkDialog(onAdd: suspend (String, String) -> Unit, onDismiss: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    var url by rememberSaveable { mutableStateOf("") }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val valid = listOf("http://", "https://", "stremio://").any { url.trim().startsWith(it, ignoreCase = true) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add link or addon") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Text(
+                    "Addon links end in manifest.json. Playlists (M3U) and stream links (.m3u8, .mpd) also work. Web page links won't play.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = valid, onClick = {
+                scope.launch {
+                    onAdd(name.trim(), url.trim())
+                    onDismiss()
+                }
+            }) { Text("Add") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
+    )
+}
+
+/**
+ * Shows the address and code for adding addon links from a computer's browser, and keeps the
+ * little web page running only while this dialog is open.
+ */
+@Composable
+private fun AddFromComputerDialog(onLinks: suspend (List<String>, List<com.ominix.vidiio.data.repository.LiveLink>, List<String>) -> Unit, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val server = remember { com.ominix.vidiio.data.remote.AddonLinkServer(com.ominix.vidiio.data.remote.AddonLinkServer.newPin()) }
+    val address = remember { server.address() }
+    var added by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(server) {
+        server.serve(onLinks = { addons, live, liveAddonUrls ->
+            onLinks(addons, live, liveAddonUrls)
+            val count = addons.size + live.size + liveAddonUrls.size
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                added += count
+                android.widget.Toast.makeText(context, "Added $count link${if (count == 1) "" else "s"}", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+    val closeFocus = remember { FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        delay(150)
+        runCatching { closeFocus.requestFocus() }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add from your computer") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (address == null) {
+                    Text("This device isn't connected to a local network.")
+                } else {
+                    Text("On a computer on the same Wi-Fi, open:")
+                    Text(address, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text("Then paste your addon or Live TV links and enter this code:")
+                    Text(server.pin, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = 6.sp)
+                    Text(
+                        if (added == 0) "Keep this open while you add them." else "$added added so far.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.focusRequester(closeFocus)) { Text("Done") }
+        }
+    )
 }
 
 @Composable

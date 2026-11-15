@@ -66,6 +66,9 @@ class MediaSession(
 ) {
     private var prefetched = false
 
+    /** Live TV (a channel or a PenguPlay event): played as given, with no details lookup, source search or resume point. */
+    private val isLive = initialMovie.source in LIVE_SOURCES
+
     private val _movie = MutableStateFlow<Movie?>(null)
     val movie: StateFlow<Movie?> = _movie.asStateFlow()
 
@@ -201,12 +204,16 @@ class MediaSession(
             ) { movie, episode, enabled -> Triple(movie, episode, enabled) }
                 .distinctUntilChanged()
                 .collectLatest { (movie, episode, _) ->
-                    startScraping(movie, episode)
+                    if (!isLive) startScraping(movie, episode)
                 }
         }
     }
 
     private fun loadDetails() {
+        if (isLive) {
+            _movie.value = initialMovie
+            return
+        }
         scope.launch {
             try {
                 val details = movieRepository.getMovieDetails(initialMovie)
@@ -314,6 +321,7 @@ class MediaSession(
     /** Called periodically by the player to persist the Continue Watching position. */
     fun saveWatchProgress(positionMs: Long, durationMs: Long) {
         val current = _movie.value ?: return
+        if (isLive) return
         scope.launch {
             runCatching {
                 watchProgressRepository.save(current, _selectedEpisode.value, positionMs, durationMs)
@@ -438,6 +446,9 @@ class MediaSession(
     }
 
     private companion object {
+        /** Movie.source values the Live TV page uses. */
+        val LIVE_SOURCES = setOf("iptv", "pengu-live", "addon-live")
+
         /** Overall wall-clock budget for one source search across all scrapers + Stremio. */
         const val SCRAPE_TIMEOUT_MS = 45_000L
 

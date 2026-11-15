@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.ominix.vidiio.ui.components.tvClickable
 import androidx.compose.material.icons.Icons
@@ -142,7 +143,9 @@ fun SubtitleMenu(
                         }
                     }
                     if (expanded) {
-                        items(tracks, key = { it.id }) { sub ->
+                        // Keyed by position too: addons (two PenguPlay installs, say) can repeat an id, and a
+                        // repeated key crashes the list.
+                        itemsIndexed(tracks, key = { i, t -> "${t.id}#$i" }) { _, sub ->
                             ListItem(
                                 headlineContent = { Text(sub.languageLabel) },
                                 supportingContent = { Text(sub.label) },

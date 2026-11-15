@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,7 +51,7 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val prioritizePengu: StateFlow<Boolean> = settingsRepository.prioritizePenguFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val mouseToggle: StateFlow<Boolean> = settingsRepository.mouseToggleFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
@@ -79,6 +80,30 @@ class SettingsViewModel(
 
     val stremioAddons: StateFlow<Set<String>> = settingsRepository.stremioAddonsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Playlists and streams the viewer added to Live TV. */
+    val liveLinks: StateFlow<List<com.ominix.vidiio.data.repository.LiveLink>> = settingsRepository.liveLinksFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    suspend fun addLiveLinks(links: List<com.ominix.vidiio.data.repository.LiveLink>) {
+        if (links.isNotEmpty()) settingsRepository.addLiveLinks(links)
+    }
+
+    /** Stremio addons added for Live TV only. */
+    val liveAddons: StateFlow<Set<String>> = settingsRepository.liveAddonsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    suspend fun addLiveAddons(urls: List<String>) {
+        if (urls.isNotEmpty()) settingsRepository.addLiveAddons(urls)
+    }
+
+    fun removeLiveAddon(url: String) {
+        viewModelScope.launch { settingsRepository.removeLiveAddon(url) }
+    }
+
+    fun removeLiveLink(url: String) {
+        viewModelScope.launch { settingsRepository.removeLiveLink(url) }
+    }
 
     val subdlApiKey: StateFlow<String?> = settingsRepository.subdlApiKeyFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -242,6 +267,13 @@ class SettingsViewModel(
             currentAddons.add(url)
             settingsRepository.setStremioAddons(currentAddons)
         }
+    }
+
+    /** Adds several links at once (from the computer page); reads the stored set fresh so batches don't overwrite each other. */
+    suspend fun addStremioAddons(urls: List<String>) {
+        val current = settingsRepository.stremioAddonsFlow.first().toMutableSet()
+        current.addAll(urls)
+        settingsRepository.setStremioAddons(current)
     }
 
     fun removeStremioAddon(url: String) {

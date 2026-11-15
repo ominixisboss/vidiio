@@ -90,7 +90,7 @@ class BundledRootsTrust private constructor(
         }
 
         /** res/raw file names (without extension) of the bundled roots; keep in step with network_security_config.xml. */
-        private val BUNDLED_ROOTS = listOf("amazon_root_1","amazon_root_2","amazon_root_3","amazon_root_4","digicert_global_g2","digicert_global_g3","digicert_tls_ecc_g5","digicert_tls_rsa_g5","globalsign_e46","globalsign_r3","globalsign_r46","gts_root_r1","gts_root_r3","gts_root_r4","isrg_root_x1","isrg_root_x2","sectigo_e46","sectigo_r46","starfield_services_g2","usertrust_ecc","usertrust_rsa")
+        private val BUNDLED_ROOTS = listOf("amazon_root_1","amazon_root_2","amazon_root_3","amazon_root_4","digicert_global_g2","digicert_global_g3","digicert_tls_ecc_g5","digicert_tls_rsa_g5","globalsign_e46","globalsign_r3","globalsign_r46","gts_root_r1","gts_root_r3","gts_root_r4","isrg_root_x1","isrg_root_x2","sectigo_e46","sectigo_r46","sslcom_root_ecc","sslcom_root_rsa","sslcom_tls_ecc_2022","sslcom_tls_rsa_2022","starfield_services_g2","usertrust_ecc","usertrust_rsa")
 
         internal fun trustManagerFor(store: KeyStore?): X509TrustManager {
             val factory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm())
