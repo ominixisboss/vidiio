@@ -26,6 +26,7 @@ import kotlinx.coroutines.withContext
 
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
+    private val addonManager: com.ominix.vidiio.data.stremio.AddonManager,
     private val context: Context
 ) : ViewModel() {
 
@@ -89,6 +90,25 @@ class SettingsViewModel(
     /** Stremio addons added for Live TV only. */
     val liveAddons: StateFlow<Set<String>> = settingsRepository.liveAddonsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val addonStoreEntries = MutableStateFlow<List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry>>(emptyList())
+    val isAddonStoreLoading = MutableStateFlow(false)
+
+    fun loadAddonStore() {
+        if (addonStoreEntries.value.isNotEmpty() || isAddonStoreLoading.value) return
+        viewModelScope.launch {
+            isAddonStoreLoading.value = true
+            addonStoreEntries.value = addonManager.getAddonStoreEntries()
+            isAddonStoreLoading.value = false
+        }
+    }
+
+    fun installAddonFromStore(url: String, isLive: Boolean = false) {
+        viewModelScope.launch {
+            if (isLive) settingsRepository.addLiveAddons(listOf(url))
+            else addStremioAddons(listOf(url))
+        }
+    }
 
     suspend fun addLiveAddons(urls: List<String>) {
         if (urls.isNotEmpty()) settingsRepository.addLiveAddons(urls)

@@ -73,7 +73,7 @@ object VidiioViewModelFactories {
     fun settings(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
         // Application context, not the Activity's: this only reaches Coil's caches, and a
         // ViewModel outliving an Activity context is a leak.
-        initializer { SettingsViewModel(app.settingsRepository, app) }
+        initializer { SettingsViewModel(app.settingsRepository, app.addonManager, app) }
     }
 
     /**

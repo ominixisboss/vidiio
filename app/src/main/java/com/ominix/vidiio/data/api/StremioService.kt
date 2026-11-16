@@ -13,6 +13,9 @@ interface StremioService {
     suspend fun getManifest(@Url url: String): Manifest
 
     @GET
+    suspend fun getAddonDirectory(@Url url: String): List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry>
+
+    @GET
     suspend fun getStreams(@Url url: String): StreamResponse
 
     @GET

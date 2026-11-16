@@ -145,6 +145,20 @@ class AddonManager(
         emptyList()
     }
 
+    /** Fetches the Stremio community addon directory entries (https://stremio-addons.net/api/manifest.json). */
+    suspend fun getAddonStoreEntries(): List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry> = coroutineScope {
+        try {
+            val url = "https://stremio-addons.net/api/manifest.json"
+            kotlinx.coroutines.withTimeoutOrNull(10_000L) {
+                stremioService.getAddonDirectory(url)
+            } ?: emptyList()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            Log.w("AddonManager", "Failed to load Stremio addon store directory", e)
+            emptyList()
+        }
+    }
+
     suspend fun getCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
         getInstalledAddons()
             .filter { it.url !in BUILTIN_ADDON_URLS && !it.manifest.catalogs.isNullOrEmpty() }

@@ -14,7 +14,15 @@ data class Manifest(
     val catalogs: List<Catalog>? = null,
     val background: String? = null,
     val logo: String? = null,
-    val contactEmail: String? = null
+    val contactEmail: String? = null,
+    val behaviorHints: Map<String, Any>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class StremioDirectoryEntry(
+    val manifest: Manifest,
+    val transportUrl: String? = null,
+    val flags: Map<String, Any>? = null
 )
 
 @JsonClass(generateAdapter = true)

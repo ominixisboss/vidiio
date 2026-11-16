@@ -12,6 +12,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -84,6 +86,11 @@ fun SettingsScreen(
 
 
 
+
+    val addonStoreEntries by viewModel.addonStoreEntries.collectAsState()
+    val isAddonStoreLoading by viewModel.isAddonStoreLoading.collectAsState()
+    var showAddonStoreSheet by rememberSaveable { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // One section open at a time keeps the page short, so the remote never has far to scroll.
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
@@ -387,6 +394,16 @@ fun SettingsScreen(
                             runCatching { addFocus.requestFocus() }
                         }
                     }
+                    PreferenceItem(
+                        title = "Addon Store",
+                        summary = "Browse & install community addons with one tap",
+                        icon = Icons.Rounded.Store,
+                        onClick = {
+                            viewModel.loadAddonStore()
+                            showAddonStoreSheet = true
+                        }
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
                     Box(Modifier.focusRequester(addFocus)) {
                         PreferenceItem(
                             title = "Add Stremio Addon",
@@ -564,8 +581,14 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        if (addonUrlToAdd.isNotBlank()) {
-                            viewModel.addStremioAddon(addonUrlToAdd)
+                        val input = addonUrlToAdd.trim()
+                        if (input.isNotBlank()) {
+                            if (input.contains("stremio-addons.net", ignoreCase = true)) {
+                                viewModel.loadAddonStore()
+                                showAddonStoreSheet = true
+                            } else {
+                                viewModel.addStremioAddon(input)
+                            }
                             addonUrlToAdd = ""
                             showAddAddonDialog = false
                         }
@@ -619,6 +642,19 @@ fun SettingsScreen(
                 }) { Text("Remove") }
             },
             dismissButton = { TextButton(onClick = { liveAddonToRemove = null }) { Text("Keep") } }
+        )
+    }
+
+    if (showAddonStoreSheet) {
+        AddonStoreSheet(
+            entries = addonStoreEntries,
+            isLoading = isAddonStoreLoading,
+            installedAddons = stremioAddons + liveAddons,
+            onInstall = { url ->
+                viewModel.installAddonFromStore(url)
+                android.widget.Toast.makeText(context, "Addon installed", android.widget.Toast.LENGTH_SHORT).show()
+            },
+            onDismiss = { showAddonStoreSheet = false }
         )
     }
 
@@ -1475,5 +1511,243 @@ private fun AddonRow(addonUrl: String, onRemove: () -> Unit) {
             Text("Press OK to remove", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
         Icon(Icons.Rounded.Delete, contentDescription = "Remove", tint = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddonStoreSheet(
+    entries: List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry>,
+    isLoading: Boolean,
+    installedAddons: Set<String>,
+    onInstall: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    var webPromptUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    val categories = listOf("All", "Movies & Series", "Sports & Live", "Anime", "Subtitles", "Scrapers")
+
+    val filteredEntries = remember(entries, searchQuery, selectedCategory) {
+        entries.filter { entry ->
+            val manifest = entry.manifest
+            val types = manifest.types.orEmpty().map { it.lowercase() }
+            val nameMatches = manifest.name.contains(searchQuery, ignoreCase = true) ||
+                    (manifest.description?.contains(searchQuery, ignoreCase = true) == true)
+
+            val categoryMatches = when (selectedCategory) {
+                "Movies & Series" -> types.any { it == "movie" || it == "series" || it == "tv" }
+                "Sports & Live" -> types.any { it == "sport" || it == "sports" || it == "live" || it == "events" }
+                "Anime" -> types.any { it == "anime" }
+                "Subtitles" -> manifest.resources.orEmpty().any { r -> r.toString().contains("subtitles") }
+                "Scrapers" -> manifest.resources.orEmpty().any { r -> r.toString().contains("stream") }
+                else -> true
+            }
+            nameMatches && categoryMatches
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Store, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text("Addon Store", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                            Text("stremio-addons.net", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                        }
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Close")
+                    }
+                }
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Search addons...") },
+                    leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
+                )
+
+                androidx.compose.foundation.lazy.LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    items(categories) { cat ->
+                        val selected = cat == selectedCategory
+                        FilterChip(
+                            selected = selected,
+                            onClick = { selectedCategory = cat },
+                            label = { Text(cat) }
+                        )
+                    }
+                }
+
+                if (isLoading) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Loading directory...", color = Color.Gray)
+                        }
+                    }
+                } else if (filteredEntries.isEmpty()) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("No addons found.", color = Color.Gray)
+                    }
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        items(filteredEntries, key = { it.transportUrl ?: it.manifest.id }) { entry ->
+                            AddonStoreCard(
+                                entry = entry,
+                                isInstalled = installedAddons.any { it.contains(entry.manifest.id, ignoreCase = true) || (entry.transportUrl != null && it == entry.transportUrl) },
+                                onInstall = { url -> onInstall(url) },
+                                onPromptWeb = { name, webUrl -> webPromptUrl = name to webUrl }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    webPromptUrl?.let { (name, webUrl) ->
+        AlertDialog(
+            onDismissRequest = { webPromptUrl = null },
+            title = { Text("Configure $name") },
+            text = {
+                Text("This addon offers custom options on its website. Would you like to open $webUrl in your browser or install directly?")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(webUrl))
+                        context.startActivity(intent)
+                        webPromptUrl = null
+                    }
+                ) { Text("Open Website") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        webPromptUrl = null
+                    }
+                ) { Text("Cancel") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun AddonStoreCard(
+    entry: com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry,
+    isInstalled: Boolean,
+    onInstall: (String) -> Unit,
+    onPromptWeb: (String, String) -> Unit
+) {
+    val manifest = entry.manifest
+    val transportUrl = entry.transportUrl ?: "https://${manifest.id}.strem.fun/manifest.json"
+    val logoUrl = manifest.logo
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color.White.copy(alpha = 0.06f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (!logoUrl.isNullOrBlank()) {
+                        coil.compose.AsyncImage(model = logoUrl, contentDescription = null, contentScale = androidx.compose.ui.layout.ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                    } else {
+                        Icon(Icons.Rounded.Extension, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(manifest.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    manifest.version?.let { v ->
+                        Text("v$v", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                if (isInstalled) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xFF2E7D32).copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Installed", color = Color(0xFF4CAF50), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = { onInstall(transportUrl) },
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Text("Install")
+                    }
+                }
+            }
+
+            if (!manifest.description.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = manifest.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.7f),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            val webConfigUrl = remember(transportUrl) {
+                if (transportUrl.contains("/manifest.json")) {
+                    val base = transportUrl.removeSuffix("/manifest.json") + "/configure"
+                    base
+                } else null
+            }
+            if (webConfigUrl != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.tvClickable(onClick = { onPromptWeb(manifest.name, webConfigUrl) }, shape = RoundedCornerShape(6.dp)).padding(4.dp)
+                ) {
+                    Icon(Icons.Rounded.Language, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Configure on website", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                }
+            }
+        }
     }
 }
