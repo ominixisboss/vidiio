@@ -47,7 +47,6 @@ import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.ui.browse.FlixAccent
 import com.ominix.vidiio.ui.browse.FlixBackground
 import com.ominix.vidiio.ui.browse.FlixHeader
-import com.ominix.vidiio.ui.browse.FlixPoster
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.viewmodel.LiveTvViewModel
 
@@ -109,7 +108,7 @@ fun LiveTvScreen(
                         ) {
                             items(row.items, key = { "${row.title}-${it.id}" }) { item ->
                                 if (row.channels) ChannelCard(item, onClick = { viewModel.open(item) })
-                                else FlixPoster(item, onClick = { viewModel.open(item) }, width = 132.dp)
+                                else LiveEventCard(item, onClick = { viewModel.open(item) })
                             }
                         }
                     }
@@ -295,6 +294,66 @@ private fun TeamLine(team: Team, showScore: Boolean) {
         Text(team.name, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (showScore && team.score != null) {
             Text(team.score, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+/** A rectangular event card showing full details (title, backdrop/poster, synopsis). */
+@Composable
+private fun LiveEventCard(item: Movie, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        modifier = Modifier
+            .width(220.dp)
+            .tvClickable(onClick = onClick, shape = shape)
+            .clip(shape)
+            .background(Color.White.copy(alpha = 0.06f))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.Black.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            val imageUrl = item.backdropUrl.takeIf { !it.isNullOrBlank() } ?: item.posterUrl
+            if (imageUrl.isNotBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(
+                    item.title.take(2).uppercase(),
+                    color = FlixAccent,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Text(
+            text = item.title,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (!item.synopsis.isNullOrBlank()) {
+            Text(
+                text = item.synopsis,
+                color = Color.White.copy(alpha = 0.7f),
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }

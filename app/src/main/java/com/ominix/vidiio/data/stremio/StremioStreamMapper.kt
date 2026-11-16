@@ -50,11 +50,22 @@ fun StremioStream.toStreamSource(): StreamSource? {
     val bh = behaviorHints ?: emptyMap()
 
     val proxyHeaders = ((bh["proxyHeaders"] as? Map<String, Any?>)?.get("request")) as? Map<String, Any?>
-    val rawHeaders = proxyHeaders ?: (bh["headers"] as? Map<String, Any?>)
-    val headers = rawHeaders
+    val rawHeaders = proxyHeaders 
+        ?: (bh["headers"] as? Map<String, Any?>) 
+        ?: (bh["httpHeaders"] as? Map<String, Any?>) 
+        ?: (bh["requestHeaders"] as? Map<String, Any?>)
+        
+    val extractedHeaders = rawHeaders
         ?.mapNotNull { (k, v) -> if (v != null) k to v.toString() else null }
         ?.toMap()
-        ?.takeIf { it.isNotEmpty() }
+        .orEmpty()
+
+    val headers = mutableMapOf<String, String>().apply {
+        putAll(extractedHeaders)
+        if (!containsKey("User-Agent") && !containsKey("user-agent")) {
+            put("User-Agent", "VLC/3.0.18 LibVLC/3.0.18")
+        }
+    }.takeIf { it.isNotEmpty() }
 
     val filename = (bh["filename"] as? String)?.takeIf { it.isNotBlank() }
     val sizeBytes = (bh["videoSize"] as? Number)?.toLong()
@@ -66,10 +77,15 @@ fun StremioStream.toStreamSource(): StreamSource? {
         else -> return null
     }
 
-    val displayName = (name ?: title ?: "Stremio")
-        .replace('\n', ' ')
-        .trim()
-        .ifBlank { "Stremio" }
+    val streamTitle = title?.takeIf { it.isNotBlank() }
+    val streamName = name?.takeIf { it.isNotBlank() }
+    
+    val displayName = buildString {
+        if (!streamName.isNullOrBlank() && streamName != "Stremio" && !streamName.contains("Direct Stream", true)) {
+            append(streamName).append(" · ")
+        }
+        append(streamTitle ?: streamName ?: filename ?: "Stremio")
+    }.replace('\n', ' ').trim().ifBlank { "Stremio" }
 
     return StreamSource(
         url = streamUrl,
@@ -77,7 +93,7 @@ fun StremioStream.toStreamSource(): StreamSource? {
         sourceId = "stremio",
         serverName = displayName,
         isM3u8 = streamUrl.substringBefore('?').endsWith(".m3u8", true),
-        quality = QUALITY_RE.find(label)?.value?.uppercase(),
+        quality = QUALITY_RE.find(label)?.value?.uppercase() ?: QUALITY_RE.find(streamTitle.orEmpty())?.value?.uppercase(),
         size = sizeBytes?.let { humanSize(it) } ?: label.let {
             Regex("""\b\d+(?:\.\d+)?\s?[GM]B\b""", RegexOption.IGNORE_CASE).find(it)?.value
         },

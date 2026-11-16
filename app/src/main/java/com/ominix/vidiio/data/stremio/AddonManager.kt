@@ -179,13 +179,18 @@ class AddonManager(
             }.awaitAll().filterNotNull().filter { it.second.isNotEmpty() }
     }
 
+    private suspend fun penguBaseUrl(): String {
+        return getInstalledAddons().firstOrNull { it.baseUrl.contains("pengu.uk", ignoreCase = true) }?.baseUrl ?: PENGU_LIVE_BASE
+    }
+
     /**
      * PenguPlay's live sports and TV catalogues (Live Now, Soccer, Channels, ...), with the events in
      * each. Only non-empty catalogues are returned; between events most of them are empty.
      */
     suspend fun penguLiveCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
+        val base = penguBaseUrl()
         val manifest = try {
-            kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) { stremioService.getManifest("${PENGU_LIVE_BASE}manifest.json") }
+            kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) { stremioService.getManifest("${base}manifest.json") }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.w("AddonManager", "PenguPlay live manifest failed", e); null
@@ -194,7 +199,7 @@ class AddonManager(
             async {
                 runCatching {
                     val metas = kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) {
-                        stremioService.getCatalog("${PENGU_LIVE_BASE}catalog/${catalog.type}/${catalog.id}.json").metas
+                        stremioService.getCatalog("${base}catalog/${catalog.type}/${catalog.id}.json").metas
                     }.orEmpty()
                     (catalog.name ?: catalog.id).removeSuffix(" - TV") to metas
                 }.getOrNull()
@@ -209,12 +214,15 @@ class AddonManager(
      */
     suspend fun addonLiveCatalogs(): AddonLiveResult = coroutineScope {
         val sources = liveSources()
-        val catalogs = sources.catalogs.filter { (_, catalog) -> catalog.extra.orEmpty().none { it.isRequired } }
-            .map { (addon, catalog) ->
+        val catalogs = sources.catalogs.map { (addon, catalog) ->
                 async {
+                    val extraPath = catalog.extra.orEmpty()
+                        .filter { it.isRequired && !it.options.isNullOrEmpty() }
+                        .joinToString("") { "/${it.name}=${it.options!!.first()}" }
+                    val url = "${addon.baseUrl}catalog/${catalog.type}/${catalog.id}$extraPath.json"
                     val metas = runCatching {
                         kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) {
-                            stremioService.getCatalog("${addon.baseUrl}catalog/${catalog.type}/${catalog.id}.json").metas
+                            stremioService.getCatalog(url).metas
                         }.orEmpty()
                     }.getOrDefault(emptyList())
                     AddonLiveCatalog(
@@ -270,7 +278,7 @@ class AddonManager(
         val liveUrls = settingsRepository.liveAddonsFlow.first().toList()
         val live = async { loadAddons(liveUrls) }
         val regular = async {
-            getInstalledAddons().filter { it.url !in BUILTIN_ADDON_URLS && it.url !in liveUrls && !it.baseUrl.startsWith(PENGU_LIVE_BASE) }
+            getInstalledAddons().filter { it.url !in BUILTIN_ADDON_URLS && it.url !in liveUrls && !it.baseUrl.contains("pengu.uk", ignoreCase = true) }
         }
         val liveAddons = live.await()
         val catalogs = liveAddons.flatMap { addon -> addon.manifest.catalogs.orEmpty().map { addon to it } } +
@@ -282,9 +290,10 @@ class AddonManager(
 
     /** PenguPlay live events in [catalogId] (e.g. pp-live-basketball) matching [query]. Empty on failure. */
     suspend fun penguLiveSearch(catalogId: String, query: String): List<StremioMeta> = try {
+        val base = penguBaseUrl()
         val q = java.net.URLEncoder.encode(query, "UTF-8").replace("+", "%20")
         kotlinx.coroutines.withTimeoutOrNull(CATALOG_TIMEOUT_MS) {
-            stremioService.getCatalog("${PENGU_LIVE_BASE}catalog/tv/$catalogId/search=$q.json").metas
+            stremioService.getCatalog("${base}catalog/tv/$catalogId/search=$q.json").metas
         }.orEmpty()
     } catch (e: Exception) {
         if (e is CancellationException) throw e
@@ -294,7 +303,7 @@ class AddonManager(
 
     /** The playable streams for one PenguPlay live event or channel. */
     suspend fun penguLiveStreams(type: String, id: String): List<StremioStream> =
-        stremioService.getStreams("${PENGU_LIVE_BASE}stream/$type/${java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")}.json").streams
+        stremioService.getStreams("${penguBaseUrl()}stream/$type/${java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")}.json").streams
 
     private fun Manifest.hasResource(name: String): Boolean {
         val res = resources ?: return false

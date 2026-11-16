@@ -41,18 +41,25 @@ class IptvChannels(private val client: OkHttpClient) {
      */
     suspend fun fromLink(name: String, url: String): List<LiveChannel> = withContext(Dispatchers.IO) {
         val path = url.substringBefore('?').lowercase()
+        val defaultHeaders = mapOf("User-Agent" to "VLC/3.0.18 LibVLC/3.0.18")
         val single = listOf(LiveChannel(name, null, name, StreamSource(
             serverName = name, url = url, sourceName = "Live TV", sourceId = "iptv",
-            isM3u8 = path.endsWith(".m3u8"), quality = "Live",
+            isM3u8 = path.endsWith(".m3u8") || path.contains("m3u8") || path.contains("playlist"), quality = "Live",
+            headers = defaultHeaders,
         )))
         // Obvious single streams need no look inside.
         if (DIRECT_EXTENSIONS.any { path.endsWith(it) }) return@withContext single
-        val head = client.newCall(Request.Builder().url(url).build()).execute().use { response ->
-            if (!response.isSuccessful) throw java.io.IOException("$name: HTTP ${response.code}")
-            // A channel list is text; read at most a few MB of it.
-            response.body.source().let { src -> src.request(MAX_PLAYLIST_BYTES); src.buffer.clone().readUtf8() }
+        val response = runCatching {
+            client.newCall(Request.Builder().url(url).header("User-Agent", "VLC/3.0.18 LibVLC/3.0.18").build()).execute()
+        }.getOrNull() ?: return@withContext single
+
+        val head = response.use { resp ->
+            if (!resp.isSuccessful) return@withContext single
+            val src = resp.body.source()
+            src.request(MAX_PLAYLIST_BYTES)
+            src.buffer.clone().readUtf8()
         }
-        val isChannelList = head.contains("#EXTINF") && !head.contains("#EXT-X-TARGETDURATION") && !head.contains("#EXT-X-STREAM-INF")
+        val isChannelList = head.contains("#EXTINF") || head.contains("#EXTM3U")
         if (!isChannelList) single
         else parse(head, skipGeoBlocked = false).map { it.copy(category = name) }.ifEmpty { single }
     }
@@ -78,8 +85,16 @@ class IptvChannels(private val client: OkHttpClient) {
                 val line = raw.trim()
                 when {
                     line.startsWith("#EXTINF") -> { info = line; headers.clear() }
-                    line.startsWith("#EXTVLCOPT:http-user-agent=") -> headers["User-Agent"] = line.substringAfter('=')
-                    line.startsWith("#EXTVLCOPT:http-referrer=") -> headers["Referer"] = line.substringAfter('=')
+                    line.startsWith("#EXTVLCOPT:", ignoreCase = true) -> {
+                        val opt = line.substringAfter(':').trim()
+                        val key = opt.substringBefore('=').trim().lowercase()
+                        val value = opt.substringAfter('=').trim()
+                        when (key) {
+                            "http-user-agent", "user-agent" -> headers["User-Agent"] = value
+                            "http-referer", "referer", "referrer" -> headers["Referer"] = value
+                            "origin" -> headers["Origin"] = value
+                        }
+                    }
                     line.startsWith("http") && info != null -> {
                         val meta = info
                         info = null
@@ -88,6 +103,12 @@ class IptvChannels(private val client: OkHttpClient) {
                         val name = meta.substringAfterLast(',').replace(NAME_NOISE, "").trim().ifBlank { continue }
                         val category = attrs["group-title"].orEmpty().split(';').first().trim()
                             .takeUnless { it.isBlank() || it == "Undefined" } ?: "Other"
+
+                        val channelHeaders = HashMap(headers)
+                        if (!channelHeaders.containsKey("User-Agent")) {
+                            channelHeaders["User-Agent"] = "VLC/3.0.18 LibVLC/3.0.18"
+                        }
+
                         channels += LiveChannel(
                             name = name,
                             logo = attrs["tvg-logo"]?.takeIf { it.isNotBlank() },
@@ -99,7 +120,7 @@ class IptvChannels(private val client: OkHttpClient) {
                                 sourceId = "iptv",
                                 isM3u8 = line.substringBefore('?').endsWith(".m3u8", ignoreCase = true),
                                 quality = "Live",
-                                headers = headers.toMap().takeIf { it.isNotEmpty() },
+                                headers = channelHeaders.toMap().takeIf { it.isNotEmpty() },
                             ),
                         )
                     }
