@@ -26,6 +26,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.ominix.vidiio.ui.viewmodel.LiveRow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +64,25 @@ fun LiveTvScreen(
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
     val rows = state.rows
+    var selectedCategory by remember { mutableStateOf("All") }
+    val liveCategories = listOf("All", "Sports", "Spelunkr.tv", "News", "Movies", "Entertainment", "Kids", "Music", "Documentary")
+
+    val filteredRows = remember(rows, selectedCategory) {
+        rows?.filter { row ->
+            val title = row.title.lowercase()
+            when (selectedCategory) {
+                "Sports" -> title.contains("sport") || title.contains("game") || title.contains("live now") || row.items.any { it.title.lowercase().contains(" vs ") }
+                "Spelunkr.tv" -> title.contains("spelunkr")
+                "News" -> title.contains("news") || title.contains("weather")
+                "Movies" -> title.contains("movie") || title.contains("film") || title.contains("cinema")
+                "Entertainment" -> title.contains("entertainment") || title.contains("series") || title.contains("comedy")
+                "Kids" -> title.contains("kid") || title.contains("animation") || title.contains("cartoon")
+                "Music" -> title.contains("music")
+                "Documentary" -> title.contains("docu") || title.contains("science")
+                else -> true
+            }
+        }
+    }
 
     LaunchedEffect(state.message) {
         state.message?.let {
@@ -75,29 +98,54 @@ fun LiveTvScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item(key = "title") { FlixHeader("Live TV") }
-            item(key = "sports") {
-                LiveSportsSection(
-                    sports = state.sports,
-                    selected = state.league,
-                    onSelectLeague = viewModel::selectLeague,
-                    onOpenGame = viewModel::openGame,
-                )
+
+            item(key = "categories") {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(liveCategories) { cat ->
+                        val selected = cat == selectedCategory
+                        val shape = RoundedCornerShape(20.dp)
+                        Box(
+                            modifier = Modifier
+                                .tvClickable(onClick = { selectedCategory = cat }, shape = shape)
+                                .clip(shape)
+                                .background(if (selected) FlixAccent else Color.White.copy(alpha = 0.08f))
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(cat, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+                }
             }
-            if (rows == null) item(key = "loading") {
+
+            if (selectedCategory == "All" || selectedCategory == "Sports") {
+                item(key = "sports") {
+                    LiveSportsSection(
+                        sports = state.sports,
+                        selected = state.league,
+                        onSelectLeague = viewModel::selectLeague,
+                        onOpenGame = viewModel::openGame,
+                    )
+                }
+            }
+
+            if (filteredRows == null) item(key = "loading") {
                 Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = FlixAccent)
                 }
             } else {
-                if (rows.isEmpty()) item(key = "empty") {
+                if (filteredRows.isEmpty()) item(key = "empty") {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            if (state.failed) "Couldn't load live TV. Check the connection and try again." else "Nothing is live right now.",
+                            if (state.failed) "Couldn't load live TV. Check the connection and try again." else "No channels found for this category.",
                             color = Color.White.copy(alpha = 0.7f)
                         )
                         TextButton(onClick = viewModel::refresh) { Text("Refresh") }
                     }
                 }
-                items(rows, key = { "live-${it.channels}-${it.title}" }) { row ->
+                items(filteredRows, key = { "live-${it.channels}-${it.title}" }) { row ->
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         FlixHeader(row.title)
                         if (row.items.isEmpty()) {

@@ -20,6 +20,11 @@ enum class League(val label: String, val espnPath: String, val penguCatalog: Str
     MLB("MLB", "baseball/mlb", "pp-live-baseball"),
     MLS("MLS", "soccer/usa.1", "pp-live-football"),
     PREMIER_LEAGUE("Premier League", "soccer/eng.1", "pp-live-football"),
+    CHAMPIONS_LEAGUE("Champions League", "soccer/uefa.champions", "pp-live-football"),
+    LA_LIGA("La Liga", "soccer/esp.1", "pp-live-football"),
+    SERIE_A("Serie A", "soccer/ita.1", "pp-live-football"),
+    UFC_MMA("UFC & MMA", "mma/ufc", "pp-live-mma"),
+    F1_RACING("Formula 1", "racing/f1", "pp-live-motorsport"),
 }
 
 enum class GameState { LIVE, UPCOMING, FINAL }
