@@ -225,8 +225,7 @@ class LiveTvViewModel(
         val byAddon = result.catalogs.groupBy { it.addonName }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         val rows = byAddon.flatMap { (addon, catalogs) ->
             val full = catalogs.filter { it.events.isNotEmpty() }
-            if (full.isEmpty()) listOf(LiveRow(addon, emptyList(), channels = false, note = "Nothing live right now."))
-            else full.map { c -> LiveRow("$addon \u00b7 ${c.catalogName}", c.events.map { it.toCard() }, channels = false) }
+            full.map { c -> LiveRow("$addon \u00b7 ${c.catalogName}", c.events.map { it.toCard() }, channels = false) }
         }
         val unreachable = result.unreachable.map { url ->
             val host = runCatching { java.net.URI(url).host }.getOrNull() ?: url

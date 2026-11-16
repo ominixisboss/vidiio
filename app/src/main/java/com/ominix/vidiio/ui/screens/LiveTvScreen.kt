@@ -301,38 +301,47 @@ private fun TeamLine(team: Team, showScore: Boolean) {
 /** A rectangular event card showing full details (title, backdrop/poster, synopsis). */
 @Composable
 private fun LiveEventCard(item: Movie, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(10.dp)
     Column(
         modifier = Modifier
-            .width(220.dp)
+            .width(230.dp)
             .tvClickable(onClick = onClick, shape = shape)
             .clip(shape)
-            .background(Color.White.copy(alpha = 0.06f))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+            .background(Color.White.copy(alpha = 0.08f))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(100.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(Color.Black.copy(alpha = 0.3f)),
-            contentAlignment = Alignment.Center
-        ) {
-            val imageUrl = item.backdropUrl.takeIf { !it.isNullOrBlank() } ?: item.posterUrl
-            if (imageUrl.isNotBlank()) {
+        val imageUrl = item.backdropUrl.takeIf { !it.isNullOrBlank() } ?: item.posterUrl.takeIf { !it.isBlank() }
+        if (imageUrl != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(105.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else {
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 Text(
-                    item.title.take(2).uppercase(),
-                    color = FlixAccent,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "LIVE",
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0xFFE5242F))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             }
         }

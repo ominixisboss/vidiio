@@ -138,7 +138,7 @@ class MovieRepository(
             categories.addAll(service)
             // A user-installed copy of the Streaming Catalogs addon would repeat the shelves above; skip its rows.
             val serviceNames = com.ominix.vidiio.data.repository.BrowseOptions.services.map { it.label.lowercase() }
-            categories.addAll(stremioCatalogs.await().filter { c -> c.name.split(" ").filter { it.isNotBlank() }.joinToString(" ").lowercase() !in serviceNames })
+            categories.addAll(stremioCatalogs.await().filter { c -> c.movies.isNotEmpty() && c.name.split(" ").filter { it.isNotBlank() }.joinToString(" ").lowercase() !in serviceNames })
             categories
         } catch (e: Exception) {
             if (e is CancellationException) throw e
