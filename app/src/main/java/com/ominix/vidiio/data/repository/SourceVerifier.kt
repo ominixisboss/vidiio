@@ -163,7 +163,7 @@ class SourceVerifier(client: OkHttpClient) {
 
             val type = contentType?.substringBefore(';')?.trim()?.lowercase().orEmpty()
             val isPlaylistType = "mpegurl" in type
-            val trimmed = bodyPrefix.trimStart('﻿', ' ', '\n', '\r', '\t')
+            val trimmed = bodyPrefix.trimStart('\uFEFF', ' ', '\n', '\r', '\t')
 
             if (looksLikeHls || isPlaylistType) {
                 return if (trimmed.startsWith("#EXTM3U")) {

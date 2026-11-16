@@ -463,22 +463,7 @@ fun PlayerScreen(
             )
         }
 
-        state.signInHost?.let { host ->
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = playerViewModel::dismissSignIn,
-                title = { androidx.compose.material3.Text("Sign in required") },
-                text = {
-                    androidx.compose.material3.Text(
-                        "$host played a \"sign in\" clip instead of the video. Open https://$host/ on your phone or " +
-                            "computer and sign in with the account that made your addon link. " +
-                            "Meanwhile another source is being used."
-                    )
-                },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(onClick = playerViewModel::dismissSignIn) { androidx.compose.material3.Text("OK") }
-                }
-            )
-        }
+
 
         state.errorMessage?.let { message ->
             PlaybackErrorDialog(
@@ -634,6 +619,7 @@ fun PlayerScreen(
  * A [CreditsDetector.WIDTH] x [CreditsDetector.HEIGHT] copy of what the video surface is showing now,
  * or null when it can't be read (no surface yet, protected content, or the copy failed).
  */
+@androidx.media3.common.util.UnstableApi
 private suspend fun sampleVideoFrame(view: PlayerView?): IntArray? {
     val surfaceView = view?.videoSurfaceView as? android.view.SurfaceView ?: return null
     if (!surfaceView.holder.surface.isValid || surfaceView.width == 0 || surfaceView.height == 0) return null

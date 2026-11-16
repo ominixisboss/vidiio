@@ -538,11 +538,17 @@ class PlayerViewModel(
                         !skippedUrls.contains(current.url)
                     ) {
                         skippedUrls += current.url
-                        val host = runCatching { java.net.URI(current.url).host }.getOrNull()
-                        _state.update { it.copy(signInHost = host) }
-                        val next = session.streamSources.value.firstOrNull { it.url != current.url && !skippedUrls.contains(it.url) &&
+                        session.updateSourceHealth(current.url, com.ominix.vidiio.data.repository.SourceHealth(com.ominix.vidiio.data.repository.SourceStatus.DEAD, note = "Clip skipped"))
+                        val availableSources = session.streamSources.value
+                        val next = availableSources.firstOrNull { it.url != current.url && !skippedUrls.contains(it.url) &&
                             !com.ominix.vidiio.data.repository.SourceHeaviness.isHeavy(it.serverName) }
-                        if (next != null) selectSource(next)
+                            ?: availableSources.firstOrNull { it.url != current.url && !skippedUrls.contains(it.url) }
+                        if (next != null) {
+                            selectSource(next)
+                            viewModelScope.launch {
+                                android.widget.Toast.makeText(getApplication(), "Sign-in clip skipped, auto-switching to ${next.serverName}", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     }
                 }
 

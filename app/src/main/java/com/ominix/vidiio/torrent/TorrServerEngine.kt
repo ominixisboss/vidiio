@@ -55,7 +55,8 @@ class TorrServerEngine(private val context: Context) {
      */
     @Synchronized
     fun ensureStarted(): Boolean {
-        if (isAvailable && process?.isAlive == true && api?.echo() != null) return true
+        val alive = runCatching { process?.exitValue(); false }.getOrDefault(process != null)
+        if (isAvailable && alive && api?.echo() != null) return true
         stop()
 
         val bin = binaryFile
@@ -122,7 +123,8 @@ class TorrServerEngine(private val context: Context) {
 
         val deadline = SystemClock.elapsedRealtime() + STARTUP_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
-            if (!proc.isAlive) {
+            val procAlive = runCatching { proc.exitValue(); false }.getOrDefault(true)
+            if (!procAlive) {
                 Log.e(TAG, "TorrServer exited during startup (code ${runCatching { proc.exitValue() }.getOrNull()})")
                 stop()
                 return false
@@ -177,9 +179,6 @@ class TorrServerEngine(private val context: Context) {
         port = 0
         if (proc != null) {
             runCatching { proc.destroy() }
-            runCatching {
-                if (!proc.waitFor(3, TimeUnit.SECONDS)) proc.destroyForcibly()
-            }
         }
     }
 

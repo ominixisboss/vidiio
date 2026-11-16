@@ -33,8 +33,8 @@ android {
         targetSdk = 37
         // Single source of truth for the shipped version. CI can override without
         // editing the file: -PversionCode=42 -PversionName=1.4.2
-        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 19
-        versionName = (project.findProperty("versionName") as String?) ?: "1.9.11"
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 20
+        versionName = (project.findProperty("versionName") as String?) ?: "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -126,6 +126,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        isCoreLibraryDesugaringEnabled = true
     }
     buildFeatures {
         compose = true
@@ -145,6 +146,7 @@ ksp {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.accompanist.permissions)
     implementation(libs.androidx.activity.compose)

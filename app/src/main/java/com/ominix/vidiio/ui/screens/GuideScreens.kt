@@ -116,6 +116,7 @@ fun TvGuideScreen(
         ) {
             items(days, key = { it.toString() }) { day ->
                 val selected = day == state.date
+                val locale = remember { Locale.getDefault() }
                 Column(
                     modifier = Modifier
                         .width(54.dp)
@@ -125,7 +126,7 @@ fun TvGuideScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase(Locale.getDefault()),
+                        day.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).uppercase(locale),
                         color = Color.White.copy(alpha = 0.6f), fontSize = 12.sp
                     )
                     Box(
@@ -136,7 +137,7 @@ fun TvGuideScreen(
                         Text(day.dayOfMonth.toString(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                     Text(
-                        if (day == today) "TODAY" else day.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()).uppercase(Locale.getDefault()),
+                        if (day == today) "TODAY" else day.month.getDisplayName(TextStyle.SHORT, locale).uppercase(locale),
                         color = if (day == today) FlixAccent else Color.White.copy(alpha = 0.4f), fontSize = 10.sp,
                         modifier = Modifier.padding(top = 2.dp)
                     )

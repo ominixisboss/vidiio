@@ -17,6 +17,16 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.ominix.vidiio.ui.components.tvClickable
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
@@ -35,6 +45,8 @@ import com.ominix.vidiio.ui.browse.FlixHeader
 import com.ominix.vidiio.ui.browse.FlixTabs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import java.util.Locale
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -134,18 +146,50 @@ fun MediaBrowseScreen(
     val state by viewModel.state.collectAsState()
     val style = remember(viewModel.kind) { styleFor(viewModel.kind) }
     var showFilters by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
+    var seeAllTitle by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
 
-    Box(modifier = modifier.fillMaxSize().background(if (homeStyle == com.ominix.vidiio.data.repository.HomeStyle.FLIX || showFilters) FlixBackground else homeStyle.spec(androidx.compose.material3.MaterialTheme.colorScheme.primary).background ?: androidx.compose.material3.MaterialTheme.colorScheme.background)) {
+    val currentResults: List<Movie>? = if (state.service != null) state.serviceResults else if (state.filter.isEmpty) {
+        when (state.list) {
+            BrowseList.TRENDING -> state.trending
+            BrowseList.POPULAR -> state.popular
+            BrowseList.TOP_RATED -> state.topRated
+            BrowseList.FRESH -> state.fresh
+            BrowseList.SOON -> state.soon
+        }
+    } else state.filterResults
+
+    Box(modifier = modifier.fillMaxSize().background(if (homeStyle == com.ominix.vidiio.data.repository.HomeStyle.FLIX || showFilters || seeAllTitle != null) FlixBackground else homeStyle.spec(androidx.compose.material3.MaterialTheme.colorScheme.primary).background ?: androidx.compose.material3.MaterialTheme.colorScheme.background)) {
         when {
             state.isLoadingEverything -> BrowseSkeleton()
             state.hasNothing -> BrowseError(style.palette, style.what, onRetry = viewModel::refresh)
+            seeAllTitle != null -> SeeAllCategoryGrid(
+                title = seeAllTitle!!,
+                results = currentResults,
+                onOpen = onOpenMovie,
+                onBack = { seeAllTitle = null },
+                onLoadMore = { viewModel.loadMore(state.list) }
+            )
             else -> PullToRefreshBox(
                 isRefreshing = state.isRefreshing,
                 onRefresh = viewModel::refresh,
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (homeStyle != com.ominix.vidiio.data.repository.HomeStyle.FLIX && !showFilters) {
-                    ShelfBrowseContent(style, state, viewModel, homeStyle, onOpenMovie, onTab, { showFilters = true }, viewModel.kind == BrowseKind.MOVIES, viewModel::loadMore)
+                    ShelfBrowseContent(
+                        style = style,
+                        state = state,
+                        viewModel = viewModel,
+                        homeStyle = homeStyle,
+                        onOpen = onOpenMovie,
+                        onTab = onTab,
+                        onShowFilters = { showFilters = true },
+                        isMovies = viewModel.kind == BrowseKind.MOVIES,
+                        onLoadMore = viewModel::loadMore,
+                        onSeeAllCategory = { title, list ->
+                            seeAllTitle = title
+                            viewModel.setList(list)
+                        }
+                    )
                 } else {
                     BrowseContent(style, state, viewModel, onOpenMovie, onTab)
                 }
@@ -348,6 +392,7 @@ private fun ShelfBrowseContent(
     onShowFilters: () -> Unit,
     isMovies: Boolean,
     onLoadMore: (BrowseList) -> Unit,
+    onSeeAllCategory: (String, BrowseList) -> Unit,
 ) {
     val spec = remember(homeStyle) { homeStyle }.let { hs ->
         val accent = androidx.compose.material3.MaterialTheme.colorScheme.primary
@@ -391,10 +436,7 @@ private fun ShelfBrowseContent(
                     spec = spec,
                     onMovieClick = onOpen,
                     onLoadMore = { onLoadMore(list) },
-                    onSeeAll = {
-                        viewModel.setList(list)
-                        onShowFilters()
-                    }
+                    onSeeAll = { onSeeAllCategory(label, list) }
                 )
             }
         }
@@ -416,6 +458,110 @@ private fun ShelfBrowseContent(
         item(key = "filters") {
             androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 14.dp)) {
                 GradientTile("Filter by genre, mood, decade...", 2, false, onShowFilters, width = 240.dp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeeAllCategoryGrid(
+    title: String,
+    results: List<Movie>?,
+    onOpen: (Movie) -> Unit,
+    onBack: () -> Unit,
+    onLoadMore: () -> Unit,
+) {
+    val gridState = rememberLazyGridState()
+
+    com.ominix.vidiio.ui.components.LoadMoreOnScroll(
+        gridState, results?.size ?: 0,
+        onLoadMore = onLoadMore
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .statusBarsPadding()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .tvClickable(onClick = onBack, shape = RoundedCornerShape(12.dp))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Back",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Text(
+                text = title,
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (results == null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 40.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                CircularProgressIndicator(color = FlixAccent)
+            }
+        } else if (results.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No titles found in $title.",
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp
+                )
+            }
+        } else {
+            LazyVerticalGrid(
+                state = gridState,
+                columns = GridCells.Adaptive(110.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(results, key = { "seeall-${it.source}-${it.id}" }) { movie ->
+                    FlixPoster(
+                        movie = movie,
+                        onClick = { onOpen(movie) },
+                        width = null
+                    )
+                }
             }
         }
     }
