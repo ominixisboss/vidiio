@@ -654,6 +654,10 @@ fun SettingsScreen(
                 viewModel.installAddonFromStore(url)
                 android.widget.Toast.makeText(context, "Addon installed", android.widget.Toast.LENGTH_SHORT).show()
             },
+            onUninstall = { url ->
+                viewModel.uninstallAddonFromStore(url)
+                android.widget.Toast.makeText(context, "Addon removed", android.widget.Toast.LENGTH_SHORT).show()
+            },
             onDismiss = { showAddonStoreSheet = false }
         )
     }
@@ -1521,6 +1525,7 @@ fun AddonStoreSheet(
     isLoading: Boolean,
     installedAddons: Set<String>,
     onInstall: (String) -> Unit,
+    onUninstall: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -1625,6 +1630,7 @@ fun AddonStoreSheet(
                                 entry = entry,
                                 isInstalled = installedAddons.any { it.contains(entry.manifest.id, ignoreCase = true) || (entry.transportUrl != null && it == entry.transportUrl) },
                                 onInstall = { url -> onInstall(url) },
+                                onUninstall = { url -> onUninstall(url) },
                                 onPromptWeb = { name, webUrl -> webPromptUrl = name to webUrl }
                             )
                         }
@@ -1666,6 +1672,7 @@ private fun AddonStoreCard(
     entry: com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry,
     isInstalled: Boolean,
     onInstall: (String) -> Unit,
+    onUninstall: (String) -> Unit,
     onPromptWeb: (String, String) -> Unit
 ) {
     val manifest = entry.manifest
@@ -1701,13 +1708,19 @@ private fun AddonStoreCard(
                 }
                 Spacer(Modifier.width(8.dp))
                 if (isInstalled) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xFF2E7D32).copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Installed", color = Color(0xFF4CAF50), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(Color(0xFF2E7D32).copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text("Installed", color = Color(0xFF4CAF50), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                        TextButton(
+                            onClick = { onUninstall(transportUrl) },
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text("Remove", color = Color(0xFFFF5252), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 } else {
                     Button(

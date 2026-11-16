@@ -210,6 +210,20 @@ class SettingsRepository(private val context: Context) {
         preferences[PreferencesKeys.STREMIO_ADDONS] ?: setOf("https://torrentio.strem.fun/manifest.json")
     }
 
+    suspend fun addStremioAddon(url: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.STREMIO_ADDONS] ?: setOf("https://torrentio.strem.fun/manifest.json")
+            preferences[PreferencesKeys.STREMIO_ADDONS] = current + url
+        }
+    }
+
+    suspend fun removeStremioAddon(url: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.STREMIO_ADDONS] ?: setOf("https://torrentio.strem.fun/manifest.json")
+            preferences[PreferencesKeys.STREMIO_ADDONS] = current - url
+        }
+    }
+
     val subdlApiKeyFlow: Flow<String?> = context.dataStore.data.map { preferences ->
         preferences[PreferencesKeys.SUBDL_API_KEY]
     }

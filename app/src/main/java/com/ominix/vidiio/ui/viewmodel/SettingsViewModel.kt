@@ -106,7 +106,13 @@ class SettingsViewModel(
     fun installAddonFromStore(url: String, isLive: Boolean = false) {
         viewModelScope.launch {
             if (isLive) settingsRepository.addLiveAddons(listOf(url))
-            else addStremioAddons(listOf(url))
+            else addonManager.installAddon(url)
+        }
+    }
+
+    fun uninstallAddonFromStore(url: String) {
+        viewModelScope.launch {
+            addonManager.uninstallAddon(url)
         }
     }
 

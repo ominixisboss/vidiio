@@ -150,6 +150,14 @@ class AddonManager(
         emptyList()
     }
 
+    suspend fun installAddon(url: String) {
+        settingsRepository.addStremioAddon(url)
+    }
+
+    suspend fun uninstallAddon(url: String) {
+        settingsRepository.removeStremioAddon(url)
+    }
+
     /** Fetches the Stremio community and official addon directory entries. */
     suspend fun getAddonStoreEntries(): List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry> = withContext(Dispatchers.IO) {
         val urls = listOf(
@@ -168,10 +176,15 @@ class AddonManager(
                 val bodyText = response.use { if (it.isSuccessful) it.body.string() else null }
                 if (bodyText.isNullOrBlank()) continue
 
-                val jsonArray = org.json.JSONArray(bodyText)
+                val jsonArray = runCatching { org.json.JSONArray(bodyText) }.getOrNull()
+                    ?: runCatching {
+                        val obj = org.json.JSONObject(bodyText)
+                        obj.optJSONArray("addons") ?: obj.optJSONArray("entries") ?: obj.optJSONArray("manifests")
+                    }.getOrNull() ?: continue
+
                 for (i in 0 until jsonArray.length()) {
                     val obj = jsonArray.optJSONObject(i) ?: continue
-                    val manifestObj = obj.optJSONObject("manifest") ?: continue
+                    val manifestObj = obj.optJSONObject("manifest") ?: obj
 
                     val id = manifestObj.optString("id").takeIf { it.isNotBlank() } ?: continue
                     val name = manifestObj.optString("name").takeIf { it.isNotBlank() } ?: continue
@@ -208,7 +221,71 @@ class AddonManager(
             }
         }
 
-        entries.distinctBy { it.transportUrl ?: it.manifest.id }
+        // Add built-in popular fallback directory entries if empty or missing
+        val fallbacks = listOf(
+            com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry(
+                manifest = Manifest(
+                    id = "org.stremio.torrentio",
+                    name = "Torrentio",
+                    description = "Provides torrent streams from multiple providers including YTS, EZTV, RARBG, 1337x, TorrentGalaxy and RealDebrid.",
+                    version = "1.0.8",
+                    types = listOf("movie", "series"),
+                    resources = listOf("stream"),
+                    logo = "https://torrentio.strem.fun/logo.png"
+                ),
+                transportUrl = "https://torrentio.strem.fun/manifest.json"
+            ),
+            com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry(
+                manifest = Manifest(
+                    id = "org.stremio.knightcrawler",
+                    name = "KnightCrawler",
+                    description = "Scrapes streams from TorrentGalaxy, 1337x, LimeTorrents, EZTV and Debrid services.",
+                    version = "1.0.0",
+                    types = listOf("movie", "series"),
+                    resources = listOf("stream"),
+                    logo = "https://knightcrawler.elfhosted.com/logo.png"
+                ),
+                transportUrl = "https://knightcrawler.elfhosted.com/manifest.json"
+            ),
+            com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry(
+                manifest = Manifest(
+                    id = "com.stremio.cyberflix",
+                    name = "CyberFlix Catalog",
+                    description = "Adds extensive movie and TV series catalogs from Netflix, Disney+, Apple TV+, HBO Max, Hulu, Paramount+ and Amazon Prime.",
+                    version = "1.4.1",
+                    types = listOf("movie", "series"),
+                    resources = listOf("catalog"),
+                    logo = "https://cyberflix.elfhosted.com/logo.png"
+                ),
+                transportUrl = "https://cyberflix.elfhosted.com/manifest.json"
+            ),
+            com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry(
+                manifest = Manifest(
+                    id = "org.stremio.opensubtitlesv3",
+                    name = "OpenSubtitles v3",
+                    description = "Official subtitles addon for Stremio using OpenSubtitles.com API with automatic subtitle language matching.",
+                    version = "1.0.0",
+                    types = listOf("movie", "series", "anime"),
+                    resources = listOf("subtitles"),
+                    logo = "https://opensubtitles-v3.strem.io/logo.png"
+                ),
+                transportUrl = "https://opensubtitles-v3.strem.io/manifest.json"
+            ),
+            com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry(
+                manifest = Manifest(
+                    id = "com.stremio.animekitsu",
+                    name = "Anime Kitsu",
+                    description = "Anime catalog addon powered by Kitsu.io containing popular and seasonal anime series.",
+                    version = "1.0.0",
+                    types = listOf("anime"),
+                    resources = listOf("catalog"),
+                    logo = "https://anime-kitsu.strem.fun/logo.png"
+                ),
+                transportUrl = "https://anime-kitsu.strem.fun/manifest.json"
+            )
+        )
+
+        (entries + fallbacks).distinctBy { it.transportUrl ?: it.manifest.id }
     }
 
     suspend fun getCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
