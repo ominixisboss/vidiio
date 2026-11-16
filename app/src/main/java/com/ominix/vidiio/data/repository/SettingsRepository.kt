@@ -31,7 +31,7 @@ enum class ColorTheme {
 
 /** Home-screen layout preset. Restyles the hero, cards, rows and accent of the Home tab. */
 enum class HomeStyle {
-    FLIX, VIDIIO, NETFLIX, HULU, PRIME, DISNEY
+    FLIX, VIDIIO
 }
 
 /** Preferred media player engine. Internal uses ExoPlayer; VLC uses external VLC app. */

@@ -76,16 +76,6 @@ fun HomeStyle.topLevelTransition(): ContentTransform = when (this) {
     HomeStyle.VIDIIO ->
         fadeIn(tween(400)) + scaleIn(initialScale = 0.92f, animationSpec = tween(400)) togetherWith
             fadeOut(tween(400)) + scaleOut(targetScale = 0.92f, animationSpec = tween(400))
-    HomeStyle.NETFLIX ->
-        fadeIn(tween(350)) togetherWith fadeOut(tween(350))
-    HomeStyle.HULU ->
-        fadeIn(tween(180)) togetherWith fadeOut(tween(180))
-    HomeStyle.PRIME ->
-        fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 12 } togetherWith
-            fadeOut(tween(300)) + slideOutHorizontally(tween(300)) { -it / 12 }
-    HomeStyle.DISNEY ->
-        fadeIn(tween(300)) + scaleIn(initialScale = 0.92f, animationSpec = tween(300)) togetherWith
-            fadeOut(tween(250)) + scaleOut(targetScale = 1.04f, animationSpec = tween(250))
 }
 
 /** Navigation transition for opening a Details screen. */
@@ -93,16 +83,6 @@ fun HomeStyle.detailTransition(): ContentTransform = when (this) {
     HomeStyle.FLIX, HomeStyle.VIDIIO ->
         slideInHorizontally(tween(350)) { it } + fadeIn(tween(350)) togetherWith
             slideOutHorizontally(tween(350)) { -it } + fadeOut(tween(350))
-    HomeStyle.NETFLIX ->
-        fadeIn(tween(280)) + scaleIn(initialScale = 1.05f, animationSpec = tween(280)) togetherWith
-            fadeOut(tween(280)) + scaleOut(targetScale = 1.05f, animationSpec = tween(280))
-    HomeStyle.HULU ->
-        fadeIn(tween(180)) togetherWith fadeOut(tween(180))
-    HomeStyle.PRIME ->
-        slideInVertically(tween(280)) { it / 6 } + fadeIn(tween(280)) togetherWith fadeOut(tween(220))
-    HomeStyle.DISNEY ->
-        scaleIn(initialScale = 0.92f, animationSpec = tween(250)) + fadeIn(tween(250)) togetherWith
-            fadeOut(tween(220)) + scaleOut(targetScale = 0.95f)
 }
 
 /**
@@ -150,89 +130,5 @@ fun HomeStyle.spec(defaultAccent: Color): HomeStyleSpec = when (this) {
         uppercaseHeaders = false,
         showTop10 = true,
         cardPressScale = 0.95f
-    )
-    HomeStyle.NETFLIX -> HomeStyleSpec(
-        style = this,
-        label = "Netflix",
-        accent = Color(0xFFE50914),
-        background = Color(0xFF141414),
-        heroKind = HeroKind.BILLBOARD,
-        heroHeight = 560.dp,
-        heroCenterText = true,
-        card = CardKind.PORTRAIT,
-        cardWidth = 128.dp,
-        cardCorner = 4.dp,
-        cardShowTitle = false,
-        ratingBadge = false,
-        rowGap = 10.dp,
-        rowHeaderSize = 19.sp,
-        rowHeaderWeight = FontWeight.Bold,
-        uppercaseHeaders = false,
-        showTop10 = true,
-        kenBurns = true,
-        cardPressScale = 0.93f
-    )
-    HomeStyle.HULU -> HomeStyleSpec(
-        style = this,
-        label = "Hulu",
-        accent = Color(0xFF1CE783),
-        background = Color(0xFF0B0C0F),
-        heroKind = HeroKind.COMPACT,
-        heroHeight = 360.dp,
-        heroCenterText = false,
-        card = CardKind.LANDSCAPE,
-        cardWidth = 250.dp,
-        cardCorner = 4.dp,
-        cardShowTitle = true,
-        ratingBadge = false,
-        rowGap = 28.dp,
-        rowHeaderSize = 16.sp,
-        rowHeaderWeight = FontWeight.SemiBold,
-        uppercaseHeaders = true,
-        showTop10 = false,
-        cardPressScale = 1f
-    )
-    HomeStyle.PRIME -> HomeStyleSpec(
-        style = this,
-        label = "Prime",
-        accent = Color(0xFF00A8E1),
-        background = Color(0xFF0F171E),
-        heroKind = HeroKind.BANNER,
-        heroHeight = 430.dp,
-        heroCenterText = false,
-        card = CardKind.LANDSCAPE,
-        cardWidth = 300.dp,
-        cardCorner = 8.dp,
-        cardShowTitle = true,
-        ratingBadge = true,
-        rowGap = 20.dp,
-        rowHeaderSize = 20.sp,
-        rowHeaderWeight = FontWeight.Bold,
-        uppercaseHeaders = false,
-        showTop10 = false,
-        cardPressScale = 0.96f
-    )
-    HomeStyle.DISNEY -> HomeStyleSpec(
-        style = this,
-        label = "Disney+",
-        accent = Color(0xFF0063E5),
-        background = Color(0xFF1A1D29),
-        heroKind = HeroKind.SPOTLIGHT,
-        heroHeight = 440.dp,
-        heroCenterText = true,
-        card = CardKind.LANDSCAPE,
-        cardWidth = 270.dp,
-        cardCorner = 14.dp,
-        cardShowTitle = true,
-        ratingBadge = false,
-        rowGap = 22.dp,
-        rowHeaderSize = 22.sp,
-        rowHeaderWeight = FontWeight.ExtraBold,
-        uppercaseHeaders = false,
-        showTop10 = true,
-        kenBurns = true,
-        cardPressScale = 0.95f,
-        bouncyCards = false,
-        staggerIn = false
     )
 }

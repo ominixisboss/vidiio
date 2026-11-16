@@ -145,7 +145,7 @@ fun MediaBrowseScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 if (homeStyle != com.ominix.vidiio.data.repository.HomeStyle.FLIX && !showFilters) {
-                    ShelfBrowseContent(style, state, homeStyle, onOpenMovie, onTab, { showFilters = true }, viewModel.kind == BrowseKind.MOVIES, viewModel::loadMore)
+                    ShelfBrowseContent(style, state, viewModel, homeStyle, onOpenMovie, onTab, { showFilters = true }, viewModel.kind == BrowseKind.MOVIES, viewModel::loadMore)
                 } else {
                     BrowseContent(style, state, viewModel, onOpenMovie, onTab)
                 }
@@ -341,6 +341,7 @@ private fun LazyGridScope.full(key: String, content: @Composable () -> Unit) {
 private fun ShelfBrowseContent(
     style: PageStyle,
     state: BrowseState,
+    viewModel: MediaBrowseViewModel,
     homeStyle: com.ominix.vidiio.data.repository.HomeStyle,
     onOpen: (Movie) -> Unit,
     onTab: (Int) -> Unit,
@@ -383,11 +384,34 @@ private fun ShelfBrowseContent(
                 BrowseList.FRESH -> state.fresh
                 BrowseList.SOON -> state.soon
             }.orEmpty()
-            if (movies.isNotEmpty()) item(key = "list-$label") { CategorySection(label, movies, spec, onOpen, onLoadMore = { onLoadMore(list) }) }
+            if (movies.isNotEmpty()) item(key = "list-$label") {
+                CategorySection(
+                    name = label,
+                    movies = movies,
+                    spec = spec,
+                    onMovieClick = onOpen,
+                    onLoadMore = { onLoadMore(list) },
+                    onSeeAll = {
+                        viewModel.setList(list)
+                        onShowFilters()
+                    }
+                )
+            }
         }
         BrowseOptions.services.forEach { svc ->
             val titles = state.serviceShelves[svc.id].orEmpty()
-            if (titles.isNotEmpty()) item(key = "svc-${svc.id}") { CategorySection("Trending on ${svc.label}", titles, spec, onOpen) }
+            if (titles.isNotEmpty()) item(key = "svc-${svc.id}") {
+                CategorySection(
+                    name = "Trending on ${svc.label}",
+                    movies = titles,
+                    spec = spec,
+                    onMovieClick = onOpen,
+                    onSeeAll = {
+                        viewModel.setService(svc)
+                        onShowFilters()
+                    }
+                )
+            }
         }
         item(key = "filters") {
             androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 14.dp)) {

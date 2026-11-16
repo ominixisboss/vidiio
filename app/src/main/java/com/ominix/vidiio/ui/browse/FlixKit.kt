@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -82,46 +83,77 @@ fun TileRow(content: LazyListScope.() -> Unit) {
     )
 }
 
-/** A poster with the star score bottom-left over a fade, like a streaming guide. */
+/** A poster with title text below and star score over a gradient fade. */
 @Composable
-fun FlixPoster(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp? = 118.dp, corner: Dp = 6.dp) {
+fun FlixPoster(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp? = 118.dp, corner: Dp = 8.dp) {
     val shape = RoundedCornerShape(corner)
-    Box(
-        modifier = modifier
-            .then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
-            .aspectRatio(2f / 3f)
-            .tvClickable(onClick = onClick, shape = shape)
-            .clip(shape)
-            .background(Color.White.copy(alpha = 0.06f))
+    Column(
+        modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
     ) {
-        AsyncImage(
-            model = movie.posterUrl,
-            contentDescription = movie.title,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
         Box(
-            Modifier
-                .align(Alignment.BottomCenter)
+            modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f))))
-        )
-        movie.rating?.takeIf { it > 0.0 }?.let { value ->
-            Row(
-                modifier = Modifier.align(Alignment.BottomStart).padding(start = 6.dp, bottom = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Rounded.Star, null, tint = FlixAccent, modifier = Modifier.size(15.dp))
-                Text(
-                    text = String.format(Locale.US, "%.1f", value),
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(start = 2.dp)
+                .aspectRatio(2f / 3f)
+                .tvClickable(onClick = onClick, shape = shape)
+                .clip(shape)
+                .background(Color.White.copy(alpha = 0.08f))
+        ) {
+            if (movie.posterUrl.isNotBlank()) {
+                AsyncImage(
+                    model = movie.posterUrl,
+                    contentDescription = movie.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
+            } else {
+                Box(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = movie.title,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Box(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
+            )
+            movie.rating?.takeIf { it > 0.0 }?.let { value ->
+                Row(
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 6.dp, bottom = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.Star, null, tint = FlixAccent, modifier = Modifier.size(14.dp))
+                    Text(
+                        text = String.format(Locale.US, "%.1f", value),
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(start = 2.dp)
+                    )
+                }
             }
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = movie.title,
+            color = Color.White.copy(alpha = 0.9f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
+        )
     }
 }
 

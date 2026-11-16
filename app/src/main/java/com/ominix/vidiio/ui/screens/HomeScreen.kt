@@ -30,6 +30,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
@@ -215,21 +216,7 @@ fun HomeScreen(
                                 }
                             }
                         }
-                        if (spec.style == HomeStyle.DISNEY) {
-                            item {
-                                DisneyBrandHubsRow(onBrandClick = { brand ->
-                                    val query = when (brand) {
-                                        "DISNEY" -> "Disney"
-                                        "PIXAR" -> "Pixar"
-                                        "MARVEL" -> "Marvel"
-                                        "STAR WARS" -> "Star Wars"
-                                        "NAT GEO" -> "National Geographic"
-                                        else -> brand
-                                    }
-                                    onSearchQuery(query)
-                                })
-                            }
-                        }
+
                         item(key = "categories") {
                             CategoryLinks(spec = spec, onOpenMovies = onOpenMovies, onOpenTv = onOpenTv, onOpenAnime = onOpenAnime, onOpenGuide = onOpenGuide)
                         }
@@ -445,76 +432,7 @@ fun DisneyBrandHubsRow(onBrandClick: (String) -> Unit = {}) {
 
 @Composable
 private fun HeroTagBadge(spec: HomeStyleSpec) {
-    when (spec.style) {
-        HomeStyle.NETFLIX -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "N",
-                    color = Color(0xFFE50914),
-                    fontWeight = FontWeight.Black,
-                    fontSize = 18.sp
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "S E R I E S",
-                    color = Color.White.copy(alpha = 0.9f),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 3.sp
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-        HomeStyle.DISNEY -> {
-            Surface(
-                color = Color(0xFF0063E5).copy(alpha = 0.3f),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(0.5.dp, Color(0xFF0063E5))
-            ) {
-                Text(
-                    "DISNEY ORIGINAL",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-        HomeStyle.PRIME -> {
-            Surface(
-                color = Color(0xFF00A8E1),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    "✓ prime",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-        HomeStyle.HULU -> {
-            Surface(
-                color = Color(0xFF1CE783),
-                shape = RoundedCornerShape(4.dp)
-            ) {
-                Text(
-                    "EXCLUSIVE",
-                    color = Color.Black,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 10.sp,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-        HomeStyle.FLIX, HomeStyle.VIDIIO -> Unit
-    }
+    Unit
 }
 
 /* ----------------------------- Hero variants ----------------------------- */
@@ -526,27 +444,8 @@ private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onCl
         horizontalArrangement = if (center) Arrangement.Center else Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val playBg = when (spec.style) {
-            HomeStyle.NETFLIX -> Color.White
-            HomeStyle.HULU -> Color(0xFF1CE783)
-            HomeStyle.PRIME -> Color(0xFF00A8E1)
-            HomeStyle.DISNEY -> Color(0xFF0063E5)
-            HomeStyle.FLIX, HomeStyle.VIDIIO -> spec.accent
-        }
-        val playText = when (spec.style) {
-            HomeStyle.NETFLIX -> Color.Black
-            HomeStyle.HULU -> Color.Black
-            HomeStyle.PRIME -> Color.White
-            HomeStyle.DISNEY -> Color.White
-            HomeStyle.VIDIIO -> Color.White
-            HomeStyle.FLIX -> Color.White
-        }
-        val playLabel = when (spec.style) {
-            HomeStyle.HULU -> "START WATCHING"
-            HomeStyle.PRIME -> "Watch Now"
-            HomeStyle.DISNEY -> "PLAY"
-            else -> "Play"
-        }
+        val playBg = spec.accent
+        val playText = Color.White
 
         Button(
             onClick = { onClick(movie) },
@@ -557,7 +456,7 @@ private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onCl
         ) {
             Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
-            Text(playLabel, fontWeight = FontWeight.Bold)
+            Text("Play", fontWeight = FontWeight.Bold)
         }
 
         Spacer(Modifier.width(12.dp))
@@ -574,16 +473,9 @@ private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onCl
                 .border(0.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
                 .tvFocusRing(RoundedCornerShape(24.dp))
         ) {
-            val secondIcon = if (spec.style == HomeStyle.NETFLIX || spec.style == HomeStyle.DISNEY) Icons.Rounded.Add else Icons.Rounded.Info
-            val secondLabel = when (spec.style) {
-                HomeStyle.NETFLIX -> "My List"
-                HomeStyle.DISNEY -> "Watchlist"
-                HomeStyle.HULU -> "DETAILS"
-                else -> "Info"
-            }
-            Icon(secondIcon, contentDescription = null, modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
-            Text(secondLabel, fontWeight = FontWeight.Bold)
+            Text("Info", fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -767,17 +659,50 @@ fun HeroStatic(movie: Movie, spec: HomeStyleSpec, onMovieClick: (Movie) -> Unit)
 
 /* ----------------------------- Rows ----------------------------- */
 
-/** A row's title. Plain text: it is not focusable and does nothing when selected. */
+/** A row's title with optional See All arrow button. */
 @Composable
-private fun RowHeader(text: String, spec: HomeStyleSpec) {
-    Text(
-        text = if (spec.uppercaseHeaders) text.uppercase() else text,
-        fontSize = spec.rowHeaderSize,
-        fontWeight = spec.rowHeaderWeight,
-        letterSpacing = if (spec.uppercaseHeaders) 1.sp else 0.sp,
-        color = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-    )
+private fun RowHeader(
+    text: String,
+    spec: HomeStyleSpec,
+    onSeeAll: (() -> Unit)? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = if (spec.uppercaseHeaders) text.uppercase() else text,
+            fontSize = spec.rowHeaderSize,
+            fontWeight = spec.rowHeaderWeight,
+            letterSpacing = if (spec.uppercaseHeaders) 1.sp else 0.sp,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        if (onSeeAll != null) {
+            Row(
+                modifier = Modifier
+                    .tvClickable(onClick = onSeeAll, shape = RoundedCornerShape(12.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "See all",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = "See all $text",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -813,35 +738,6 @@ fun HomeCard(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            if (spec.style == HomeStyle.NETFLIX) {
-                Surface(
-                    color = Color(0xFFE50914),
-                    shape = RoundedCornerShape(bottomEnd = 6.dp),
-                    modifier = Modifier.align(Alignment.TopStart)
-                ) {
-                    Text(
-                        text = "N",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                    )
-                }
-            } else if (spec.style == HomeStyle.PRIME) {
-                Surface(
-                    color = Color(0xFF00A8E1),
-                    shape = RoundedCornerShape(bottomEnd = 6.dp),
-                    modifier = Modifier.align(Alignment.TopStart)
-                ) {
-                    Text(
-                        text = "✓ prime",
-                        color = Color.White,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                    )
-                }
-            }
             if (spec.ratingBadge) {
                 movie.rating?.takeIf { it > 0.0 }?.let { rating ->
                     Row(
@@ -887,9 +783,10 @@ fun CategorySection(
     onMovieClick: (Movie) -> Unit,
     /** Set for rows that can fetch more titles; called as the row nears its end. */
     onLoadMore: (() -> Unit)? = null,
+    onSeeAll: (() -> Unit)? = null,
 ) {
     Column {
-        RowHeader(name, spec)
+        RowHeader(name, spec, onSeeAll = onSeeAll)
         val rowState = androidx.compose.foundation.lazy.rememberLazyListState()
         com.ominix.vidiio.ui.components.LoadMoreOnScroll(rowState, movies.size, onLoadMore)
         LazyRow(
@@ -914,20 +811,18 @@ fun Top10Section(
         RowHeader("Top 10 This Week", spec)
         LazyRow(
             contentPadding = PaddingValues(start = 24.dp, end = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(if (spec.style == HomeStyle.NETFLIX) (-12).dp else 4.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             itemsIndexed(movies.take(10)) { index, movie ->
                 Row(
-                    verticalAlignment = Alignment.Bottom,
-                    modifier = Modifier.padding(end = if (spec.style == HomeStyle.NETFLIX) 12.dp else 0.dp)
+                    verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
                         text = "${index + 1}",
-                        fontSize = if (spec.style == HomeStyle.NETFLIX) 96.sp else 88.sp,
+                        fontSize = 88.sp,
                         fontWeight = FontWeight.Black,
-                        color = if (spec.style == HomeStyle.NETFLIX) Color(0xFFE50914) else spec.accent.copy(alpha = 0.4f),
-                        letterSpacing = (-4).sp,
-                        modifier = Modifier.offset(x = if (spec.style == HomeStyle.NETFLIX) 16.dp else 0.dp)
+                        color = spec.accent.copy(alpha = 0.4f),
+                        letterSpacing = (-4).sp
                     )
                     HomeCard(movie, spec, onClick = { onMovieClick(movie) })
                 }
