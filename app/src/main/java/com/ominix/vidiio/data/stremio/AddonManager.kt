@@ -232,9 +232,9 @@ class AddonManager(
     /** Catalogs from the bundled anime addons only (shown inside the Anime area of Home). */
     suspend fun getAnimeCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
         getInstalledAddons()
-            .filter { it.url in BUILTIN_ADDON_URLS && !it.manifest.catalogs.isNullOrEmpty() }
+            .filter { (it.url.contains("OnePace", ignoreCase = true) || it.manifest.types.orEmpty().any { t -> t.lowercase() == "anime" }) && !it.manifest.catalogs.isNullOrEmpty() }
             .flatMap { addon ->
-                addon.manifest.catalogs!!.map { catalog ->
+                addon.manifest.catalogs!!.filter { c -> c.type.lowercase() == "anime" || addon.url.contains("OnePace", ignoreCase = true) }.map { catalog ->
                     async {
                         runCatching {
                             val url = "${addon.baseUrl}catalog/${catalog.type}/${catalog.id}.json"
