@@ -38,9 +38,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        ndk {
-            abiFilters.addAll(listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64"))
-        }
+
 
         // TMDB key. Set tmdb.apiKey in local.properties (gitignored) or TMDB_API_KEY in
         // the environment. The fallback is the key that was previously hardcoded into
@@ -65,6 +63,15 @@ android {
             }.standardOutput.asText.get().trim()
         }.getOrNull()?.takeIf { it.isNotEmpty() } ?: "unknown"
         buildConfigField("String", "GIT_SHA", "\"$gitSha\"")
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            isUniversalApk = false
+        }
     }
 
     // Release signing. Reads app/keystore.properties (gitignored) or, for CI, the
