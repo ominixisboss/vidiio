@@ -30,6 +30,15 @@ class AppUpdater(private val context: Context, private val client: OkHttpClient)
     /** The update the app is currently offering; UpdatePrompt shows it and clears it when dismissed. */
     val offered = kotlinx.coroutines.flow.MutableStateFlow<AppUpdate?>(null)
 
+    private val prefs by lazy { context.getSharedPreferences("app_updater_prefs", Context.MODE_PRIVATE) }
+
+    fun ignoreVersion(version: String) {
+        prefs.edit().putString("ignored_version", version).apply()
+        offered.value = null
+    }
+
+    fun getIgnoredVersion(): String? = prefs.getString("ignored_version", null)
+
     /** The latest release if it is newer than this build, else null. Never throws. */
     suspend fun check(): AppUpdate? = withContext(Dispatchers.IO) {
         try {
@@ -41,6 +50,7 @@ class AppUpdater(private val context: Context, private val client: OkHttpClient)
                 if (!response.isSuccessful) return@withContext null
                 val release = JSONObject(response.body.string())
                 val version = release.optString("tag_name").removePrefix("v").removePrefix("V")
+                if (version == getIgnoredVersion()) return@withContext null
                 if (!isNewer(version, BuildConfig.VERSION_NAME)) return@withContext null
                 val assets = release.optJSONArray("assets") ?: return@withContext null
                 val apk = (0 until assets.length()).map { assets.getJSONObject(it) }

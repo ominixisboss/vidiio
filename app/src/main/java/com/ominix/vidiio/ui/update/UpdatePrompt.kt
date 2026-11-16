@@ -100,7 +100,20 @@ fun UpdatePrompt(updater: AppUpdater, checkOnStart: Boolean) {
             ) { Text(if (updater.canInstall()) "Update" else "Allow installs") }
         },
         dismissButton = {
-            TextButton(enabled = progress == null, onClick = { updater.offered.value = null }) { Text("Later") }
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(
+                    enabled = progress == null,
+                    onClick = { updater.ignoreVersion(current.version) }
+                ) {
+                    Text("Don't show again")
+                }
+                TextButton(
+                    enabled = progress == null,
+                    onClick = { updater.offered.value = null }
+                ) {
+                    Text("Later")
+                }
+            }
         }
     )
 }
