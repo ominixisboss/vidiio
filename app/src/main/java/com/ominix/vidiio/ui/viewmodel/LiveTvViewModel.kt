@@ -184,13 +184,6 @@ class LiveTvViewModel(
                     .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Channel list failed", it) }
                     .getOrNull()
             }
-            val spelunkr = async {
-                runCatching { iptv.fromLink("Spelunkr.tv", "https://spelunkr.tv/playlist.m3u") }
-                    .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Spelunkr TV failed", it) }
-                    .getOrNull()
-                    ?.let { if (it.isNotEmpty()) listOf(channelRow("Spelunkr.tv", it)) else null }
-                    .orEmpty()
-            }
             val channelRows = channels.await()?.map { (category, list) -> channelRow(category, list) }
             val loaded = mine.awaitAll()
             // Playlists get a row each; single streams share one "My Channels" row.
@@ -199,7 +192,7 @@ class LiveTvViewModel(
                 listOfNotNull(singles.flatten().takeIf { it.isNotEmpty() }?.let { channelRow(MY_CHANNELS, it) })
             val broken = loaded.filter { it.second == null }.map { it.first.name }
 
-            val rawAddonRows = addonRows.await() + pengu.await() + spelunkr.await()
+            val rawAddonRows = addonRows.await() + pengu.await()
             // Sort items inside each event row so active live streams/matches are listed first
             val processedAddonRows = rawAddonRows.map { row ->
                 if (row.items.isEmpty()) row

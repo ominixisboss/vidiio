@@ -65,14 +65,13 @@ fun LiveTvScreen(
     val context = LocalContext.current
     val rows = state.rows
     var selectedCategory by remember { mutableStateOf("All") }
-    val liveCategories = listOf("All", "Sports", "Spelunkr.tv", "News", "Movies", "Entertainment", "Kids", "Music", "Documentary")
+    val liveCategories = listOf("All", "Sports", "News", "Movies", "Entertainment", "Kids", "Music", "Documentary")
 
     val filteredRows = remember(rows, selectedCategory) {
         rows?.filter { row ->
             val title = row.title.lowercase()
             when (selectedCategory) {
                 "Sports" -> title.contains("sport") || title.contains("game") || title.contains("live now") || row.items.any { it.title.lowercase().contains(" vs ") }
-                "Spelunkr.tv" -> title.contains("spelunkr")
                 "News" -> title.contains("news") || title.contains("weather")
                 "Movies" -> title.contains("movie") || title.contains("film") || title.contains("cinema")
                 "Entertainment" -> title.contains("entertainment") || title.contains("series") || title.contains("comedy")
