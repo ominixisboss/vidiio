@@ -13,6 +13,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 
 /** One catalogue of a live addon and its events (possibly none right now). */
 data class AddonLiveCatalog(val addonName: String, val catalogName: String, val events: List<LiveAddonEvent>)
@@ -30,7 +34,8 @@ data class InstalledAddon(val url: String, val manifest: Manifest) {
 
 class AddonManager(
     private val stremioService: StremioService,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
+    private val client: OkHttpClient = OkHttpClient()
 ) {
     private val manifestCache = mutableMapOf<String, Manifest>()
 
@@ -145,18 +150,65 @@ class AddonManager(
         emptyList()
     }
 
-    /** Fetches the Stremio community addon directory entries (https://stremio-addons.net/api/manifest.json). */
-    suspend fun getAddonStoreEntries(): List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry> = coroutineScope {
-        try {
-            val url = "https://stremio-addons.net/api/manifest.json"
-            kotlinx.coroutines.withTimeoutOrNull(10_000L) {
-                stremioService.getAddonDirectory(url)
-            } ?: emptyList()
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Log.w("AddonManager", "Failed to load Stremio addon store directory", e)
-            emptyList()
+    /** Fetches the Stremio community and official addon directory entries. */
+    suspend fun getAddonStoreEntries(): List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry> = withContext(Dispatchers.IO) {
+        val urls = listOf(
+            "https://stremio-addons.net/api/manifest.json",
+            "https://v3-cinemeta.strem.io/official-addons.json"
+        )
+        val entries = mutableListOf<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry>()
+
+        for (url in urls) {
+            try {
+                val request = Request.Builder()
+                    .url(url)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .build()
+                val response = client.newCall(request).execute()
+                val bodyText = response.use { if (it.isSuccessful) it.body.string() else null }
+                if (bodyText.isNullOrBlank()) continue
+
+                val jsonArray = org.json.JSONArray(bodyText)
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.optJSONObject(i) ?: continue
+                    val manifestObj = obj.optJSONObject("manifest") ?: continue
+
+                    val id = manifestObj.optString("id").takeIf { it.isNotBlank() } ?: continue
+                    val name = manifestObj.optString("name").takeIf { it.isNotBlank() } ?: continue
+                    val description = manifestObj.optString("description").takeIf { it.isNotBlank() }
+                    val version = manifestObj.optString("version").takeIf { it.isNotBlank() }
+                    val logo = manifestObj.optString("logo").takeIf { it.isNotBlank() }
+                        ?: manifestObj.optString("icon").takeIf { it.isNotBlank() }
+
+                    val typesArray = manifestObj.optJSONArray("types")
+                    val types = (0 until (typesArray?.length() ?: 0)).mapNotNull { idx -> typesArray?.optString(idx) }
+
+                    val resourcesArray = manifestObj.optJSONArray("resources")
+                    val resourcesList = (0 until (resourcesArray?.length() ?: 0)).mapNotNull { idx ->
+                        resourcesArray?.optString(idx) ?: resourcesArray?.optJSONObject(idx)?.optString("name")
+                    }
+
+                    val transportUrl = obj.optString("transportUrl").takeIf { it.isNotBlank() }
+                        ?: "https://$id.strem.fun/manifest.json"
+
+                    val manifest = Manifest(
+                        id = id,
+                        name = name,
+                        description = description,
+                        version = version,
+                        types = types,
+                        resources = resourcesList,
+                        logo = logo
+                    )
+                    entries.add(com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry(manifest = manifest, transportUrl = transportUrl))
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.w("AddonManager", "Error fetching addon directory from $url", e)
+            }
         }
+
+        entries.distinctBy { it.transportUrl ?: it.manifest.id }
     }
 
     suspend fun getCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
