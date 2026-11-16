@@ -18,8 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -167,7 +175,6 @@ fun LiveTvScreen(
     val opening = state.opening
     val streams = state.streams
     if (opening != null) {
-        // One stream: play it straight away. Several: let the viewer pick.
         LaunchedEffect(streams) {
             if (streams?.size == 1) {
                 viewModel.dismiss()
@@ -175,33 +182,147 @@ fun LiveTvScreen(
             }
         }
         if (streams == null || streams.size > 1) {
-            AlertDialog(
+            val shape = RoundedCornerShape(20.dp)
+            androidx.compose.ui.window.Dialog(
                 onDismissRequest = viewModel::dismiss,
-                title = { Text(opening.title) },
-                text = {
-                    if (streams == null) {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = FlixAccent)
+                properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    shape = shape,
+                    color = Color(0xFF18181C),
+                    border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(10.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(Color(0xFFE5242F))
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = opening.title,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            IconButton(onClick = viewModel::dismiss) {
+                                Icon(Icons.Rounded.Close, contentDescription = "Close", tint = Color.Gray)
+                            }
                         }
-                    } else {
-                        LazyColumn {
-                            items(streams) { source ->
-                                TextButton(
-                                    onClick = {
-                                        viewModel.dismiss()
-                                        onPlay(opening, source)
-                                    },
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text(listOfNotNull(source.serverName, source.quality).joinToString(" · "), modifier = Modifier.fillMaxWidth())
+
+                        if (streams == null) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(120.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = FlixAccent)
+                                    Spacer(Modifier.height(10.dp))
+                                    Text("Searching live feeds...", color = Color.Gray, fontSize = 13.sp)
+                                }
+                            }
+                        } else if (streams.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "No live streams found right now. Check back near game time!",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Available Live SportzX Feeds (${streams.size})",
+                                color = FlixAccent,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            LazyColumn(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.heightIn(max = 320.dp)
+                            ) {
+                                items(streams) { source ->
+                                    val itemShape = RoundedCornerShape(12.dp)
+                                    Surface(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .tvClickable(
+                                                onClick = {
+                                                    viewModel.dismiss()
+                                                    onPlay(opening, source)
+                                                },
+                                                shape = itemShape
+                                            ),
+                                        shape = itemShape,
+                                        color = Color.White.copy(alpha = 0.07f),
+                                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f))
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                Text("⚡", fontSize = 16.sp)
+                                                Spacer(Modifier.width(10.dp))
+                                                Column {
+                                                    Text(
+                                                        text = source.serverName,
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    source.quality?.let { q ->
+                                                        Text(
+                                                            text = "Quality: $q",
+                                                            color = FlixAccent,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.SemiBold
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .background(FlixAccent.copy(alpha = 0.2f))
+                                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                                Text("WATCH", color = FlixAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                },
-                confirmButton = {},
-                dismissButton = { TextButton(onClick = viewModel::dismiss) { Text("Cancel") } }
-            )
+                }
+            }
         }
     }
 }

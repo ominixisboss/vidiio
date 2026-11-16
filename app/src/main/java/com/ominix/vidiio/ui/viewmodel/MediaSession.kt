@@ -101,6 +101,10 @@ class MediaSession(
     private val _sourceHealth = MutableStateFlow<Map<String, SourceHealth>>(emptyMap())
     val sourceHealth: StateFlow<Map<String, SourceHealth>> = _sourceHealth.asStateFlow()
 
+    fun updateSourceHealth(url: String, health: SourceHealth) {
+        _sourceHealth.update { it + (url to health) }
+    }
+
     /** Whether sources that failed their check are listed anyway. Off by default. */
     private val _showUnavailable = MutableStateFlow(false)
     val showUnavailable: StateFlow<Boolean> = _showUnavailable.asStateFlow()

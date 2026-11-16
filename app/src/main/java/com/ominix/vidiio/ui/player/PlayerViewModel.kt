@@ -324,27 +324,32 @@ class PlayerViewModel(
 
     private val playerListener = object : Player.Listener {
         override fun onPlayerError(error: PlaybackException) {
-            // A fresh torrent often 'Source error's for the first 10-30s while TorrServer
-            // finds peers and buffers. Silently re-kick the stream a couple of times (the
-            // picked file is remembered) before giving up.
-            // A source the hardware cannot decode (4K, Dolby Vision, ...) will never play, so move
-            // straight on to the next one instead of retrying or showing an error.
-            val undecodable = error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ||
-                error.errorCode == PlaybackException.ERROR_CODE_DECODER_INIT_FAILED ||
-                error.errorCode == PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED ||
-                error.message?.contains("EXCEEDS_CAPABILITIES") == true
             val current = _state.value.selectedSource
-            val next = if (undecodable) session.streamSources.value.firstOrNull {
-                it.url != current?.url && !skippedUrls.contains(it.url) &&
-                    com.ominix.vidiio.data.repository.SourceHeaviness.isHeavy(it.serverName).not()
-            } else null
-            if (undecodable) current?.url?.let { skippedUrls += it }
-            if (next != null) {
+            val currentUrl = current?.url
+
+            // Mark the failed stream as dead in health state
+            if (currentUrl != null) {
+                skippedUrls += currentUrl
+                session.updateSourceHealth(currentUrl, com.ominix.vidiio.data.repository.SourceHealth(com.ominix.vidiio.data.repository.SourceStatus.DEAD, note = "Playback Error"))
+            }
+
+            // Look for the next available non-skipped working stream
+            val availableSources = session.streamSources.value
+            val nextSource = availableSources.firstOrNull {
+                it.url != currentUrl && !skippedUrls.contains(it.url) &&
+                    !com.ominix.vidiio.data.repository.SourceHeaviness.isHeavy(it.serverName)
+            } ?: availableSources.firstOrNull { it.url != currentUrl && !skippedUrls.contains(it.url) }
+
+            if (nextSource != null) {
                 torrentPrepareRetries = 0
-                selectSource(next)
+                selectSource(nextSource)
+                viewModelScope.launch {
+                    android.widget.Toast.makeText(application, "Stream failed, switching to ${nextSource.serverName}", android.widget.Toast.LENGTH_SHORT).show()
+                }
                 return
             }
-            if (_state.value.isTorrentStream && torrentPrepareRetries < 3 && !undecodable) {
+
+            if (_state.value.isTorrentStream && torrentPrepareRetries < 3) {
                 torrentPrepareRetries++
                 _state.update { it.copy(isTorrentLoading = true) }
                 viewModelScope.launch {
@@ -352,7 +357,7 @@ class PlayerViewModel(
                     _retryTrigger.update { n -> n + 1 }
                 }
             } else {
-                _state.update { it.copy(errorMessage = "Playback Error: ${error.localizedMessage}") }
+                _state.update { it.copy(errorMessage = "Playback Error: ${error.localizedMessage ?: "Stream unplayable"}") }
             }
         }
 

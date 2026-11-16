@@ -29,7 +29,9 @@ class IptvChannels(private val client: OkHttpClient) {
             if (!response.isSuccessful) throw java.io.IOException("Channel list HTTP ${response.code}")
             response.body.string()
         }
-        parse(text)
+        val channels = parse(text).toMutableList()
+        channels.add(0, RICK_AND_MORTY_CHANNEL)
+        channels
             .groupBy { it.category }
             .toList()
             .sortedWith(compareBy({ CATEGORY_ORDER.indexOf(it.first).let { i -> if (i < 0) Int.MAX_VALUE else i } }, { it.first }))
@@ -77,6 +79,21 @@ class IptvChannels(private val client: OkHttpClient) {
     }
 
     companion object {
+        val RICK_AND_MORTY_CHANNEL = LiveChannel(
+            name = "Rick and Morty 24/7",
+            logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+            category = "Animation",
+            source = StreamSource(
+                serverName = "Rick and Morty 24/7",
+                url = "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/5d1f8876c2438848d6015a99/master.m3u8?advertisingId=&appName=web&appVersion=unknown&architecture=&buildVersion=&deviceDNT=0&deviceId=5d1f8876c2438848d6015a99&deviceMake=Chrome&deviceModel=Chrome&deviceType=web&deviceVersion=unknown&includeExtendedEvents=false&sid=5d1f8876c2438848d6015a99&serverSideAdInsertion=true",
+                sourceName = "Live TV",
+                sourceId = "iptv",
+                isM3u8 = true,
+                quality = "24/7 Live",
+                headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            )
+        )
+
         private val DIRECT_EXTENSIONS = listOf(".mpd", ".mp4", ".mkv", ".ts", ".webm", ".mov")
         private const val MAX_PLAYLIST_BYTES = 4L * 1024 * 1024
         private val CATEGORY_ORDER = listOf(
