@@ -84,6 +84,7 @@ object BrowseOptions {
     val services = listOf(
         StreamingService("Netflix", "nfx"), StreamingService("HBO Max", "hbm"), StreamingService("Disney+", "dnp"),
         StreamingService("Prime Video", "amp"), StreamingService("Apple TV+", "atp"),
+        StreamingService("Paramount+", "pmx"), StreamingService("Peacock", "pcp"), StreamingService("Hulu", "hlu"),
     )
 
     /** TMDB genres missing from the first version of the Movies page. */

@@ -317,7 +317,7 @@ class AddonManager(
         private const val MANIFEST_TIMEOUT_MS = 4_000L
         private const val CATALOG_TIMEOUT_MS = 8_000L
 
-        const val STREAMING_CATALOGS_BASE = "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club"
+        const val STREAMING_CATALOGS_BASE = "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxwbXAscGNwLGhsdTo6VVM6MTc5NDc4ODc1MzUzMjowOjA6VVM%3D"
 
         /**
          * PenguPlay with its "Live TV" option on. Its config is URL-encoded JSON in the path; the
@@ -332,6 +332,8 @@ class AddonManager(
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(
             "https://fedew04.github.io/OnePaceStremio/manifest.json",
+            "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxwbXAscGNwLGhsdTo6VVM6MTc5NDc4ODc1MzUzMjowOjA6VVM%3D/manifest.json",
+            "https://addon.notorrent2.workers.dev/manifest.json",
             // Subtitles, working out of the box. Verified: declares the subtitles
             // resource, needs no configuration, and serves both movie and series ids
             // (tt0133093 -> 27 results, tt0903747:1:1 -> 89).
