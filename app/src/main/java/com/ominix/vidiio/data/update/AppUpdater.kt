@@ -53,8 +53,9 @@ class AppUpdater(private val context: Context, private val client: OkHttpClient)
                 if (version == getIgnoredVersion()) return@withContext null
                 if (!isNewer(version, BuildConfig.VERSION_NAME)) return@withContext null
                 val assets = release.optJSONArray("assets") ?: return@withContext null
-                val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
-                    .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                val assetList = (0 until assets.length()).map { assets.getJSONObject(it) }
+                val apk = assetList.firstOrNull { it.optString("name").contains("universal", ignoreCase = true) && it.optString("name").endsWith(".apk", ignoreCase = true) }
+                    ?: assetList.firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
                     ?: return@withContext null
                 AppUpdate(
                     version = version,
@@ -112,7 +113,7 @@ class AppUpdater(private val context: Context, private val client: OkHttpClient)
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.updates", apk)
         val intent = Intent(Intent.ACTION_VIEW)
             .setDataAndType(uri, "application/vnd.android.package-archive")
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         context.startActivity(intent)
     }
 
