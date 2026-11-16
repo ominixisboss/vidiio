@@ -94,6 +94,19 @@ class MovieRepository(
             val popularTV = async { tmdbService.getPopularTVShows().results.map { it.toMovie(MovieType.TV_SHOW) } }
             val trendingAnime = async { getTrendingAnime() }
 
+            val actionBlockbusters = async {
+                runCatching { tmdbService.discoverMovies(withGenres = "28").results.map { it.toMovie(MovieType.MOVIE) } }.getOrDefault(emptyList())
+            }
+            val sciFiFantasy = async {
+                runCatching { tmdbService.discoverMovies(withGenres = "878|14").results.map { it.toMovie(MovieType.MOVIE) } }.getOrDefault(emptyList())
+            }
+            val crimeThrillers = async {
+                runCatching { tmdbService.discoverMovies(withGenres = "53|80").results.map { it.toMovie(MovieType.MOVIE) } }.getOrDefault(emptyList())
+            }
+            val comedyHits = async {
+                runCatching { tmdbService.discoverMovies(withGenres = "35").results.map { it.toMovie(MovieType.MOVIE) } }.getOrDefault(emptyList())
+            }
+
             val stremioCatalogs = async {
                 addonManager.getCatalogs().map { (name, metas) ->
                     Category(name, metas.map { it.toMovie() })
@@ -107,6 +120,12 @@ class MovieRepository(
                 Category("Trending Anime", trendingAnime.await()),
                 Category("Popular Movies", popularMovies.await()),
             )
+
+            actionBlockbusters.await().takeIf { it.isNotEmpty() }?.let { categories.add(Category("Action Blockbusters", it)) }
+            sciFiFantasy.await().takeIf { it.isNotEmpty() }?.let { categories.add(Category("Sci-Fi & Fantasy", it)) }
+            crimeThrillers.await().takeIf { it.isNotEmpty() }?.let { categories.add(Category("Crime & Thrillers", it)) }
+            comedyHits.await().takeIf { it.isNotEmpty() }?.let { categories.add(Category("Comedy Hits", it)) }
+
             // One shelf per streaming service: its trending films and series, interleaved.
             val service = com.ominix.vidiio.data.repository.BrowseOptions.services.map { svc ->
                 async {

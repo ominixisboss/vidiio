@@ -191,7 +191,22 @@ class LiveTvViewModel(
             val myRows = lists.map { channels -> channelRow(channels.first().category, channels) } +
                 listOfNotNull(singles.flatten().takeIf { it.isNotEmpty() }?.let { channelRow(MY_CHANNELS, it) })
             val broken = loaded.filter { it.second == null }.map { it.first.name }
-            val rows = myRows + addonRows.await() + pengu.await() + channelRows.orEmpty()
+
+            val rawAddonRows = addonRows.await() + pengu.await()
+            // Sort items inside each event row so active live streams/matches are listed first
+            val processedAddonRows = rawAddonRows.map { row ->
+                if (row.items.isEmpty()) row
+                else {
+                    val sortedItems = row.items.sortedWith(compareByDescending<Movie> {
+                        val t = it.title.lowercase()
+                        t.contains("live") || t.contains(" vs ") || t.contains(" @ ")
+                    }.thenBy { it.title })
+                    row.copy(items = sortedItems)
+                }
+            }
+            // Sort live rows so rows with active events appear before empty rows
+            val (activeAddonRows, emptyAddonRows) = processedAddonRows.partition { it.items.isNotEmpty() }
+            val rows = myRows + activeAddonRows + emptyAddonRows + channelRows.orEmpty()
             _state.update {
                 it.copy(
                     rows = rows,
