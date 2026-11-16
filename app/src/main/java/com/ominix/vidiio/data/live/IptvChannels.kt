@@ -84,13 +84,16 @@ class IptvChannels(private val client: OkHttpClient) {
             logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
             category = "Animation",
             source = StreamSource(
-                serverName = "Rick and Morty 24/7",
-                url = "https://service-stitcher.clusters.pluto.tv/v1/stitch/embed/hls/channel/5d1f8876c2438848d6015a99/master.m3u8?advertisingId=&appName=web&appVersion=unknown&architecture=&buildVersion=&deviceDNT=0&deviceId=5d1f8876c2438848d6015a99&deviceMake=Chrome&deviceModel=Chrome&deviceType=web&deviceVersion=unknown&includeExtendedEvents=false&sid=5d1f8876c2438848d6015a99&serverSideAdInsertion=true",
+                serverName = "Rick and Morty 24/7 (Adult Swim)",
+                url = "https://adultswim-vodlive.cdn.turner.com/live/test-2/stream.m3u8",
                 sourceName = "Live TV",
                 sourceId = "iptv",
                 isM3u8 = true,
-                quality = "24/7 Live",
-                headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                quality = "24/7 Live HD",
+                headers = mapOf(
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Referer" to "https://www.adultswim.com/"
+                )
             )
         )
 
