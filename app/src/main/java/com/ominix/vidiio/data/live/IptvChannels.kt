@@ -41,17 +41,29 @@ class IptvChannels(private val client: OkHttpClient) {
      */
     suspend fun fromLink(name: String, url: String): List<LiveChannel> = withContext(Dispatchers.IO) {
         val path = url.substringBefore('?').lowercase()
-        val defaultHeaders = mapOf("User-Agent" to "VLC/3.0.18 LibVLC/3.0.18")
+        val origin = runCatching { java.net.URI(url).let { "${it.scheme}://${it.host}" } }.getOrNull()
+        val defaultHeaders = mutableMapOf(
+            "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        origin?.let {
+            defaultHeaders["Referer"] = "$it/"
+            defaultHeaders["Origin"] = it
+        }
+
         val single = listOf(LiveChannel(name, null, name, StreamSource(
             serverName = name, url = url, sourceName = "Live TV", sourceId = "iptv",
             isM3u8 = path.endsWith(".m3u8") || path.contains("m3u8") || path.contains("playlist"), quality = "Live",
             headers = defaultHeaders,
         )))
-        // Obvious single streams need no look inside.
+
         if (DIRECT_EXTENSIONS.any { path.endsWith(it) }) return@withContext single
-        val response = runCatching {
-            client.newCall(Request.Builder().url(url).header("User-Agent", "VLC/3.0.18 LibVLC/3.0.18").build()).execute()
-        }.getOrNull() ?: return@withContext single
+
+        val request = Request.Builder()
+            .url(url)
+            .apply { defaultHeaders.forEach { (k, v) -> header(k, v) } }
+            .build()
+
+        val response = runCatching { client.newCall(request).execute() }.getOrNull() ?: return@withContext single
 
         val head = response.use { resp ->
             if (!resp.isSuccessful) return@withContext single
@@ -61,7 +73,7 @@ class IptvChannels(private val client: OkHttpClient) {
         }
         val isChannelList = head.contains("#EXTINF") || head.contains("#EXTM3U")
         if (!isChannelList) single
-        else parse(head, skipGeoBlocked = false).map { it.copy(category = name) }.ifEmpty { single }
+        else parse(head, skipGeoBlocked = false, baseUrl = url).map { it.copy(category = name) }.ifEmpty { single }
     }
 
     companion object {
@@ -76,11 +88,22 @@ class IptvChannels(private val client: OkHttpClient) {
         private val ATTR = Regex("""([\w-]+)="([^"]*)"""")
         private val NAME_NOISE = Regex("""\s*(\(\d{3,4}p\)|\[[^]]*])""")
 
-        /** Parses an M3U playlist, honouring the #EXTVLCOPT user-agent / referrer lines some streams need. */
-        fun parse(m3u: String, skipGeoBlocked: Boolean = true): List<LiveChannel> {
+        /** Parses an M3U playlist, resolving relative URLs against [baseUrl] and attaching Referer/User-Agent. */
+        fun parse(m3u: String, skipGeoBlocked: Boolean = true, baseUrl: String? = null): List<LiveChannel> {
             val channels = ArrayList<LiveChannel>()
             var info: String? = null
             val headers = HashMap<String, String>()
+
+            val defaultHeaders = mutableMapOf<String, String>()
+            defaultHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            baseUrl?.let { url ->
+                val origin = runCatching { java.net.URI(url).let { "${it.scheme}://${it.host}" } }.getOrNull()
+                origin?.let {
+                    defaultHeaders["Referer"] = "$it/"
+                    defaultHeaders["Origin"] = it
+                }
+            }
+
             for (raw in m3u.lineSequence()) {
                 val line = raw.trim()
                 when {
@@ -95,19 +118,33 @@ class IptvChannels(private val client: OkHttpClient) {
                             "origin" -> headers["Origin"] = value
                         }
                     }
-                    line.startsWith("http") && info != null -> {
+                    !line.startsWith("#") && line.isNotBlank() && info != null -> {
                         val meta = info
                         info = null
                         if (skipGeoBlocked && meta.contains("Geo-blocked")) continue
+
+                        val streamUrl = when {
+                            line.startsWith("http://", ignoreCase = true) || line.startsWith("https://", ignoreCase = true) -> line
+                            line.startsWith("/") && baseUrl != null -> {
+                                val root = runCatching { java.net.URI(baseUrl).let { "${it.scheme}://${it.host}" } }.getOrNull()
+                                if (root != null) "$root$line" else line
+                            }
+                            baseUrl != null -> {
+                                val folder = baseUrl.substringBeforeLast('/') + "/"
+                                "$folder$line"
+                            }
+                            else -> line
+                        }
+
+                        if (!streamUrl.startsWith("http://") && !streamUrl.startsWith("https://")) continue
+
                         val attrs = ATTR.findAll(meta.substringBefore(",")).associate { it.groupValues[1] to it.groupValues[2] }
                         val name = meta.substringAfterLast(',').replace(NAME_NOISE, "").trim().ifBlank { continue }
                         val category = attrs["group-title"].orEmpty().split(';').first().trim()
                             .takeUnless { it.isBlank() || it == "Undefined" } ?: "Other"
 
-                        val channelHeaders = HashMap(headers)
-                        if (!channelHeaders.containsKey("User-Agent")) {
-                            channelHeaders["User-Agent"] = "VLC/3.0.18 LibVLC/3.0.18"
-                        }
+                        val channelHeaders = HashMap(defaultHeaders)
+                        channelHeaders.putAll(headers)
 
                         channels += LiveChannel(
                             name = name,
@@ -115,10 +152,10 @@ class IptvChannels(private val client: OkHttpClient) {
                             category = category,
                             source = StreamSource(
                                 serverName = name,
-                                url = line,
+                                url = streamUrl,
                                 sourceName = "Live TV",
                                 sourceId = "iptv",
-                                isM3u8 = line.substringBefore('?').endsWith(".m3u8", ignoreCase = true),
+                                isM3u8 = streamUrl.substringBefore('?').endsWith(".m3u8", ignoreCase = true) || streamUrl.contains("m3u8", ignoreCase = true),
                                 quality = "Live",
                                 headers = channelHeaders.toMap().takeIf { it.isNotEmpty() },
                             ),
