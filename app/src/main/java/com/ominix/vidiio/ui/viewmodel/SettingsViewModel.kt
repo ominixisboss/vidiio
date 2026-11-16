@@ -41,9 +41,6 @@ class SettingsViewModel(
     val colorTheme: StateFlow<ColorTheme> = settingsRepository.colorThemeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ColorTheme.RED)
 
-    val dynamicColorEnabled: StateFlow<Boolean> = settingsRepository.dynamicColorFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
     val homeStyle: StateFlow<HomeStyle> = settingsRepository.homeStyleFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeStyle.FLIX)
 
@@ -166,19 +163,7 @@ class SettingsViewModel(
         }
     }
 
-    /**
-     * Selects or leaves the DYNAMIC theme.
-     *
-     * Writes the same preference the colour picker writes, rather than a second flag that
-     * competes with it. Turning it off falls back to RED - the picker sits directly above
-     * for anything else.
-     */
-    fun setDynamicColor(enabled: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.setColorTheme(if (enabled) ColorTheme.DYNAMIC else ColorTheme.RED)
-            settingsRepository.setDynamicColor(enabled)
-        }
-    }
+
 
     fun setAvoidCameraCutout(enabled: Boolean) {
         viewModelScope.launch {

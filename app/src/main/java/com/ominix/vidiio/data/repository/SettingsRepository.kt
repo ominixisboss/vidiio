@@ -26,13 +26,7 @@ enum class AppTheme {
 }
 
 enum class ColorTheme {
-    RED, BLUE, GREEN, PURPLE, ORANGE, TEAL, PINK, INDIGO, GOLD, MONO,
-
-    /**
-     * Material You: colours derived from the device wallpaper. Android 12+ only;
-     * falls back to RED below that, since there is no wallpaper palette to read.
-     */
-    DYNAMIC
+    RED, BLUE, GREEN, PURPLE, ORANGE, TEAL, PINK, INDIGO, GOLD, MONO
 }
 
 /** Home-screen layout preset. Restyles the hero, cards, rows and accent of the Home tab. */
@@ -250,29 +244,7 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    /**
-     * Folds the old standalone "dynamic colour" flag into [ColorTheme].
-     *
-     * That flag defaulted to on and took precedence over the colour picker, so on Android
-     * 12+ every swatch produced the same wallpaper palette. ColorTheme is the only input
-     * now - but flipping that over would silently change the look of any install that had
-     * the flag on, so anyone who did gets ColorTheme.DYNAMIC instead. Runs once.
-     */
-    suspend fun migrateDynamicThemeIfNeeded() {
-        val preferences = context.dataStore.data.first()
-        if (preferences[PreferencesKeys.DYNAMIC_THEME_MIGRATED] == true) return
-        val hadDynamicOn = preferences[PreferencesKeys.DYNAMIC_COLOR] ?: true
-        context.dataStore.edit { prefs ->
-            if (hadDynamicOn) prefs[PreferencesKeys.COLOR_THEME] = ColorTheme.DYNAMIC.name
-            prefs[PreferencesKeys.DYNAMIC_THEME_MIGRATED] = true
-        }
-    }
 
-    suspend fun setDynamicColor(enabled: Boolean) {
-        context.dataStore.edit { preferences ->
-            preferences[PreferencesKeys.DYNAMIC_COLOR] = enabled
-        }
-    }
 
     suspend fun setAvoidCameraCutout(enabled: Boolean) {
         context.dataStore.edit { preferences ->

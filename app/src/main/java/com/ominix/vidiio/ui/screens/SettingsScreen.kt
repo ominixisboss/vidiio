@@ -166,14 +166,7 @@ fun SettingsScreen(
                         current = homeStyle,
                         onSelected = { viewModel.setHomeStyle(it) }
                     )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    SwitchPreferenceItem(
-                        title = "Dynamic Color",
-                        summary = "Colors based on wallpaper (Android 12+)",
-                        icon = Icons.Rounded.ColorLens,
-                        checked = colorTheme == ColorTheme.DYNAMIC,
-                        onCheckedChange = { viewModel.setDynamicColor(it) }
-                    )
+
                 }
             }
 
@@ -1055,7 +1048,6 @@ fun ColorThemeSelectionRow(
                 ColorTheme.INDIGO -> VidiioIndigo
                 ColorTheme.GOLD -> VidiioGold
                 ColorTheme.MONO -> VidiioMono
-                ColorTheme.DYNAMIC -> MaterialTheme.colorScheme.primary
             }
             
             Box(

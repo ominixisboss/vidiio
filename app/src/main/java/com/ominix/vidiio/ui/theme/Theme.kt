@@ -1,12 +1,9 @@
 package com.ominix.vidiio.ui.theme
 
-import android.os.Build
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import com.ominix.vidiio.data.repository.ColorTheme
 
 private fun getColorScheme(colorTheme: ColorTheme): androidx.compose.material3.ColorScheme {
@@ -21,7 +18,6 @@ private fun getColorScheme(colorTheme: ColorTheme): androidx.compose.material3.C
         ColorTheme.INDIGO -> VidiioIndigo
         ColorTheme.GOLD -> VidiioGold
         ColorTheme.MONO -> VidiioMono
-        ColorTheme.DYNAMIC -> VidiioRed
     }
 
     val onPrimaryColor = when (colorTheme) {
@@ -51,16 +47,8 @@ fun VidiioTheme(
     colorTheme: ColorTheme = ColorTheme.RED,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = when {
-        colorTheme == ColorTheme.DYNAMIC && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            dynamicDarkColorScheme(context)
-        }
-        else -> getColorScheme(colorTheme)
-    }
-
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = getColorScheme(colorTheme),
         typography = Typography,
         content = content
     )
