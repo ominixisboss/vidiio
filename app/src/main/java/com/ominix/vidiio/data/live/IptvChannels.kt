@@ -30,7 +30,7 @@ class IptvChannels(private val client: OkHttpClient) {
             response.body.string()
         }
         val channels = parse(text).toMutableList()
-        channels.add(0, RICK_AND_MORTY_CHANNEL)
+        channels.addAll(0, ADULT_SWIM_CHANNELS)
         channels
             .groupBy { it.category }
             .toList()
@@ -79,20 +79,131 @@ class IptvChannels(private val client: OkHttpClient) {
     }
 
     companion object {
-        val RICK_AND_MORTY_CHANNEL = LiveChannel(
-            name = "Rick and Morty 24/7",
-            logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
-            category = "Animation",
-            source = StreamSource(
-                serverName = "Rick and Morty 24/7 (Adult Swim)",
-                url = "https://adultswim-vodlive.cdn.turner.com/live/test-2/stream.m3u8",
-                sourceName = "Live TV",
-                sourceId = "iptv",
-                isM3u8 = true,
-                quality = "24/7 Live HD",
-                headers = mapOf(
-                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Referer" to "https://www.adultswim.com/"
+        val ADULT_SWIM_CHANNELS = listOf(
+            LiveChannel(
+                name = "Rick and Morty 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Rick and Morty 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/test-2/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "Rick and Morty (Alt)",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Rick and Morty (Alt)",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/rick-and-morty/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "Toonami 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Toonami 24/7",
+                    url = "https://amd.cdn.turner.com/adultswim/big/streams/playlists/toonami.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "Superjail! 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Superjail! 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/superjail/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "Tim and Eric 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Tim and Eric 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/tim-and-eric/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "Off the Air 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Off the Air 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/off-the-air/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "The Venture Bros. 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "The Venture Bros. 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/venture-bros/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "The Eric Andre Show 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "The Eric Andre Show 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/eric-andre/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
+                )
+            ),
+            LiveChannel(
+                name = "Williams Stream 24/7",
+                logo = "https://images.pluto.tv/channels/5d1f8876c2438848d6015a99/colorLogoPNG.png",
+                category = "Adult Swim 24/7",
+                source = StreamSource(
+                    serverName = "Williams Stream 24/7",
+                    url = "https://adultswim-vodlive.cdn.turner.com/live/williams-stream/stream.m3u8",
+                    sourceName = "Adult Swim",
+                    sourceId = "iptv",
+                    isM3u8 = true,
+                    quality = "24/7 Live HD",
+                    headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Referer" to "https://www.adultswim.com/")
                 )
             )
         )
@@ -100,7 +211,7 @@ class IptvChannels(private val client: OkHttpClient) {
         private val DIRECT_EXTENSIONS = listOf(".mpd", ".mp4", ".mkv", ".ts", ".webm", ".mov")
         private const val MAX_PLAYLIST_BYTES = 4L * 1024 * 1024
         private val CATEGORY_ORDER = listOf(
-            "News", "Sports", "Movies", "Entertainment", "Series", "Kids", "Animation", "Comedy",
+            "Adult Swim 24/7", "News", "Sports", "Movies", "Entertainment", "Series", "Kids", "Animation", "Comedy",
             "Documentary", "Music", "Classic", "Lifestyle", "Cooking", "Outdoor", "Travel",
             "Business", "Weather", "Education", "Science", "Shop", "General", "Religious",
             "Legislative", "Other",
