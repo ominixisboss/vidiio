@@ -119,6 +119,7 @@ class SettingsRepository(private val context: Context) {
         val PROXY_PASS = stringPreferencesKey("proxy_pass")
         val METADATA_PROVIDER = stringPreferencesKey("metadata_provider")
         val METADATA_ADDONS = stringSetPreferencesKey("metadata_addons")
+        val PREFERRED_AUDIO_LANGUAGE = stringPreferencesKey("preferred_audio_language")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -242,6 +243,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMetadataProvider(provider: MetadataProvider) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.METADATA_PROVIDER] = provider.name
+        }
+    }
+
+    val preferredAudioLanguageFlow: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.PREFERRED_AUDIO_LANGUAGE] ?: "en"
+    }
+
+    suspend fun setPreferredAudioLanguage(lang: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PREFERRED_AUDIO_LANGUAGE] = lang
         }
     }
 

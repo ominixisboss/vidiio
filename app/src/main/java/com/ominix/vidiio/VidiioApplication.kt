@@ -324,6 +324,24 @@ class VidiioApplication : Application() {
         AnimeRepository(AniListService(okHttpClient), movieRepository)
     }
 
+    val traktService: com.ominix.vidiio.data.api.TraktService by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.trakt.tv/")
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create())
+            .build()
+            .create(com.ominix.vidiio.data.api.TraktService::class.java)
+    }
+
+    val simklService: com.ominix.vidiio.data.api.SimklService by lazy {
+        Retrofit.Builder()
+            .baseUrl("https://api.simkl.com/")
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create())
+            .build()
+            .create(com.ominix.vidiio.data.api.SimklService::class.java)
+    }
+
     val movieRepository: MovieRepository by lazy {
         MovieRepository(
             tmdbRetrofit.create(TMDBService::class.java),
@@ -332,11 +350,12 @@ class VidiioApplication : Application() {
                 TorrentGalaxyScraper(okHttpClient),
                 OneThreeThreeSevenXScraper(okHttpClient),
                 YtsScraper(okHttpClient),
-
             ),
             settingsRepository,
             addonManager,
-            sourceVerifier
+            sourceVerifier,
+            traktService,
+            simklService
         )
     }
 

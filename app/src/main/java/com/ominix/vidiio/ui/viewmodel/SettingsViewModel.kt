@@ -100,6 +100,15 @@ class SettingsViewModel(
         }
     }
 
+    val preferredAudioLanguage: StateFlow<String> = settingsRepository.preferredAudioLanguageFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "en")
+
+    fun setPreferredAudioLanguage(lang: String) {
+        viewModelScope.launch {
+            settingsRepository.setPreferredAudioLanguage(lang)
+        }
+    }
+
     val metadataAddons: StateFlow<Set<String>> = settingsRepository.metadataAddonsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 

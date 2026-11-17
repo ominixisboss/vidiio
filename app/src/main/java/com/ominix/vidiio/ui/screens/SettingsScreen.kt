@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -160,6 +161,7 @@ fun SettingsScreen(
     val proxyPass by viewModel.proxyPass.collectAsState()
     val metadataProvider by viewModel.metadataProvider.collectAsState()
     val metadataAddons by viewModel.metadataAddons.collectAsState()
+    val preferredAudioLanguage by viewModel.preferredAudioLanguage.collectAsState()
 
     val addonStoreEntries by viewModel.addonStoreEntries.collectAsState()
     val isAddonStoreLoading by viewModel.isAddonStoreLoading.collectAsState()
@@ -241,17 +243,9 @@ fun SettingsScreen(
                 }
                 item(key = "sec-subtitles") {
                     SettingCardRow(
-                        title = "Subtitle Settings",
+                        title = "Subtitles & Audio Settings",
                         icon = Icons.Rounded.Subtitles,
-                        statusText = subtitleLanguages.joinToString(", ") { it.uppercase() },
-                        onClick = { openSection = "subtitles" }
-                    )
-                }
-                item(key = "sec-audio") {
-                    SettingCardRow(
-                        title = "Audio Settings",
-                        icon = Icons.Rounded.VolumeUp,
-                        statusText = "Tracks & Sync",
+                        statusText = "${if (subtitlesEnabledByDefault) "English Subs" else "Subs Off"} · ${if (preferredAudioLanguage == "en") "English Audio" else "Original Audio"}",
                         onClick = { openSection = "subtitles" }
                     )
                 }
@@ -425,13 +419,13 @@ fun SettingsScreen(
                 if (openSection == "subtitles") {
                     item {
                         ExpandableSettingsSection(
-                            title = "Subtitles & Captions",
-                            summary = subtitleLanguages.joinToString(", ") { it.uppercase() } +
-                                if (!subdlApiKey.isNullOrEmpty()) " · SubDL Connected" else "",
+                            title = "Subtitles & Audio Settings",
+                            summary = subtitleLanguages.joinToString(", ") { it.uppercase() } + " · " + (if (preferredAudioLanguage == "en") "English Audio" else "Original Audio"),
                             icon = Icons.Rounded.Subtitles,
                             expanded = true,
                             onExpandedChange = {}
                         ) {
+                            Text("SUBTITLES & CAPTIONS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp))
                             SwitchPreferenceItem(
                                 title = "Subtitles",
                                 summary = if (subtitlesEnabledByDefault) {
@@ -479,6 +473,22 @@ fun SettingsScreen(
                             SubtitleAppearanceSection(
                                 style = subtitleStyle,
                                 onStyleChange = { viewModel.setSubtitleStyle(it) }
+                            )
+
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            Text("AUDIO TRACK SETTINGS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp))
+                            SwitchPreferenceItem(
+                                title = "Default English Audio",
+                                summary = if (preferredAudioLanguage == "en") {
+                                    "Automatically select English audio track for dual-audio anime and foreign releases"
+                                } else {
+                                    "Play original audio track by default"
+                                },
+                                icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                                checked = preferredAudioLanguage == "en",
+                                onCheckedChange = { enabled ->
+                                    viewModel.setPreferredAudioLanguage(if (enabled) "en" else "original")
+                                }
                             )
                         }
                     }
@@ -588,6 +598,13 @@ fun SettingsScreen(
                                     onClick = { showAddAddonDialog = true }
                                 )
                             }
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "Add from your computer or phone",
+                                summary = "Open browser URL and enter 4-digit PIN",
+                                icon = Icons.Rounded.Computer,
+                                onClick = { showAddFromPcDialog = true }
+                            )
                         }
                     }
                 }

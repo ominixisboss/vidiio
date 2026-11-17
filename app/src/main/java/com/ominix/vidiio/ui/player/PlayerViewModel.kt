@@ -363,6 +363,16 @@ class PlayerViewModel(
             }
             _state.update { it.copy(availableAudioTracks = tracksList) }
 
+            // Auto-select English audio track for dual-audio anime and foreign releases if available
+            val englishTrack = tracksList.firstOrNull { track ->
+                val lang = track.format.language?.lowercase().orEmpty()
+                val name = track.name.lowercase()
+                lang == "en" || lang == "eng" || lang == "english" || name.contains("english") || name.contains("en ") || name.contains("[en]")
+            }
+            if (englishTrack != null && _state.value.selectedAudioTrack == null) {
+                selectAudioTrack(englishTrack)
+            }
+
             // The file says what language its audio is in. If it says so and none of it is English,
             // this source is the wrong one: move on to the next. (Players pick the English track of a
             // dual-audio file on their own - see setPreferredAudioLanguages below.)

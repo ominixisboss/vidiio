@@ -33,7 +33,9 @@ class MovieRepository(
     private val scrapers: List<Scraper>,
     private val settingsRepository: SettingsRepository,
     private val addonManager: AddonManager,
-    private val sourceVerifier: SourceVerifier
+    private val sourceVerifier: SourceVerifier,
+    private val traktService: com.ominix.vidiio.data.api.TraktService? = null,
+    private val simklService: com.ominix.vidiio.data.api.SimklService? = null
 ) {
 
     /** Probes one scraped source for whether it is actually playable. See [SourceVerifier]. */
@@ -280,7 +282,95 @@ class MovieRepository(
     }
 
     suspend fun getMovieDetails(movie: Movie): Movie {
-        if (movie.source == "stremio") {
+        val activeProvider = settingsRepository.metadataProviderFlow.first()
+
+        if (activeProvider == MetadataProvider.TRAKT && traktService != null) {
+            return try {
+                if (movie.type == MovieType.MOVIE) {
+                    val trakt = traktService.getMovieDetails(movie.id)
+                    movie.copy(
+                        title = trakt.title ?: movie.title,
+                        synopsis = trakt.overview ?: movie.synopsis,
+                        rating = trakt.rating?.toDouble() ?: movie.rating,
+                        year = trakt.year ?: movie.year
+                    )
+                } else {
+                    val trakt = traktService.getShowDetails(movie.id)
+                    val seasons = traktService.getShowSeasons(movie.id).map { s ->
+                        Season(
+                            seasonNumber = s.number ?: 1,
+                            episodes = s.episodes.orEmpty().map { ep ->
+                                Episode(
+                                    id = ep.ids?.imdb ?: ep.ids?.trakt?.toString() ?: "${movie.id}_${ep.season}_${ep.number}",
+                                    name = ep.title ?: "Episode ${ep.number ?: 1}",
+                                    overview = ep.overview,
+                                    episodeNumber = ep.number ?: 1,
+                                    seasonNumber = s.number ?: 1
+                                )
+                            }
+                        )
+                    }
+                    movie.copy(
+                        title = trakt.title ?: movie.title,
+                        synopsis = trakt.overview ?: movie.synopsis,
+                        rating = trakt.rating?.toDouble() ?: movie.rating,
+                        year = trakt.year ?: movie.year,
+                        seasons = seasons
+                    )
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.w(TAG, "Trakt getMovieDetails failed", e)
+                movie
+            }
+        }
+
+        if (activeProvider == MetadataProvider.SIMKL && simklService != null) {
+            return try {
+                if (movie.type == MovieType.MOVIE) {
+                    val simkl = simklService.getMovieDetails(movie.id)
+                    movie.copy(
+                        title = simkl.title ?: movie.title,
+                        synopsis = simkl.overview ?: movie.synopsis,
+                        posterUrl = simkl.poster?.let { "https://simkl.in/posters/${it}_m.jpg" } ?: movie.posterUrl,
+                        backdropUrl = simkl.fanart?.let { "https://simkl.in/fanart/${it}_medium.jpg" } ?: movie.backdropUrl,
+                        year = simkl.year ?: movie.year
+                    )
+                } else {
+                    val simkl = simklService.getTVDetails(movie.id)
+                    val episodesList = simklService.getTVEpisodes(movie.id)
+                    val seasonsMap = episodesList.groupBy { it.season ?: 1 }
+                    val seasons = seasonsMap.map { (seasonNo, eps) ->
+                        Season(
+                            seasonNumber = seasonNo,
+                            episodes = eps.map { ep ->
+                                Episode(
+                                    id = "${movie.id}_${ep.season}_${ep.episode}",
+                                    name = ep.title ?: "Episode ${ep.episode ?: 1}",
+                                    overview = ep.description,
+                                    episodeNumber = ep.episode ?: 1,
+                                    seasonNumber = seasonNo
+                                )
+                            }
+                        )
+                    }
+                    movie.copy(
+                        title = simkl.title ?: movie.title,
+                        synopsis = simkl.overview ?: movie.synopsis,
+                        posterUrl = simkl.poster?.let { "https://simkl.in/posters/${it}_m.jpg" } ?: movie.posterUrl,
+                        backdropUrl = simkl.fanart?.let { "https://simkl.in/fanart/${it}_medium.jpg" } ?: movie.backdropUrl,
+                        year = simkl.year ?: movie.year,
+                        seasons = seasons
+                    )
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                Log.w(TAG, "Simkl getMovieDetails failed", e)
+                movie
+            }
+        }
+
+        if (movie.source == "stremio" || activeProvider == MetadataProvider.ADDONS) {
             return try {
                 val stremioType = if (movie.type == MovieType.MOVIE) "movie" else "series"
                 val meta = withTimeoutOrNull(12_000) { addonManager.getMeta(stremioType, movie.id) }
