@@ -232,11 +232,11 @@ fun SettingsScreen(
             if (openSection == null) {
                 // --- GENERAL ---
                 item(key = "hdr-general") { SectionHeader("GENERAL") }
-                item(key = "sec-app") {
+                item(key = "sec-app-appearance") {
                     SettingCardRow(
-                        title = "App Settings",
-                        icon = Icons.Rounded.Tune,
-                        statusText = null,
+                        title = "App Settings, Profiles & Appearance",
+                        icon = Icons.Rounded.AccountCircle,
+                        statusText = "${colorTheme.name.lowercase().replaceFirstChar { it.titlecase() }} · ${homeStyle.spec(MaterialTheme.colorScheme.primary).label}",
                         onClick = { openSection = "app" }
                     )
                 }
@@ -254,14 +254,6 @@ fun SettingsScreen(
                         icon = Icons.Rounded.Subtitles,
                         statusText = "${if (subtitlesEnabledByDefault) "English Subs" else "Subs Off"} · ${if (preferredAudioLanguage == "en") "English Audio" else "Original Audio"}",
                         onClick = { openSection = "subtitles" }
-                    )
-                }
-                item(key = "sec-appearance") {
-                    SettingCardRow(
-                        title = "Profiles & Appearance",
-                        icon = Icons.Rounded.AccountCircle,
-                        statusText = "${colorTheme.name.lowercase().replaceFirstChar { it.titlecase() }} · ${homeStyle.spec(MaterialTheme.colorScheme.primary).label}",
-                        onClick = { openSection = "appearance" }
                     )
                 }
 
@@ -303,7 +295,11 @@ fun SettingsScreen(
                     SettingCardRow(
                         title = "Privacy & Proxy",
                         icon = Icons.Rounded.Shield,
-                        statusText = if (proxyEnabled) "Enabled" else "Off",
+                        statusText = when {
+                            proxyEnabled && proxyHost.contains("charlotte") -> "Charlotte VPN On"
+                            proxyEnabled -> "Custom Proxy On"
+                            else -> "Off"
+                        },
                         onClick = { openSection = "privacy" }
                     )
                 }
@@ -325,7 +321,17 @@ fun SettingsScreen(
                 }
 
                 if (openSection == "app" || openSection == "appearance") {
-                    item(key = "hdr-app") { SectionHeader("PROFILES & APPEARANCE") }
+                    item(key = "hdr-app-profiles") { SectionHeader("USER PROFILES") }
+                    item(key = "app-profile-item") {
+                        val activeName = allProfiles.firstOrNull { it.id == activeProfileId }?.name ?: "Main Profile"
+                        PreferenceItem(
+                            title = "Switch Profile",
+                            summary = "Current: $activeName · Create & manage profiles",
+                            icon = Icons.Rounded.AccountCircle,
+                            onClick = { showProfileDialog = true }
+                        )
+                    }
+                    item(key = "hdr-app-theme") { SectionHeader("PROFILES & APPEARANCE") }
                     item(key = "app-color") {
                         PreferenceItem(
                             title = "Color Theme",
@@ -354,6 +360,7 @@ fun SettingsScreen(
                             onSelected = { viewModel.setHomeStyle(it) }
                         )
                     }
+                    item(key = "hdr-app-prefs") { SectionHeader("APP PREFERENCES") }
                     item(key = "app-cutout") {
                         SwitchPreferenceItem(
                             title = "Keep camera hole clear",
@@ -495,16 +502,31 @@ fun SettingsScreen(
 
                 if (openSection == "privacy") {
                     item(key = "hdr-priv") { SectionHeader("PRIVACY & PROXY") }
-                    item(key = "priv-vpn") {
+                    item(key = "priv-charlotte") {
+                        val isCharlotteOn = proxyEnabled && proxyHost.contains("charlotte")
                         SwitchPreferenceItem(
-                            title = "Proxy (VPN)",
+                            title = "Built-in VPN (Charlotte, NC)",
+                            summary = if (isCharlotteOn) {
+                                "Connected to Charlotte, NC (USA) server"
+                            } else {
+                                "Route scrapers, streams and live TV traffic through Charlotte, NC server"
+                            },
+                            icon = Icons.Rounded.Shield,
+                            checked = isCharlotteOn,
+                            onCheckedChange = { viewModel.toggleCharlotteVpn(it) }
+                        )
+                    }
+                    item(key = "priv-vpn") {
+                        val isCustomOn = proxyEnabled && !proxyHost.contains("charlotte")
+                        SwitchPreferenceItem(
+                            title = "Custom Proxy (SOCKS5 / HTTP)",
                             summary = when {
-                                !proxyEnabled -> "Route scraper + torrent traffic through a SOCKS5/HTTP proxy"
-                                proxyHost.isBlank() || proxyPort <= 0 -> "On, but not configured — open Proxy settings"
+                                !isCustomOn -> "Off — enter custom proxy host & credentials below"
+                                proxyHost.isBlank() || proxyPort <= 0 -> "Unconfigured — open Proxy settings"
                                 else -> "${proxyType.name} · $proxyHost:$proxyPort"
                             },
                             icon = Icons.Rounded.VpnKey,
-                            checked = proxyEnabled,
+                            checked = isCustomOn,
                             onCheckedChange = {
                                 viewModel.saveProxy(it, proxyType, proxyHost, proxyPort, proxyUser, proxyPass)
                             }
@@ -512,8 +534,8 @@ fun SettingsScreen(
                     }
                     item(key = "priv-cfg") {
                         PreferenceItem(
-                            title = "Proxy settings",
-                            summary = "Host, port, credentials — test the connection",
+                            title = "Custom Proxy settings",
+                            summary = "Host, port, credentials — test connection",
                             icon = Icons.Rounded.Tune,
                             onClick = { showProxyDialog = true }
                         )

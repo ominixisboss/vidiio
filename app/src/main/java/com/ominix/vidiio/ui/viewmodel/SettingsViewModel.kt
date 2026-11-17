@@ -135,6 +135,12 @@ class SettingsViewModel(
         }
     }
 
+    fun toggleCharlotteVpn(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.enableCharlotteVpn(enabled)
+        }
+    }
+
     val metadataAddons: StateFlow<Set<String>> = settingsRepository.metadataAddonsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 

@@ -369,6 +369,23 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    suspend fun enableCharlotteVpn(enabled: Boolean = true) {
+        setProxy(
+            enabled = enabled,
+            type = ProxyType.SOCKS5,
+            host = CHARLOTTE_NC_VPN_HOST,
+            port = CHARLOTTE_NC_VPN_PORT,
+            username = "",
+            password = ""
+        )
+    }
+
+    companion object {
+        val DEFAULT_SUBTITLE_LANGUAGES = listOf("en")
+        const val CHARLOTTE_NC_VPN_HOST = "charlotte-nc.vpn.vidiio.app"
+        const val CHARLOTTE_NC_VPN_PORT = 1080
+    }
+
     suspend fun setSources(sources: Set<String>) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.SOURCES] = sources
@@ -497,10 +514,6 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.SUBTITLE_BG_COLOR] = style.backgroundColor
             preferences[PreferencesKeys.SUBTITLE_EDGE] = style.edge.name
         }
-    }
-
-    companion object {
-        val DEFAULT_SUBTITLE_LANGUAGES = listOf("en")
     }
 }
 
