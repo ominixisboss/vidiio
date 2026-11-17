@@ -91,6 +91,30 @@ class SettingsViewModel(
     val liveAddons: StateFlow<Set<String>> = settingsRepository.liveAddonsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val metadataProvider: StateFlow<com.ominix.vidiio.data.repository.MetadataProvider> = settingsRepository.metadataProviderFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.ominix.vidiio.data.repository.MetadataProvider.TMDB)
+
+    fun setMetadataProvider(provider: com.ominix.vidiio.data.repository.MetadataProvider) {
+        viewModelScope.launch {
+            settingsRepository.setMetadataProvider(provider)
+        }
+    }
+
+    val metadataAddons: StateFlow<Set<String>> = settingsRepository.metadataAddonsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun addMetadataAddon(url: String) {
+        viewModelScope.launch {
+            settingsRepository.addMetadataAddon(url)
+        }
+    }
+
+    fun removeMetadataAddon(url: String) {
+        viewModelScope.launch {
+            settingsRepository.removeMetadataAddon(url)
+        }
+    }
+
     val addonStoreEntries = MutableStateFlow<List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry>>(emptyList())
     val isAddonStoreLoading = MutableStateFlow(false)
 

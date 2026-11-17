@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -49,6 +50,83 @@ import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.theme.*
 import com.ominix.vidiio.ui.viewmodel.SettingsViewModel
 
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.5.sp,
+        color = Color.White.copy(alpha = 0.5f),
+        modifier = Modifier.padding(start = 28.dp, top = 20.dp, bottom = 8.dp)
+    )
+}
+
+@Composable
+private fun SettingCardRow(
+    title: String,
+    icon: ImageVector,
+    statusText: String? = null,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(14.dp)
+    var isFocused by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 4.dp)
+            .onFocusChanged { isFocused = it.isFocused }
+            .tvClickable(onClick = onClick, shape = shape),
+        shape = shape,
+        color = if (isFocused) Color.White else Color.White.copy(alpha = 0.08f),
+        border = BorderStroke(0.5.dp, if (isFocused) Color.White else Color.White.copy(alpha = 0.12f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = if (isFocused) Color.Black else Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(Modifier.width(16.dp))
+                Text(
+                    text = title,
+                    color = if (isFocused) Color.Black else Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (!statusText.isNullOrBlank()) {
+                    Text(
+                        text = statusText,
+                        color = if (isFocused) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.6f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = if (isFocused) Color.Black else Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -67,6 +145,8 @@ fun SettingsScreen(
     val prioritizePengu by viewModel.prioritizePengu.collectAsState()
     val selectedSources by viewModel.selectedSources.collectAsState()
     val stremioAddons by viewModel.stremioAddons.collectAsState()
+    val liveLinks by viewModel.liveLinks.collectAsState()
+    val liveAddons by viewModel.liveAddons.collectAsState()
     val subdlApiKey by viewModel.subdlApiKey.collectAsState()
     val subtitleLanguages by viewModel.subtitleLanguages.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
@@ -78,14 +158,8 @@ fun SettingsScreen(
     val proxyPort by viewModel.proxyPort.collectAsState()
     val proxyUser by viewModel.proxyUser.collectAsState()
     val proxyPass by viewModel.proxyPass.collectAsState()
-
-
-
-
-
-
-
-
+    val metadataProvider by viewModel.metadataProvider.collectAsState()
+    val metadataAddons by viewModel.metadataAddons.collectAsState()
 
     val addonStoreEntries by viewModel.addonStoreEntries.collectAsState()
     val isAddonStoreLoading by viewModel.isAddonStoreLoading.collectAsState()
@@ -95,13 +169,16 @@ fun SettingsScreen(
     // One section open at a time keeps the page short, so the remote never has far to scroll.
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
 
+    var showMetadataProviderDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddMetadataDialog by rememberSaveable { mutableStateOf(false) }
+    var metadataToRemove by remember { mutableStateOf<String?>(null) }
+    var metadataUrlToAdd by rememberSaveable { mutableStateOf("") }
+
     var showProxyDialog by rememberSaveable { mutableStateOf(false) }
     var showAddAddonDialog by rememberSaveable { mutableStateOf(false) }
     var showAddFromPcDialog by rememberSaveable { mutableStateOf(false) }
-    val liveLinks by viewModel.liveLinks.collectAsState()
     var showAddLiveLinkDialog by rememberSaveable { mutableStateOf(false) }
     var liveLinkToRemove by remember { mutableStateOf<com.ominix.vidiio.data.repository.LiveLink?>(null) }
-    val liveAddons by viewModel.liveAddons.collectAsState()
     var liveAddonToRemove by remember { mutableStateOf<String?>(null) }
     var addonToRemove by remember { mutableStateOf<String?>(null) }
     var focusAddAfterRemoval by remember { mutableStateOf(false) }
@@ -141,389 +218,550 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding),
-            contentPadding = PaddingValues(vertical = 12.dp, horizontal = 0.dp)
+            contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // --- Appearance Dropdown ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Appearance",
-                    summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() } + " · " + homeStyle.spec(MaterialTheme.colorScheme.primary).label,
-                    icon = Icons.Rounded.Palette,
-                    expanded = openSection == "appearance",
-                    onExpandedChange = { openSection = if (it) "appearance" else null }
-                ) {
-                    PreferenceItem(
-                        title = "Color Theme",
-                        summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() },
-                        icon = Icons.Rounded.Palette,
-                        onClick = null
-                    )
-                    ColorThemeSelectionRow(
-                        currentColorTheme = colorTheme,
-                        onColorThemeSelected = { viewModel.setColorTheme(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    PreferenceItem(
-                        title = "Home Layout",
-                        summary = homeStyle.spec(MaterialTheme.colorScheme.primary).label + " — restyles the Home tab",
-                        icon = Icons.Rounded.Dashboard,
-                        onClick = null
-                    )
-                    HomeStyleSelectionRow(
-                        current = homeStyle,
-                        onSelected = { viewModel.setHomeStyle(it) }
-                    )
-
-                }
-            }
-
-            // --- Playback Dropdown ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Playback",
-                    summary = (when (mediaPlayer) {
-                        MediaPlayerChoice.INTERNAL -> "Internal (ExoPlayer)"
-                        MediaPlayerChoice.VLC -> "VLC Player"
-                    }) + " · $playbackQuality",
-                    icon = Icons.Rounded.PlayCircle,
-                    expanded = openSection == "playback",
-                    onExpandedChange = { openSection = if (it) "playback" else null }
-                ) {
-                    PreferenceItem(
-                        title = "Preferred Media Player",
-                        summary = when (mediaPlayer) {
-                            MediaPlayerChoice.INTERNAL -> "Internal Player (ExoPlayer)"
-                            MediaPlayerChoice.VLC -> if (isVlcInstalled) "VLC Media Player" else "VLC Media Player (Not Installed)"
-                        },
-                        icon = Icons.Rounded.Tv,
-                        onClick = null
-                    )
-                    MediaPlayerSelectionRow(
-                        currentChoice = mediaPlayer,
-                        isVlcInstalled = isVlcInstalled,
-                        onChoiceSelected = { choice -> viewModel.setMediaPlayer(choice) },
-                        onInstallVlc = { viewModel.openVlcInPlayStore() }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    PreferenceItem(
-                        title = "Default Quality",
-                        summary = playbackQuality,
-                        icon = Icons.Rounded.HighQuality,
-                        onClick = null
-                    )
-                    QualitySelectionRow(
-                        currentQuality = playbackQuality,
-                        onQualitySelected = { viewModel.setPlaybackQuality(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    SwitchPreferenceItem(
-                        title = "Keep camera hole clear",
-                        summary = "Player fills the screen but stops short of the front camera",
-                        icon = Icons.Rounded.AspectRatio,
-                        checked = avoidCameraCutout,
-                        onCheckedChange = { viewModel.setAvoidCameraCutout(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    SwitchPreferenceItem(
-                        title = "Mouse Toggle",
-                        summary = "Enable virtual pointer overlay for TV navigation",
-                        icon = Icons.Rounded.Mouse,
-                        checked = mouseToggle,
-                        onCheckedChange = { viewModel.setMouseToggle(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    PreferenceItem(
-                        title = "Clear Cache",
-                        summary = "Clear image and data cache",
-                        icon = Icons.Rounded.DeleteSweep,
-                        onClick = { viewModel.clearCache() }
-                    )
-                }
-            }
-
-            // --- Subtitles & Captions Dropdown (Closable Subtitle Window) ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Subtitles & Captions",
-                    summary = subtitleLanguages.joinToString(", ") { it.uppercase() } +
-                        if (!subdlApiKey.isNullOrEmpty()) " · SubDL Connected" else "",
-                    icon = Icons.Rounded.Subtitles,
-                    expanded = openSection == "subtitles",
-                    onExpandedChange = { openSection = if (it) "subtitles" else null }
-                ) {
-                    SwitchPreferenceItem(
-                        title = "Subtitles",
-                        summary = if (subtitlesEnabledByDefault) {
-                            "Shown by default when you start playing something"
-                        } else {
-                            "Off by default; turn them on per-video from the player"
-                        },
-                        icon = Icons.Rounded.Subtitles,
-                        checked = subtitlesEnabledByDefault,
-                        onCheckedChange = { viewModel.setSubtitlesEnabledByDefault(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    PreferenceItem(
-                        title = "Subtitle languages",
-                        summary = subtitleLanguages.joinToString(", ") { it.uppercase() },
-                        icon = Icons.Rounded.Language,
-                        onClick = {
-                            subtitleLanguagesToSet = subtitleLanguages.joinToString(", ")
-                            showSubtitleLanguagesDialog = true
-                        }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    PreferenceItem(
-                        title = "SubDL API Key",
-                        summary = if (subdlApiKey.isNullOrEmpty()) "Not set" else "••••••••",
-                        icon = Icons.Rounded.Key,
-                        onClick = {
-                            apiKeyToSet = subdlApiKey ?: ""
-                            showApiKeyDialog = true
-                        }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    SwitchPreferenceItem(
-                        title = "Keep ASS/SSA styling",
-                        summary = if (assNativeStyling) {
-                            "Fancy subtitles keep their own fonts and positioning."
-                        } else {
-                            "Fancy subtitles are shown as plain text so appearance settings apply."
-                        },
-                        icon = Icons.Rounded.Style,
-                        checked = assNativeStyling,
-                        onCheckedChange = { viewModel.setAssNativeStyling(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    SubtitleAppearanceSection(
-                        style = subtitleStyle,
-                        onStyleChange = { viewModel.setSubtitleStyle(it) }
-                    )
-                }
-            }
-
-            // --- Privacy & Proxy Dropdown ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Privacy & Proxy",
-                    summary = when {
-                        !proxyEnabled -> "Off"
-                        proxyHost.isBlank() || proxyPort <= 0 -> "Unconfigured"
-                        else -> "${proxyType.name} · $proxyHost:$proxyPort"
-                    },
-                    icon = Icons.Rounded.Shield,
-                    expanded = openSection == "privacy",
-                    onExpandedChange = { openSection = if (it) "privacy" else null }
-                ) {
-                    SwitchPreferenceItem(
-                        title = "Proxy (VPN)",
-                        summary = when {
-                            !proxyEnabled -> "Route scraper + torrent traffic through a SOCKS5/HTTP proxy"
-                            proxyHost.isBlank() || proxyPort <= 0 -> "On, but not configured — open Proxy settings"
-                            else -> "${proxyType.name} · $proxyHost:$proxyPort"
-                        },
-                        icon = Icons.Rounded.VpnKey,
-                        checked = proxyEnabled,
-                        onCheckedChange = {
-                            viewModel.saveProxy(it, proxyType, proxyHost, proxyPort, proxyUser, proxyPass)
-                        }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    PreferenceItem(
-                        title = "Proxy settings",
-                        summary = "Host, port, credentials — test the connection",
+            if (openSection == null) {
+                // --- GENERAL ---
+                item(key = "hdr-general") { SectionHeader("GENERAL") }
+                item(key = "sec-app") {
+                    SettingCardRow(
+                        title = "App Settings",
                         icon = Icons.Rounded.Tune,
-                        onClick = { showProxyDialog = true }
+                        statusText = null,
+                        onClick = { openSection = "app" }
                     )
                 }
-            }
-
-            // --- Sources Dropdown ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Sources",
-                    summary = "${selectedSources.count { it == "knaben" || it == "tg" }} of 2 scrapers enabled",
-                    icon = Icons.Rounded.Public,
-                    expanded = openSection == "sources",
-                    onExpandedChange = { openSection = if (it) "sources" else null }
-                ) {
-                    val sources = listOf(
-                        "knaben" to "Knaben",
-                        "tg" to "TorrentGalaxy"
+                item(key = "sec-playback") {
+                    SettingCardRow(
+                        title = "Playback Settings",
+                        icon = Icons.Rounded.PlayCircle,
+                        statusText = "$playbackQuality · ${if (mediaPlayer == MediaPlayerChoice.VLC) "VLC" else "ExoPlayer"}",
+                        onClick = { openSection = "playback" }
                     )
-                    sources.forEachIndexed { index, (id, name) ->
-                        SourceToggleItem(
-                            name = name,
-                            enabled = selectedSources.contains(id),
-                            onToggle = { viewModel.toggleSource(id) }
-                        )
-                        if (index < sources.size - 1) {
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        }
-                    }
                 }
-            }
+                item(key = "sec-subtitles") {
+                    SettingCardRow(
+                        title = "Subtitle Settings",
+                        icon = Icons.Rounded.Subtitles,
+                        statusText = subtitleLanguages.joinToString(", ") { it.uppercase() },
+                        onClick = { openSection = "subtitles" }
+                    )
+                }
+                item(key = "sec-audio") {
+                    SettingCardRow(
+                        title = "Audio Settings",
+                        icon = Icons.Rounded.VolumeUp,
+                        statusText = "Tracks & Sync",
+                        onClick = { openSection = "subtitles" }
+                    )
+                }
+                item(key = "sec-appearance") {
+                    SettingCardRow(
+                        title = "Profiles & Appearance",
+                        icon = Icons.Rounded.AccountCircle,
+                        statusText = "${colorTheme.name.lowercase().replaceFirstChar { it.titlecase() }} · ${homeStyle.spec(MaterialTheme.colorScheme.primary).label}",
+                        onClick = { openSection = "appearance" }
+                    )
+                }
 
-            // --- Stremio Addons Dropdown ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Stremio Addons",
-                    summary = "${stremioAddons.size} addons installed",
-                    icon = Icons.Rounded.Extension,
-                    expanded = openSection == "addons",
-                    onExpandedChange = { openSection = if (it) "addons" else null }
-                ) {
-                    SwitchPreferenceItem(
-                        title = "Prioritize Pengu links",
-                        summary = "List and auto-play PenguPlay streams first",
+                // --- INTEGRATIONS & SOURCES ---
+                item(key = "hdr-integrations") { SectionHeader("INTEGRATIONS & SOURCES") }
+                item(key = "sec-metadata") {
+                    SettingCardRow(
+                        title = "Metadata Source",
+                        icon = Icons.Rounded.Category,
+                        statusText = metadataProvider.label,
+                        onClick = { showMetadataProviderDialog = true }
+                    )
+                }
+                item(key = "sec-addons") {
+                    SettingCardRow(
+                        title = "Addons",
                         icon = Icons.Rounded.Extension,
-                        checked = prioritizePengu,
-                        onCheckedChange = { viewModel.setPrioritizePengu(it) }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    val addFocus = remember { FocusRequester() }
-                    stremioAddons.forEach { addonUrl ->
-                        AddonRow(addonUrl = addonUrl, onRemove = { addonToRemove = addonUrl })
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    // Keeps the remote on the list after a removal, instead of dropping focus to nothing.
-                    androidx.compose.runtime.LaunchedEffect(stremioAddons.size) {
-                        if (focusAddAfterRemoval) {
-                            focusAddAfterRemoval = false
-                            delay(150)
-                            runCatching { addFocus.requestFocus() }
-                        }
-                    }
-                    PreferenceItem(
-                        title = "Addon Store",
-                        summary = "Browse & install community addons with one tap",
-                        icon = Icons.Rounded.Store,
-                        onClick = {
-                            viewModel.loadAddonStore()
-                            showAddonStoreSheet = true
-                        }
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    Box(Modifier.focusRequester(addFocus)) {
-                        PreferenceItem(
-                            title = "Add Stremio Addon",
-                            summary = "Enter manifest URL",
-                            icon = Icons.Rounded.Add,
-                            onClick = { showAddAddonDialog = true }
-                        )
-                    }
-                    PreferenceItem(
-                        title = "Add from your computer",
-                        summary = "Paste addon links in a browser on the same Wi-Fi",
-                        icon = Icons.Rounded.Computer,
-                        onClick = { showAddFromPcDialog = true }
+                        statusText = "${stremioAddons.size} Installed",
+                        onClick = { openSection = "addons" }
                     )
                 }
-            }
+                item(key = "sec-live") {
+                    SettingCardRow(
+                        title = "Live TV Links & Addons",
+                        icon = Icons.Rounded.LiveTv,
+                        statusText = "${liveAddons.size + liveLinks.size} Active",
+                        onClick = { openSection = "live" }
+                    )
+                }
+                item(key = "sec-sources") {
+                    SettingCardRow(
+                        title = "Scrapers & Providers",
+                        icon = Icons.Rounded.Search,
+                        statusText = "${selectedSources.size} Selected",
+                        onClick = { openSection = "sources" }
+                    )
+                }
+                item(key = "sec-privacy") {
+                    SettingCardRow(
+                        title = "Privacy & Proxy",
+                        icon = Icons.Rounded.Shield,
+                        statusText = if (proxyEnabled) "Enabled" else "Off",
+                        onClick = { openSection = "privacy" }
+                    )
+                }
+            } else {
+                item(key = "back-to-sections") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 12.dp)
+                            .tvClickable(onClick = { openSection = null }, shape = RoundedCornerShape(12.dp))
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Back to All Settings", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
 
-            // --- Live TV links & addons ---
-            item {
-                ExpandableSettingsSection(
-                    title = "Live TV Links & Addons",
-                    summary = when {
-                        liveLinks.isEmpty() && liveAddons.isEmpty() -> "Add sports addons, channel playlists or streams"
-                        else -> listOfNotNull(
-                            liveAddons.size.takeIf { it > 0 }?.let { "$it addon${if (it == 1) "" else "s"}" },
-                            liveLinks.size.takeIf { it > 0 }?.let { "$it link${if (it == 1) "" else "s"}" },
-                        ).joinToString(", ")
-                    },
-                    icon = Icons.Rounded.LiveTv,
-                    expanded = openSection == "live",
-                    onExpandedChange = { openSection = if (it) "live" else null }
-                ) {
-                    liveAddons.sortedBy { addonLabel(it).lowercase() }.forEach { url ->
-                        PreferenceItem(
-                            title = addonLabel(url),
-                            summary = "Live TV addon \u00b7 OK to remove",
+                if (openSection == "app" || openSection == "appearance") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Profiles & Appearance",
+                            summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() } + " · " + homeStyle.spec(MaterialTheme.colorScheme.primary).label,
+                            icon = Icons.Rounded.Palette,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            PreferenceItem(
+                                title = "Color Theme",
+                                summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() },
+                                icon = Icons.Rounded.Palette,
+                                onClick = null
+                            )
+                            ColorThemeSelectionRow(
+                                currentColorTheme = colorTheme,
+                                onColorThemeSelected = { viewModel.setColorTheme(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "Home Layout",
+                                summary = homeStyle.spec(MaterialTheme.colorScheme.primary).label + " — restyles the Home tab",
+                                icon = Icons.Rounded.Dashboard,
+                                onClick = null
+                            )
+                            HomeStyleSelectionRow(
+                                current = homeStyle,
+                                onSelected = { viewModel.setHomeStyle(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            SwitchPreferenceItem(
+                                title = "Keep camera hole clear",
+                                summary = "Player fills the screen but stops short of the front camera",
+                                icon = Icons.Rounded.AspectRatio,
+                                checked = avoidCameraCutout,
+                                onCheckedChange = { viewModel.setAvoidCameraCutout(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            SwitchPreferenceItem(
+                                title = "Mouse Toggle",
+                                summary = "Enable virtual pointer overlay for TV navigation",
+                                icon = Icons.Rounded.Mouse,
+                                checked = mouseToggle,
+                                onCheckedChange = { viewModel.setMouseToggle(it) }
+                            )
+                        }
+                    }
+                }
+
+                if (openSection == "playback") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Playback",
+                            summary = (when (mediaPlayer) {
+                                MediaPlayerChoice.INTERNAL -> "Internal (ExoPlayer)"
+                                MediaPlayerChoice.VLC -> "VLC Player"
+                            }) + " · $playbackQuality",
+                            icon = Icons.Rounded.PlayCircle,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            PreferenceItem(
+                                title = "Preferred Media Player",
+                                summary = when (mediaPlayer) {
+                                    MediaPlayerChoice.INTERNAL -> "Internal Player (ExoPlayer)"
+                                    MediaPlayerChoice.VLC -> if (isVlcInstalled) "VLC Media Player" else "VLC Media Player (Not Installed)"
+                                },
+                                icon = Icons.Rounded.Tv,
+                                onClick = null
+                            )
+                            MediaPlayerSelectionRow(
+                                currentChoice = mediaPlayer,
+                                isVlcInstalled = isVlcInstalled,
+                                onChoiceSelected = { choice -> viewModel.setMediaPlayer(choice) },
+                                onInstallVlc = { viewModel.openVlcInPlayStore() }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "Default Quality",
+                                summary = playbackQuality,
+                                icon = Icons.Rounded.HighQuality,
+                                onClick = null
+                            )
+                            QualitySelectionRow(
+                                currentQuality = playbackQuality,
+                                onQualitySelected = { viewModel.setPlaybackQuality(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "Clear Cache",
+                                summary = "Clear image and data cache",
+                                icon = Icons.Rounded.DeleteSweep,
+                                onClick = { viewModel.clearCache() }
+                            )
+                        }
+                    }
+                }
+
+                if (openSection == "subtitles") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Subtitles & Captions",
+                            summary = subtitleLanguages.joinToString(", ") { it.uppercase() } +
+                                if (!subdlApiKey.isNullOrEmpty()) " · SubDL Connected" else "",
+                            icon = Icons.Rounded.Subtitles,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            SwitchPreferenceItem(
+                                title = "Subtitles",
+                                summary = if (subtitlesEnabledByDefault) {
+                                    "Shown by default when you start playing something"
+                                } else {
+                                    "Off by default; turn them on per-video from the player"
+                                },
+                                icon = Icons.Rounded.Subtitles,
+                                checked = subtitlesEnabledByDefault,
+                                onCheckedChange = { viewModel.setSubtitlesEnabledByDefault(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "Subtitle languages",
+                                summary = subtitleLanguages.joinToString(", ") { it.uppercase() },
+                                icon = Icons.Rounded.Language,
+                                onClick = {
+                                    subtitleLanguagesToSet = subtitleLanguages.joinToString(", ")
+                                    showSubtitleLanguagesDialog = true
+                                }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "SubDL API Key",
+                                summary = if (subdlApiKey.isNullOrEmpty()) "Not set" else "••••••••",
+                                icon = Icons.Rounded.Key,
+                                onClick = {
+                                    apiKeyToSet = subdlApiKey ?: ""
+                                    showApiKeyDialog = true
+                                }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            SwitchPreferenceItem(
+                                title = "Keep ASS/SSA styling",
+                                summary = if (assNativeStyling) {
+                                    "Fancy subtitles keep their own fonts and positioning."
+                                } else {
+                                    "Fancy subtitles are shown as plain text so appearance settings apply."
+                                },
+                                icon = Icons.Rounded.Style,
+                                checked = assNativeStyling,
+                                onCheckedChange = { viewModel.setAssNativeStyling(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            SubtitleAppearanceSection(
+                                style = subtitleStyle,
+                                onStyleChange = { viewModel.setSubtitleStyle(it) }
+                            )
+                        }
+                    }
+                }
+
+                if (openSection == "privacy") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Privacy & Proxy",
+                            summary = when {
+                                !proxyEnabled -> "Off"
+                                proxyHost.isBlank() || proxyPort <= 0 -> "Unconfigured"
+                                else -> "${proxyType.name} · $proxyHost:$proxyPort"
+                            },
+                            icon = Icons.Rounded.Shield,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            SwitchPreferenceItem(
+                                title = "Proxy (VPN)",
+                                summary = when {
+                                    !proxyEnabled -> "Route scraper + torrent traffic through a SOCKS5/HTTP proxy"
+                                    proxyHost.isBlank() || proxyPort <= 0 -> "On, but not configured — open Proxy settings"
+                                    else -> "${proxyType.name} · $proxyHost:$proxyPort"
+                                },
+                                icon = Icons.Rounded.VpnKey,
+                                checked = proxyEnabled,
+                                onCheckedChange = {
+                                    viewModel.saveProxy(it, proxyType, proxyHost, proxyPort, proxyUser, proxyPass)
+                                }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            PreferenceItem(
+                                title = "Proxy settings",
+                                summary = "Host, port, credentials — test the connection",
+                                icon = Icons.Rounded.Tune,
+                                onClick = { showProxyDialog = true }
+                            )
+                        }
+                    }
+                }
+
+                if (openSection == "sources") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Sources",
+                            summary = "${selectedSources.count { it == "knaben" || it == "tg" }} of 2 scrapers enabled",
+                            icon = Icons.Rounded.Public,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            val sources = listOf(
+                                "knaben" to "Knaben",
+                                "tg" to "TorrentGalaxy"
+                            )
+                            sources.forEachIndexed { index, (id, name) ->
+                                SourceToggleItem(
+                                    name = name,
+                                    enabled = selectedSources.contains(id),
+                                    onToggle = { viewModel.toggleSource(id) }
+                                )
+                                if (index < sources.size - 1) {
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (openSection == "addons") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Stremio Addons",
+                            summary = "${stremioAddons.size} addons installed",
                             icon = Icons.Rounded.Extension,
-                            onClick = { liveAddonToRemove = url }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            SwitchPreferenceItem(
+                                title = "Prioritize Pengu links",
+                                summary = "List and auto-play PenguPlay streams first",
+                                icon = Icons.Rounded.Extension,
+                                checked = prioritizePengu,
+                                onCheckedChange = { viewModel.setPrioritizePengu(it) }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            val addFocus = remember { FocusRequester() }
+                            stremioAddons.forEach { addonUrl ->
+                                AddonRow(addonUrl = addonUrl, onRemove = { addonToRemove = addonUrl })
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                            PreferenceItem(
+                                title = "Addon Store",
+                                summary = "Browse & install community addons with one tap",
+                                icon = Icons.Rounded.Store,
+                                onClick = {
+                                    viewModel.loadAddonStore()
+                                    showAddonStoreSheet = true
+                                }
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            Box(Modifier.focusRequester(addFocus)) {
+                                PreferenceItem(
+                                    title = "Add Stremio Addon",
+                                    summary = "Enter manifest URL",
+                                    icon = Icons.Rounded.Add,
+                                    onClick = { showAddAddonDialog = true }
+                                )
+                            }
+                        }
                     }
-                    liveLinks.forEach { link ->
-                        PreferenceItem(
-                            title = link.name,
-                            summary = link.url,
-                            icon = Icons.Rounded.LiveTv,
-                            onClick = { liveLinkToRemove = link }
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                    }
-                    PreferenceItem(
-                        title = "Add link or addon",
-                        summary = "A sports or TV addon (manifest.json), an M3U playlist or a stream link",
-                        icon = Icons.Rounded.Add,
-                        onClick = { showAddLiveLinkDialog = true }
-                    )
-                    PreferenceItem(
-                        title = "Add from your computer",
-                        summary = "Paste links in a browser on the same Wi-Fi",
-                        icon = Icons.Rounded.Computer,
-                        onClick = { showAddFromPcDialog = true }
-                    )
                 }
-            }
 
-            // --- About Dropdown ---
-            item {
-                ExpandableSettingsSection(
-                    title = "About Vidiio",
-                    summary = "Version ${BuildConfig.VERSION_NAME}",
-                    icon = Icons.Rounded.Info,
-                    expanded = openSection == "about",
-                    onExpandedChange = { openSection = if (it) "about" else null }
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        SelectionContainer {
-                            Column {
+                if (openSection == "live") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "Live TV Links & Addons",
+                            summary = when {
+                                liveLinks.isEmpty() && liveAddons.isEmpty() -> "Add sports addons, channel playlists or streams"
+                                else -> "${liveAddons.size} addons · ${liveLinks.size} links"
+                            },
+                            icon = Icons.Rounded.LiveTv,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            liveAddons.sortedBy { addonLabel(it).lowercase() }.forEach { url ->
+                                PreferenceItem(
+                                    title = addonLabel(url),
+                                    summary = "Live TV addon \u00b7 OK to remove",
+                                    icon = Icons.Rounded.Extension,
+                                    onClick = { liveAddonToRemove = url }
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                            liveLinks.forEach { link ->
+                                PreferenceItem(
+                                    title = link.name,
+                                    summary = link.url,
+                                    icon = Icons.Rounded.LiveTv,
+                                    onClick = { liveLinkToRemove = link }
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                            PreferenceItem(
+                                title = "Add link or addon",
+                                summary = "A sports or TV addon (manifest.json), an M3U playlist or a stream link",
+                                icon = Icons.Rounded.Add,
+                                onClick = { showAddLiveLinkDialog = true }
+                            )
+                        }
+                    }
+                }
+
+                if (openSection == "about") {
+                    item {
+                        ExpandableSettingsSection(
+                            title = "About Vidiio",
+                            summary = "Version ${BuildConfig.VERSION_NAME}",
+                            icon = Icons.Rounded.Info,
+                            expanded = true,
+                            onExpandedChange = {}
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                SelectionContainer {
+                                    Column {
+                                        Text(
+                                            "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            "Commit ${BuildConfig.GIT_SHA}${if (BuildConfig.DEBUG) " · debug" else ""}",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                val updater = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.ominix.vidiio.VidiioApplication).appUpdater
+                                val updateScope = androidx.compose.runtime.rememberCoroutineScope()
+                                var updateStatus by remember { mutableStateOf<String?>(null) }
+                                TextButton(onClick = {
+                                    updateStatus = "Checking…"
+                                    updateScope.launch {
+                                        val update = updater.check()
+                                        updateStatus = if (update == null) "You're on the latest version." else null
+                                        updater.offered.value = update
+                                    }
+                                }) { Text("Check for updates") }
+                                updateStatus?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    "Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    "I made this app for my family and my homies. Enjoy! ❤️",
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium,
                                     fontSize = 14.sp
                                 )
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    "Commit ${BuildConfig.GIT_SHA}${if (BuildConfig.DEBUG) " · debug" else ""}",
+                                    "Movies, shows and anime in one place, powered by Stremio addons and multiple sources.",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 12.sp
+                                    fontSize = 13.sp
                                 )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Made by OOZI with Jetpack Compose", color = Color.Gray, fontSize = 12.sp)
+                                }
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        val updater = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.ominix.vidiio.VidiioApplication).appUpdater
-                        val updateScope = androidx.compose.runtime.rememberCoroutineScope()
-                        var updateStatus by remember { mutableStateOf<String?>(null) }
-                        TextButton(onClick = {
-                            updateStatus = "Checking…"
-                            updateScope.launch {
-                                val update = updater.check()
-                                updateStatus = if (update == null) "You're on the latest version." else null
-                                updater.offered.value = update
+                    }
+                }
+            }
+        }
+    }
+
+    if (showMetadataProviderDialog) {
+        val shape = RoundedCornerShape(20.dp)
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showMetadataProviderDialog = false }
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = shape,
+                color = Color(0xFF1E222A),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Metadata Source",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    com.ominix.vidiio.data.repository.MetadataProvider.entries.forEach { option ->
+                        val isChosen = option == metadataProvider
+                        val itemShape = RoundedCornerShape(12.dp)
+                        var itemFocused by remember { mutableStateOf(false) }
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { itemFocused = it.isFocused }
+                                .tvClickable(
+                                    onClick = {
+                                        viewModel.setMetadataProvider(option)
+                                        showMetadataProviderDialog = false
+                                    },
+                                    shape = itemShape
+                                ),
+                            shape = itemShape,
+                            color = if (isChosen || itemFocused) Color.White else Color.Transparent
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = option.label,
+                                    color = if (isChosen || itemFocused) Color.Black else Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = if (isChosen || itemFocused) FontWeight.Bold else FontWeight.Medium
+                                )
+                                if (isChosen) {
+                                    Icon(
+                                        Icons.Rounded.Check,
+                                        contentDescription = "Selected",
+                                        tint = if (itemFocused) Color.Black else Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
-                        }) { Text("Check for updates") }
-                        updateStatus?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            "I made this app for my family and my homies. Enjoy! ❤️",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            "Movies, shows and anime in one place, powered by Stremio addons and multiple sources.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Made by OOZI with Jetpack Compose", color = Color.Gray, fontSize = 12.sp)
                         }
                     }
                 }

@@ -34,6 +34,13 @@ enum class HomeStyle {
     FLIX, VIDIIO
 }
 
+enum class MetadataProvider(val label: String) {
+    TMDB("TMDb"),
+    TRAKT("Trakt"),
+    SIMKL("Simkl"),
+    ADDONS("Addons")
+}
+
 /** Preferred media player engine. Internal uses ExoPlayer; VLC uses external VLC app. */
 enum class MediaPlayerChoice {
     INTERNAL, VLC
@@ -110,6 +117,8 @@ class SettingsRepository(private val context: Context) {
         val PROXY_PORT = intPreferencesKey("proxy_port")
         val PROXY_USER = stringPreferencesKey("proxy_user")
         val PROXY_PASS = stringPreferencesKey("proxy_pass")
+        val METADATA_PROVIDER = stringPreferencesKey("metadata_provider")
+        val METADATA_ADDONS = stringSetPreferencesKey("metadata_addons")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -221,6 +230,36 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             val current = preferences[PreferencesKeys.STREMIO_ADDONS] ?: setOf("https://torrentio.strem.fun/manifest.json")
             preferences[PreferencesKeys.STREMIO_ADDONS] = current - url
+        }
+    }
+
+    val metadataProviderFlow: Flow<MetadataProvider> = context.dataStore.data.map { preferences ->
+        runCatching {
+            MetadataProvider.valueOf(preferences[PreferencesKeys.METADATA_PROVIDER] ?: "TMDB")
+        }.getOrDefault(MetadataProvider.TMDB)
+    }
+
+    suspend fun setMetadataProvider(provider: MetadataProvider) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.METADATA_PROVIDER] = provider.name
+        }
+    }
+
+    val metadataAddonsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.METADATA_ADDONS] ?: setOf("https://v3-cinemeta.strem.io/manifest.json")
+    }
+
+    suspend fun addMetadataAddon(url: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.METADATA_ADDONS] ?: setOf("https://v3-cinemeta.strem.io/manifest.json")
+            preferences[PreferencesKeys.METADATA_ADDONS] = current + url.trim()
+        }
+    }
+
+    suspend fun removeMetadataAddon(url: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.METADATA_ADDONS] ?: setOf("https://v3-cinemeta.strem.io/manifest.json")
+            preferences[PreferencesKeys.METADATA_ADDONS] = current - url
         }
     }
 
