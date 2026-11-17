@@ -418,15 +418,7 @@ fun PlayerScreen(
             PauseInfoPanel(movie, selectedEpisode)
         }
 
-        state.upNext?.let { next ->
-            UpNextOverlay(
-                next = next,
-                secondsLeft = state.upNextSeconds,
-                onPlayNow = playerViewModel::playNextEpisode,
-                onCancel = playerViewModel::cancelUpNext,
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 32.dp, bottom = 120.dp)
-            )
-        }
+
 
         if (state.isTorrentLoading || state.isBuffering || state.loadingNext) {
             PlayerLoadingOverlay(

@@ -215,37 +215,21 @@ class PlayerViewModel(
     private val creditsTracker = CreditsTracker()
     private var lastCreditsSampleAt = 0L
 
-    /** The episode finished: offer the next one with a 10 second countdown, if there is one. */
+    /** The episode finished: play next episode directly if available. */
     private fun onEpisodeEnded() {
-        if (!upNextDismissed && upNextJob?.isActive != true) startUpNext()
-    }
-
-    /** True after the viewer cancelled the countdown for this episode, so it is not offered again. */
-    private var upNextDismissed = false
-
-    private fun startUpNext() {
         val show = session.movie.value ?: return
         val next = com.ominix.vidiio.data.repository.nextEpisodeAfter(show, session.selectedEpisode.value) ?: return
-        upNextJob?.cancel()
-        upNextJob = viewModelScope.launch {
-            for (left in UP_NEXT_SECONDS downTo 1) {
-                _state.update { it.copy(upNext = next, upNextSeconds = left) }
-                delay(1000)
-            }
-            playNextEpisode()
-        }
+        startEpisode(next)
     }
 
-    /** Stay on the finished episode and dismiss the countdown. */
     fun cancelUpNext() {
-        upNextDismissed = true
         upNextJob?.cancel()
         _state.update { it.copy(upNext = null, upNextSeconds = 0) }
     }
 
-    /** Start the offered episode now (also what the countdown does when it reaches zero). */
     fun playNextEpisode() {
-        val next = _state.value.upNext ?: return
+        val show = session.movie.value ?: return
+        val next = com.ominix.vidiio.data.repository.nextEpisodeAfter(show, session.selectedEpisode.value) ?: return
         startEpisode(next)
     }
 
@@ -253,7 +237,6 @@ class PlayerViewModel(
         if (next.id == session.selectedEpisode.value?.id && _state.value.selectedSource != null) return
         creditsTracker.reset()
         nextPrefetched = false
-        upNextDismissed = false
         upNextJob?.cancel()
         skippedUrls.clear()
         // The saved resume point belongs to the episode that was playing, not to the one being switched to:
@@ -568,35 +551,6 @@ class PlayerViewModel(
                 // Halfway through, get the next episode ready in the background.
                 if (playing && duration > 0L && position > duration * 0.35) prefetchNextEpisode()
 
-                // Read the picture: rolling credits (dark frame, light text, held for a few seconds) start
-                // the countdown as soon as they appear, far earlier than the clock-based window below.
-                if (playing && duration > 0L && upNextJob?.isActive != true && !upNextDismissed &&
-                    !_state.value.loadingNext && _state.value.upNext == null
-                ) {
-                    val remaining = duration - position
-                    val inLastStretch = position > duration * 0.6 && remaining < 12 * 60_000L
-                    val now = android.os.SystemClock.elapsedRealtime()
-                    if (inLastStretch && now - lastCreditsSampleAt >= CREDITS_SAMPLE_MS) {
-                        lastCreditsSampleAt = now
-                        val pixels = runCatching { frameSampler?.invoke() }.getOrNull()
-                        if (pixels != null && creditsTracker.add(CreditsDetector.looksLikeCredits(pixels))) {
-                            creditsTracker.reset()
-                            startUpNext()
-                        }
-                    } else if (!inLastStretch) {
-                        creditsTracker.reset()
-                    }
-                }
-
-                // Netflix-style: offer the next episode when the credits are likely starting, not only at
-                // the very end. There is no credits marker to read, so use the closing stretch of the
-                // episode (longer for full-length episodes, which have longer credits).
-                if (playing && duration > 0L && upNextJob?.isActive != true && !upNextDismissed &&
-                    !_state.value.loadingNext && _state.value.upNext == null && duration - position <= creditsWindowMs(duration)
-                ) {
-                    startUpNext()
-                }
-
                 // Persist progress every ~10s of playback.
                 if (playing && duration > 0L && ++tick % 20 == 0) {
                     session.saveWatchProgress(position, duration)
@@ -616,16 +570,8 @@ class PlayerViewModel(
                         next = next.copy(
                             showSkipIntro = inIntroRange && !isIntroDismissed,
                             showSkipOutro = remaining < 120000L && duration > 120000L,
-                            showAutoNext = when {
-                                remaining in 1L..5000L && playing -> true
-                                remaining > 5000L -> false
-                                else -> next.showAutoNext
-                            },
-                            autoNextSeconds = if (remaining in 1L..5000L && playing) {
-                                (remaining / 1000).toInt() + 1
-                            } else {
-                                next.autoNextSeconds
-                            }
+                            showAutoNext = false,
+                            autoNextSeconds = 0
                         )
                     }
                     next
