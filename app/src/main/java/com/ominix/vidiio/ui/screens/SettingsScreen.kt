@@ -162,6 +162,8 @@ fun SettingsScreen(
     val metadataProvider by viewModel.metadataProvider.collectAsState()
     val metadataAddons by viewModel.metadataAddons.collectAsState()
     val preferredAudioLanguage by viewModel.preferredAudioLanguage.collectAsState()
+    val allProfiles by viewModel.allProfiles.collectAsState()
+    val activeProfileId by viewModel.activeProfileId.collectAsState()
 
     val addonStoreEntries by viewModel.addonStoreEntries.collectAsState()
     val isAddonStoreLoading by viewModel.isAddonStoreLoading.collectAsState()
@@ -170,6 +172,11 @@ fun SettingsScreen(
 
     // One section open at a time keeps the page short, so the remote never has far to scroll.
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
+
+    var showProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var showCreateProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var newProfileName by rememberSaveable { mutableStateOf("") }
+    var newProfileIsKids by rememberSaveable { mutableStateOf(false) }
 
     var showMetadataProviderDialog by rememberSaveable { mutableStateOf(false) }
     var showAddMetadataDialog by rememberSaveable { mutableStateOf(false) }

@@ -75,7 +75,7 @@ fun VidiioApp() {
     val settingsRepository = application.settingsRepository
 
     val homeStyle by settingsRepository.homeStyleFlow
-        .collectAsState(initial = com.ominix.vidiio.data.repository.HomeStyle.FLIX)
+        .collectAsState(initial = com.ominix.vidiio.data.repository.HomeStyle.VIDIIO)
 
     val mouseToggle by settingsRepository.mouseToggleFlow.collectAsState(initial = false)
 

@@ -152,13 +152,13 @@ class SettingsRepository(private val context: Context) {
     }
 
     val homeStyleFlow: Flow<HomeStyle> = context.dataStore.data.map { preferences ->
-        val raw = preferences[PreferencesKeys.HOME_STYLE] ?: HomeStyle.FLIX.name
+        val raw = preferences[PreferencesKeys.HOME_STYLE] ?: HomeStyle.VIDIIO.name
         try {
             HomeStyle.valueOf(raw)
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             Log.w(TAG, "SettingsRepository failed", e)
-            HomeStyle.FLIX
+            HomeStyle.VIDIIO
         }
     }
 

@@ -27,8 +27,34 @@ import kotlinx.coroutines.withContext
 class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val addonManager: com.ominix.vidiio.data.stremio.AddonManager,
-    private val context: Context
+    private val context: Context,
+    private val profileRepository: com.ominix.vidiio.data.repository.ProfileRepository? = null
 ) : ViewModel() {
+
+    val allProfiles: StateFlow<List<com.ominix.vidiio.data.model.UserProfile>> =
+        profileRepository?.allProfiles?.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+            ?: MutableStateFlow(emptyList())
+
+    val activeProfileId: StateFlow<String> =
+        settingsRepository.activeProfileIdFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "default")
+
+    fun switchProfile(id: String) {
+        viewModelScope.launch {
+            profileRepository?.switchProfile(id)
+        }
+    }
+
+    fun createProfile(name: String, colorHex: Long, isKids: Boolean) {
+        viewModelScope.launch {
+            profileRepository?.createProfile(name, colorHex, isKids)
+        }
+    }
+
+    fun deleteProfile(id: String) {
+        viewModelScope.launch {
+            profileRepository?.deleteProfile(id)
+        }
+    }
 
     val playbackQuality: StateFlow<String> = settingsRepository.playbackQualityFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Auto")
@@ -43,7 +69,7 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ColorTheme.RED)
 
     val homeStyle: StateFlow<HomeStyle> = settingsRepository.homeStyleFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeStyle.FLIX)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeStyle.VIDIIO)
 
     val avoidCameraCutout: StateFlow<Boolean> = settingsRepository.avoidCameraCutoutFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)

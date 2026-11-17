@@ -184,15 +184,15 @@ fun PlayerScreen(
         if (source.url.startsWith("magnet:")) {
             playerViewModel.setTorrentLoading(true)
             val timeoutJob = scope.launch {
-                delay(95000)
+                delay(30000)
                 if (playerViewModel.state.value.isTorrentLoading) {
-                    playerViewModel.showError("Torrent timed out (no peers found after 95 seconds).")
+                    playerViewModel.handleTorrentError(source)
                 }
             }
             service.getMetadata(source.url) { files ->
                 timeoutJob.cancel()
                 if (files == null) {
-                    playerViewModel.showError("Failed to fetch torrent metadata.")
+                    playerViewModel.handleTorrentError(source)
                     return@getMetadata
                 }
                 // Show the picker only for a genuinely ambiguous multi-file torrent that

@@ -875,6 +875,28 @@ class PlayerViewModel(
         _retryTrigger.update { it + 1 }
     }
 
+    fun handleTorrentError(failedSource: StreamSource) {
+        val currentUrl = failedSource.url
+        skippedUrls += currentUrl
+        session.updateSourceHealth(currentUrl, com.ominix.vidiio.data.repository.SourceHealth(com.ominix.vidiio.data.repository.SourceStatus.DEAD, note = "Torrent metadata error"))
+
+        val availableSources = session.streamSources.value
+        val nextSource = availableSources.firstOrNull {
+            it.url != currentUrl && !skippedUrls.contains(it.url) &&
+                !com.ominix.vidiio.data.repository.SourceHeaviness.isHeavy(it.serverName)
+        } ?: availableSources.firstOrNull { it.url != currentUrl && !skippedUrls.contains(it.url) }
+
+        if (nextSource != null) {
+            torrentPrepareRetries = 0
+            selectSource(nextSource)
+            viewModelScope.launch {
+                android.widget.Toast.makeText(getApplication(), "Torrent failed, switching to ${nextSource.serverName}", android.widget.Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            _state.update { it.copy(errorMessage = "Torrent Error: Failed to fetch metadata and no other sources available.", isTorrentLoading = false) }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         runCatching { session.saveWatchProgress(player.currentPosition, player.duration) }

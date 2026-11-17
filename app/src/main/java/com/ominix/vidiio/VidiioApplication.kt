@@ -310,6 +310,10 @@ class VidiioApplication : Application() {
         AddonManager(stremioRetrofit.create(StremioService::class.java), settingsRepository)
     }
 
+    val profileRepository: com.ominix.vidiio.data.repository.ProfileRepository by lazy {
+        com.ominix.vidiio.data.repository.ProfileRepository(database.userProfileDao(), settingsRepository)
+    }
+
     val sourceVerifier: SourceVerifier by lazy { SourceVerifier(playbackHttpClient) }
 
     val appUpdater: com.ominix.vidiio.data.update.AppUpdater by lazy {
