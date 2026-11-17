@@ -47,7 +47,7 @@ android {
         // from one place. Replace it and drop the fallback once a new key is issued.
         val tmdbApiKey = localProps.getProperty("tmdb.apiKey")
             ?: System.getenv("TMDB_API_KEY")
-            ?: "13385ad4858c3f8568ce182c7287d9a9"
+            ?: "67bc3fc278e2bcf6898c4624d57ba258"
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
 
         // Short commit the build came from, surfaced in Settings > About so a bug report
