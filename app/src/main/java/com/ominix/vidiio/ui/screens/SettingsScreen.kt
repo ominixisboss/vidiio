@@ -318,347 +318,307 @@ fun SettingsScreen(
                 }
 
                 if (openSection == "app" || openSection == "appearance") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Profiles & Appearance",
-                            summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() } + " · " + homeStyle.spec(MaterialTheme.colorScheme.primary).label,
+                    item(key = "hdr-app") { SectionHeader("PROFILES & APPEARANCE") }
+                    item(key = "app-color") {
+                        PreferenceItem(
+                            title = "Color Theme",
+                            summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() },
                             icon = Icons.Rounded.Palette,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            PreferenceItem(
-                                title = "Color Theme",
-                                summary = colorTheme.name.lowercase().replaceFirstChar { it.titlecase() },
-                                icon = Icons.Rounded.Palette,
-                                onClick = null
-                            )
-                            ColorThemeSelectionRow(
-                                currentColorTheme = colorTheme,
-                                onColorThemeSelected = { viewModel.setColorTheme(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "Home Layout",
-                                summary = homeStyle.spec(MaterialTheme.colorScheme.primary).label + " — restyles the Home tab",
-                                icon = Icons.Rounded.Dashboard,
-                                onClick = null
-                            )
-                            HomeStyleSelectionRow(
-                                current = homeStyle,
-                                onSelected = { viewModel.setHomeStyle(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            SwitchPreferenceItem(
-                                title = "Keep camera hole clear",
-                                summary = "Player fills the screen but stops short of the front camera",
-                                icon = Icons.Rounded.AspectRatio,
-                                checked = avoidCameraCutout,
-                                onCheckedChange = { viewModel.setAvoidCameraCutout(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            SwitchPreferenceItem(
-                                title = "Mouse Toggle",
-                                summary = "Enable virtual pointer overlay for TV navigation",
-                                icon = Icons.Rounded.Mouse,
-                                checked = mouseToggle,
-                                onCheckedChange = { viewModel.setMouseToggle(it) }
-                            )
-                        }
+                            onClick = null
+                        )
+                    }
+                    item(key = "app-color-row") {
+                        ColorThemeSelectionRow(
+                            currentColorTheme = colorTheme,
+                            onColorThemeSelected = { viewModel.setColorTheme(it) }
+                        )
+                    }
+                    item(key = "app-layout") {
+                        PreferenceItem(
+                            title = "Home Layout",
+                            summary = homeStyle.spec(MaterialTheme.colorScheme.primary).label + " — restyles the Home tab",
+                            icon = Icons.Rounded.Dashboard,
+                            onClick = null
+                        )
+                    }
+                    item(key = "app-layout-row") {
+                        HomeStyleSelectionRow(
+                            current = homeStyle,
+                            onSelected = { viewModel.setHomeStyle(it) }
+                        )
+                    }
+                    item(key = "app-cutout") {
+                        SwitchPreferenceItem(
+                            title = "Keep camera hole clear",
+                            summary = "Player fills the screen but stops short of the front camera",
+                            icon = Icons.Rounded.AspectRatio,
+                            checked = avoidCameraCutout,
+                            onCheckedChange = { viewModel.setAvoidCameraCutout(it) }
+                        )
+                    }
+                    item(key = "app-mouse") {
+                        SwitchPreferenceItem(
+                            title = "Mouse Toggle",
+                            summary = "Enable virtual pointer overlay for TV navigation",
+                            icon = Icons.Rounded.Mouse,
+                            checked = mouseToggle,
+                            onCheckedChange = { viewModel.setMouseToggle(it) }
+                        )
                     }
                 }
 
                 if (openSection == "playback") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Playback",
-                            summary = (when (mediaPlayer) {
-                                MediaPlayerChoice.INTERNAL -> "Internal (ExoPlayer)"
-                                MediaPlayerChoice.VLC -> "VLC Player"
-                            }) + " · $playbackQuality",
-                            icon = Icons.Rounded.PlayCircle,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            PreferenceItem(
-                                title = "Preferred Media Player",
-                                summary = when (mediaPlayer) {
-                                    MediaPlayerChoice.INTERNAL -> "Internal Player (ExoPlayer)"
-                                    MediaPlayerChoice.VLC -> if (isVlcInstalled) "VLC Media Player" else "VLC Media Player (Not Installed)"
-                                },
-                                icon = Icons.Rounded.Tv,
-                                onClick = null
-                            )
-                            MediaPlayerSelectionRow(
-                                currentChoice = mediaPlayer,
-                                isVlcInstalled = isVlcInstalled,
-                                onChoiceSelected = { choice -> viewModel.setMediaPlayer(choice) },
-                                onInstallVlc = { viewModel.openVlcInPlayStore() }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "Default Quality",
-                                summary = playbackQuality,
-                                icon = Icons.Rounded.HighQuality,
-                                onClick = null
-                            )
-                            QualitySelectionRow(
-                                currentQuality = playbackQuality,
-                                onQualitySelected = { viewModel.setPlaybackQuality(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "Clear Cache",
-                                summary = "Clear image and data cache",
-                                icon = Icons.Rounded.DeleteSweep,
-                                onClick = { viewModel.clearCache() }
-                            )
-                        }
+                    item(key = "hdr-pb") { SectionHeader("PLAYBACK SETTINGS") }
+                    item(key = "pb-player") {
+                        PreferenceItem(
+                            title = "Preferred Media Player",
+                            summary = when (mediaPlayer) {
+                                MediaPlayerChoice.INTERNAL -> "Internal Player (ExoPlayer)"
+                                MediaPlayerChoice.VLC -> if (isVlcInstalled) "VLC Media Player" else "VLC Media Player (Not Installed)"
+                            },
+                            icon = Icons.Rounded.Tv,
+                            onClick = null
+                        )
+                    }
+                    item(key = "pb-player-row") {
+                        MediaPlayerSelectionRow(
+                            currentChoice = mediaPlayer,
+                            isVlcInstalled = isVlcInstalled,
+                            onChoiceSelected = { choice -> viewModel.setMediaPlayer(choice) },
+                            onInstallVlc = { viewModel.openVlcInPlayStore() }
+                        )
+                    }
+                    item(key = "pb-qual") {
+                        PreferenceItem(
+                            title = "Default Quality",
+                            summary = playbackQuality,
+                            icon = Icons.Rounded.HighQuality,
+                            onClick = null
+                        )
+                    }
+                    item(key = "pb-qual-row") {
+                        QualitySelectionRow(
+                            currentQuality = playbackQuality,
+                            onQualitySelected = { viewModel.setPlaybackQuality(it) }
+                        )
+                    }
+                    item(key = "pb-cache") {
+                        PreferenceItem(
+                            title = "Clear Cache",
+                            summary = "Clear image and data cache",
+                            icon = Icons.Rounded.DeleteSweep,
+                            onClick = { viewModel.clearCache() }
+                        )
                     }
                 }
 
                 if (openSection == "subtitles") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Subtitles & Audio Settings",
-                            summary = subtitleLanguages.joinToString(", ") { it.uppercase() } + " · " + (if (preferredAudioLanguage == "en") "English Audio" else "Original Audio"),
+                    item(key = "hdr-sub") { SectionHeader("SUBTITLES & CAPTIONS") }
+                    item(key = "sub-enable") {
+                        SwitchPreferenceItem(
+                            title = "Subtitles",
+                            summary = if (subtitlesEnabledByDefault) {
+                                "Shown by default when you start playing something"
+                            } else {
+                                "Off by default; turn them on per-video from the player"
+                            },
                             icon = Icons.Rounded.Subtitles,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            Text("SUBTITLES & CAPTIONS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp))
-                            SwitchPreferenceItem(
-                                title = "Subtitles",
-                                summary = if (subtitlesEnabledByDefault) {
-                                    "Shown by default when you start playing something"
-                                } else {
-                                    "Off by default; turn them on per-video from the player"
-                                },
-                                icon = Icons.Rounded.Subtitles,
-                                checked = subtitlesEnabledByDefault,
-                                onCheckedChange = { viewModel.setSubtitlesEnabledByDefault(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "Subtitle languages",
-                                summary = subtitleLanguages.joinToString(", ") { it.uppercase() },
-                                icon = Icons.Rounded.Language,
-                                onClick = {
-                                    subtitleLanguagesToSet = subtitleLanguages.joinToString(", ")
-                                    showSubtitleLanguagesDialog = true
-                                }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "SubDL API Key",
-                                summary = if (subdlApiKey.isNullOrEmpty()) "Not set" else "••••••••",
-                                icon = Icons.Rounded.Key,
-                                onClick = {
-                                    apiKeyToSet = subdlApiKey ?: ""
-                                    showApiKeyDialog = true
-                                }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            SwitchPreferenceItem(
-                                title = "Keep ASS/SSA styling",
-                                summary = if (assNativeStyling) {
-                                    "Fancy subtitles keep their own fonts and positioning."
-                                } else {
-                                    "Fancy subtitles are shown as plain text so appearance settings apply."
-                                },
-                                icon = Icons.Rounded.Style,
-                                checked = assNativeStyling,
-                                onCheckedChange = { viewModel.setAssNativeStyling(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            SubtitleAppearanceSection(
-                                style = subtitleStyle,
-                                onStyleChange = { viewModel.setSubtitleStyle(it) }
-                            )
-
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            Text("AUDIO TRACK SETTINGS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(16.dp))
-                            SwitchPreferenceItem(
-                                title = "Default English Audio",
-                                summary = if (preferredAudioLanguage == "en") {
-                                    "Automatically select English audio track for dual-audio anime and foreign releases"
-                                } else {
-                                    "Play original audio track by default"
-                                },
-                                icon = Icons.AutoMirrored.Rounded.VolumeUp,
-                                checked = preferredAudioLanguage == "en",
-                                onCheckedChange = { enabled ->
-                                    viewModel.setPreferredAudioLanguage(if (enabled) "en" else "original")
-                                }
-                            )
-                        }
+                            checked = subtitlesEnabledByDefault,
+                            onCheckedChange = { viewModel.setSubtitlesEnabledByDefault(it) }
+                        )
+                    }
+                    item(key = "sub-lang") {
+                        PreferenceItem(
+                            title = "Subtitle languages",
+                            summary = subtitleLanguages.joinToString(", ") { it.uppercase() },
+                            icon = Icons.Rounded.Language,
+                            onClick = {
+                                subtitleLanguagesToSet = subtitleLanguages.joinToString(", ")
+                                showSubtitleLanguagesDialog = true
+                            }
+                        )
+                    }
+                    item(key = "sub-key") {
+                        PreferenceItem(
+                            title = "SubDL API Key",
+                            summary = if (subdlApiKey.isNullOrEmpty()) "Not set" else "••••••••",
+                            icon = Icons.Rounded.Key,
+                            onClick = {
+                                apiKeyToSet = subdlApiKey ?: ""
+                                showApiKeyDialog = true
+                            }
+                        )
+                    }
+                    item(key = "sub-ass") {
+                        SwitchPreferenceItem(
+                            title = "Keep ASS/SSA styling",
+                            summary = if (assNativeStyling) {
+                                "Fancy subtitles keep their own fonts and positioning."
+                            } else {
+                                "Fancy subtitles are shown as plain text so appearance settings apply."
+                            },
+                            icon = Icons.Rounded.Style,
+                            checked = assNativeStyling,
+                            onCheckedChange = { viewModel.setAssNativeStyling(it) }
+                        )
+                    }
+                    item(key = "sub-style") {
+                        SubtitleAppearanceSection(
+                            style = subtitleStyle,
+                            onStyleChange = { viewModel.setSubtitleStyle(it) }
+                        )
+                    }
+                    item(key = "hdr-aud") { SectionHeader("AUDIO TRACK SETTINGS") }
+                    item(key = "aud-eng") {
+                        SwitchPreferenceItem(
+                            title = "Default English Audio",
+                            summary = if (preferredAudioLanguage == "en") {
+                                "Automatically select English audio track for dual-audio anime and foreign releases"
+                            } else {
+                                "Play original audio track by default"
+                            },
+                            icon = Icons.AutoMirrored.Rounded.VolumeUp,
+                            checked = preferredAudioLanguage == "en",
+                            onCheckedChange = { enabled ->
+                                viewModel.setPreferredAudioLanguage(if (enabled) "en" else "original")
+                            }
+                        )
                     }
                 }
 
                 if (openSection == "privacy") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Privacy & Proxy",
+                    item(key = "hdr-priv") { SectionHeader("PRIVACY & PROXY") }
+                    item(key = "priv-vpn") {
+                        SwitchPreferenceItem(
+                            title = "Proxy (VPN)",
                             summary = when {
-                                !proxyEnabled -> "Off"
-                                proxyHost.isBlank() || proxyPort <= 0 -> "Unconfigured"
+                                !proxyEnabled -> "Route scraper + torrent traffic through a SOCKS5/HTTP proxy"
+                                proxyHost.isBlank() || proxyPort <= 0 -> "On, but not configured — open Proxy settings"
                                 else -> "${proxyType.name} · $proxyHost:$proxyPort"
                             },
-                            icon = Icons.Rounded.Shield,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            SwitchPreferenceItem(
-                                title = "Proxy (VPN)",
-                                summary = when {
-                                    !proxyEnabled -> "Route scraper + torrent traffic through a SOCKS5/HTTP proxy"
-                                    proxyHost.isBlank() || proxyPort <= 0 -> "On, but not configured — open Proxy settings"
-                                    else -> "${proxyType.name} · $proxyHost:$proxyPort"
-                                },
-                                icon = Icons.Rounded.VpnKey,
-                                checked = proxyEnabled,
-                                onCheckedChange = {
-                                    viewModel.saveProxy(it, proxyType, proxyHost, proxyPort, proxyUser, proxyPass)
-                                }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "Proxy settings",
-                                summary = "Host, port, credentials — test the connection",
-                                icon = Icons.Rounded.Tune,
-                                onClick = { showProxyDialog = true }
-                            )
-                        }
+                            icon = Icons.Rounded.VpnKey,
+                            checked = proxyEnabled,
+                            onCheckedChange = {
+                                viewModel.saveProxy(it, proxyType, proxyHost, proxyPort, proxyUser, proxyPass)
+                            }
+                        )
+                    }
+                    item(key = "priv-cfg") {
+                        PreferenceItem(
+                            title = "Proxy settings",
+                            summary = "Host, port, credentials — test the connection",
+                            icon = Icons.Rounded.Tune,
+                            onClick = { showProxyDialog = true }
+                        )
                     }
                 }
 
                 if (openSection == "sources") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Sources",
-                            summary = "${selectedSources.count { it == "knaben" || it == "tg" }} of 2 scrapers enabled",
-                            icon = Icons.Rounded.Public,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            val sources = listOf(
-                                "knaben" to "Knaben",
-                                "tg" to "TorrentGalaxy"
-                            )
-                            sources.forEachIndexed { index, (id, name) ->
-                                SourceToggleItem(
-                                    name = name,
-                                    enabled = selectedSources.contains(id),
-                                    onToggle = { viewModel.toggleSource(id) }
-                                )
-                                if (index < sources.size - 1) {
-                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                                }
-                            }
-                        }
+                    item(key = "hdr-src") { SectionHeader("SCRAPERS & PROVIDERS") }
+                    val sources = listOf(
+                        "knaben" to "Knaben",
+                        "tg" to "TorrentGalaxy"
+                    )
+                    items(sources) { (id, name) ->
+                        SourceToggleItem(
+                            name = name,
+                            enabled = selectedSources.contains(id),
+                            onToggle = { viewModel.toggleSource(id) }
+                        )
                     }
                 }
 
                 if (openSection == "addons") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Stremio Addons",
-                            summary = "${stremioAddons.size} addons installed",
+                    item(key = "hdr-addons") { SectionHeader("STREMIO ADDONS") }
+                    item(key = "addon-pengu") {
+                        SwitchPreferenceItem(
+                            title = "Prioritize Pengu links",
+                            summary = "List and auto-play PenguPlay streams first",
                             icon = Icons.Rounded.Extension,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            SwitchPreferenceItem(
-                                title = "Prioritize Pengu links",
-                                summary = "List and auto-play PenguPlay streams first",
-                                icon = Icons.Rounded.Extension,
-                                checked = prioritizePengu,
-                                onCheckedChange = { viewModel.setPrioritizePengu(it) }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            val addFocus = remember { FocusRequester() }
-                            stremioAddons.forEach { addonUrl ->
-                                AddonRow(addonUrl = addonUrl, onRemove = { addonToRemove = addonUrl })
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                            checked = prioritizePengu,
+                            onCheckedChange = { viewModel.setPrioritizePengu(it) }
+                        )
+                    }
+                    items(stremioAddons.toList(), key = { "ad-$it" }) { addonUrl ->
+                        AddonRow(addonUrl = addonUrl, onRemove = { addonToRemove = addonUrl })
+                    }
+                    item(key = "addon-store") {
+                        PreferenceItem(
+                            title = "Addon Store",
+                            summary = "Browse & install community addons with one tap",
+                            icon = Icons.Rounded.Store,
+                            onClick = {
+                                viewModel.loadAddonStore()
+                                showAddonStoreSheet = true
                             }
-                            PreferenceItem(
-                                title = "Addon Store",
-                                summary = "Browse & install community addons with one tap",
-                                icon = Icons.Rounded.Store,
-                                onClick = {
-                                    viewModel.loadAddonStore()
-                                    showAddonStoreSheet = true
-                                }
-                            )
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            Box(Modifier.focusRequester(addFocus)) {
-                                PreferenceItem(
-                                    title = "Add Stremio Addon",
-                                    summary = "Enter manifest URL",
-                                    icon = Icons.Rounded.Add,
-                                    onClick = { showAddAddonDialog = true }
-                                )
-                            }
-                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            PreferenceItem(
-                                title = "Add from your computer or phone",
-                                summary = "Open browser URL and enter 4-digit PIN",
-                                icon = Icons.Rounded.Computer,
-                                onClick = { showAddFromPcDialog = true }
-                            )
-                        }
+                        )
+                    }
+                    item(key = "addon-url") {
+                        PreferenceItem(
+                            title = "Add Stremio Addon (Manifest URL)",
+                            summary = "Paste manifest URL",
+                            icon = Icons.Rounded.Add,
+                            onClick = { showAddAddonDialog = true }
+                        )
+                    }
+                    item(key = "addon-pc") {
+                        PreferenceItem(
+                            title = "Add from your computer or phone",
+                            summary = "Open browser URL and enter 4-digit PIN",
+                            icon = Icons.Rounded.Computer,
+                            onClick = { showAddFromPcDialog = true }
+                        )
                     }
                 }
 
                 if (openSection == "live") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "Live TV Links & Addons",
-                            summary = when {
-                                liveLinks.isEmpty() && liveAddons.isEmpty() -> "Add sports addons, channel playlists or streams"
-                                else -> "${liveAddons.size} addons · ${liveLinks.size} links"
-                            },
+                    item(key = "hdr-live") { SectionHeader("LIVE TV LINKS & ADDONS") }
+                    items(liveAddons.sortedBy { addonLabel(it).lowercase() }, key = { "la-$it" }) { url ->
+                        PreferenceItem(
+                            title = addonLabel(url),
+                            summary = "Live TV addon \u00b7 OK to remove",
+                            icon = Icons.Rounded.Extension,
+                            onClick = { liveAddonToRemove = url }
+                        )
+                    }
+                    items(liveLinks, key = { "ll-${it.url}" }) { link ->
+                        PreferenceItem(
+                            title = link.name,
+                            summary = link.url,
                             icon = Icons.Rounded.LiveTv,
-                            expanded = true,
-                            onExpandedChange = {}
-                        ) {
-                            liveAddons.sortedBy { addonLabel(it).lowercase() }.forEach { url ->
-                                PreferenceItem(
-                                    title = addonLabel(url),
-                                    summary = "Live TV addon \u00b7 OK to remove",
-                                    icon = Icons.Rounded.Extension,
-                                    onClick = { liveAddonToRemove = url }
-                                )
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                            liveLinks.forEach { link ->
-                                PreferenceItem(
-                                    title = link.name,
-                                    summary = link.url,
-                                    icon = Icons.Rounded.LiveTv,
-                                    onClick = { liveLinkToRemove = link }
-                                )
-                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                            }
-                            PreferenceItem(
-                                title = "Add link or addon",
-                                summary = "A sports or TV addon (manifest.json), an M3U playlist or a stream link",
-                                icon = Icons.Rounded.Add,
-                                onClick = { showAddLiveLinkDialog = true }
-                            )
-                        }
+                            onClick = { liveLinkToRemove = link }
+                        )
+                    }
+                    item(key = "live-add") {
+                        PreferenceItem(
+                            title = "Add link or addon",
+                            summary = "A sports or TV addon (manifest.json), an M3U playlist or a stream link",
+                            icon = Icons.Rounded.Add,
+                            onClick = { showAddLiveLinkDialog = true }
+                        )
+                    }
+                    item(key = "live-pc") {
+                        PreferenceItem(
+                            title = "Add from your computer or phone",
+                            summary = "Open browser URL and enter 4-digit PIN",
+                            icon = Icons.Rounded.Computer,
+                            onClick = { showAddFromPcDialog = true }
+                        )
                     }
                 }
 
                 if (openSection == "about") {
-                    item {
-                        ExpandableSettingsSection(
-                            title = "About Vidiio",
-                            summary = "Version ${BuildConfig.VERSION_NAME}",
-                            icon = Icons.Rounded.Info,
-                            expanded = true,
-                            onExpandedChange = {}
+                    item(key = "hdr-about") { SectionHeader("ABOUT VIDIIO") }
+                    item(key = "about-card") {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp, vertical = 8.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White.copy(alpha = 0.06f),
+                            border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.12f))
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(20.dp)) {
                                 SelectionContainer {
                                     Column {
                                         Text(
@@ -736,7 +696,7 @@ fun SettingsScreen(
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 4.dp)
                     )
 
                     com.ominix.vidiio.data.repository.MetadataProvider.entries.forEach { option ->
@@ -774,16 +734,75 @@ fun SettingsScreen(
                                     Icon(
                                         Icons.Rounded.Check,
                                         contentDescription = "Selected",
-                                        tint = if (itemFocused) Color.Black else Color.Black,
+                                        tint = Color.Black,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
                         }
                     }
+
+                    if (metadataProvider == com.ominix.vidiio.data.repository.MetadataProvider.ADDONS) {
+                        Spacer(Modifier.height(4.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .tvClickable(
+                                    onClick = {
+                                        showMetadataProviderDialog = false
+                                        showAddMetadataDialog = true
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Paste Custom Metadata Addon URL", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
                 }
             }
         }
+    }
+
+    if (showAddMetadataDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddMetadataDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            title = { Text("Add Metadata Addon") },
+            text = {
+                OutlinedTextField(
+                    value = metadataUrlToAdd,
+                    onValueChange = { metadataUrlToAdd = it },
+                    label = { Text("Manifest URL (e.g. Cinemeta / Kitsu)") },
+                    placeholder = { Text("https://anime-kitsu.strem.fun/manifest.json") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val input = metadataUrlToAdd.trim()
+                        if (input.isNotBlank()) {
+                            viewModel.addMetadataAddon(input)
+                            viewModel.setMetadataProvider(com.ominix.vidiio.data.repository.MetadataProvider.ADDONS)
+                            metadataUrlToAdd = ""
+                            showAddMetadataDialog = false
+                            android.widget.Toast.makeText(context, "Metadata addon added", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) { Text("Add & Set Active") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddMetadataDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     // Dialogs preserved

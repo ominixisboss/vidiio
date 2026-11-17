@@ -120,6 +120,7 @@ class SettingsRepository(private val context: Context) {
         val METADATA_PROVIDER = stringPreferencesKey("metadata_provider")
         val METADATA_ADDONS = stringSetPreferencesKey("metadata_addons")
         val PREFERRED_AUDIO_LANGUAGE = stringPreferencesKey("preferred_audio_language")
+        val ACTIVE_PROFILE_ID = stringPreferencesKey("active_profile_id")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -253,6 +254,16 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPreferredAudioLanguage(lang: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.PREFERRED_AUDIO_LANGUAGE] = lang
+        }
+    }
+
+    val activeProfileIdFlow: Flow<String> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.ACTIVE_PROFILE_ID] ?: "default"
+    }
+
+    suspend fun setActiveProfileId(id: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.ACTIVE_PROFILE_ID] = id
         }
     }
 

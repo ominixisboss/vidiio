@@ -23,6 +23,7 @@ data class WatchProgress(
     val episodeLabel: String? = null,
     val positionMs: Long,
     val durationMs: Long,
+    val profileId: String = "default",
     val updatedAt: Long = System.currentTimeMillis()
 ) {
     val progressFraction: Float

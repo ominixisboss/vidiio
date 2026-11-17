@@ -13,6 +13,7 @@ data class FavoriteMovie(
     val rating: Double? = null,
     val type: String, // MOVIE or TV_SHOW
     val source: String,
+    val profileId: String = "default",
     val addedAt: Long = System.currentTimeMillis()
 )
 

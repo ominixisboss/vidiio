@@ -8,11 +8,12 @@ import androidx.room.TypeConverters
 import com.ominix.vidiio.data.model.DownloadConverters
 import com.ominix.vidiio.data.model.DownloadTask
 import com.ominix.vidiio.data.model.FavoriteMovie
+import com.ominix.vidiio.data.model.UserProfile
 import com.ominix.vidiio.data.model.WatchProgress
 
 @Database(
-    entities = [FavoriteMovie::class, DownloadTask::class, WatchProgress::class],
-    version = 5,
+    entities = [FavoriteMovie::class, DownloadTask::class, WatchProgress::class, UserProfile::class],
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(DownloadConverters::class)
@@ -20,6 +21,7 @@ abstract class VidiioDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun downloadDao(): DownloadDao
     abstract fun watchProgressDao(): WatchProgressDao
+    abstract fun userProfileDao(): UserProfileDao
 
     companion object {
         const val NAME = "vidiio-database"

@@ -25,6 +25,26 @@ import androidx.room.migration.Migration
  * ```
  */
 
+private val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `user_profiles` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `avatarColorHex` INTEGER NOT NULL,
+                `avatarIconName` TEXT NOT NULL,
+                `isKids` INTEGER NOT NULL,
+                `isDefault` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+        """.trimIndent())
+        db.execSQL("INSERT OR IGNORE INTO `user_profiles` (`id`, `name`, `avatarColorHex`, `avatarIconName`, `isKids`, `isDefault`, `createdAt`) VALUES ('default', 'Main Profile', 4293198100, 'face_1', 0, 1, ${System.currentTimeMillis()})")
+        db.execSQL("ALTER TABLE `favorite_movies` ADD COLUMN `profileId` TEXT NOT NULL DEFAULT 'default'")
+        db.execSQL("ALTER TABLE `watch_progress` ADD COLUMN `profileId` TEXT NOT NULL DEFAULT 'default'")
+    }
+}
+
 /**
  * Versions whose upgrade path is allowed to drop and recreate the database.
  *
@@ -34,4 +54,4 @@ import androidx.room.migration.Migration
 internal val LEGACY_DESTRUCTIVE_VERSIONS = intArrayOf(1, 2, 3, 4)
 
 /** All migrations, in order. Empty until the first bump past version 5. */
-internal val ALL_MIGRATIONS: Array<Migration> = arrayOf()
+internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_5_6)
