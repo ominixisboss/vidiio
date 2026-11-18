@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -700,6 +701,208 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    if (showProfileDialog) {
+        val shape = RoundedCornerShape(20.dp)
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showProfileDialog = false }
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = shape,
+                color = Color(0xFF1E222A),
+                border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "User Profiles",
+                        color = Color.White,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    allProfiles.ifEmpty {
+                        listOf(com.ominix.vidiio.data.model.UserProfile(id = "default", name = "Main Profile", isDefault = true))
+                    }.forEach { profile ->
+                        val isChosen = profile.id == activeProfileId
+                        val itemShape = RoundedCornerShape(12.dp)
+                        var itemFocused by remember { mutableStateOf(false) }
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .onFocusChanged { itemFocused = it.isFocused }
+                                .tvClickable(
+                                    onClick = {
+                                        viewModel.switchProfile(profile.id)
+                                        showProfileDialog = false
+                                        android.widget.Toast.makeText(context, "Switched to ${profile.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                    },
+                                    shape = itemShape
+                                ),
+                            shape = itemShape,
+                            color = if (isChosen || itemFocused) Color.White else Color.White.copy(alpha = 0.08f)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(profile.avatarColorHex)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (profile.isKids) Icons.Rounded.ChildCare else Icons.Rounded.Person,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(Modifier.width(12.dp))
+                                    Column {
+                                        Text(
+                                            text = profile.name,
+                                            color = if (isChosen || itemFocused) Color.Black else Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (profile.isKids) {
+                                            Text(
+                                                text = "Kids Mode",
+                                                color = if (isChosen || itemFocused) Color.Black.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+                                }
+                                if (isChosen) {
+                                    Icon(
+                                        Icons.Rounded.Check,
+                                        contentDescription = "Active",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .tvClickable(
+                                onClick = {
+                                    showProfileDialog = false
+                                    showCreateProfileDialog = true
+                                },
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .background(Color.White.copy(alpha = 0.1f))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Create New Profile", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showCreateProfileDialog) {
+        var createName by remember { mutableStateOf("") }
+        var createIsKids by remember { mutableStateOf(false) }
+        var selectedColorHex by remember { mutableStateOf(0xFFE50914) }
+
+        val avatarColors = listOf(0xFFE50914, 0xFF0063E5, 0xFF1CE783, 0xFF9C27B0, 0xFFFF9800, 0xFF00BCD4)
+
+        AlertDialog(
+            onDismissRequest = { showCreateProfileDialog = false },
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface,
+            title = { Text("Create New Profile") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    OutlinedTextField(
+                        value = createName,
+                        onValueChange = { createName = it },
+                        label = { Text("Profile Name") },
+                        placeholder = { Text("e.g. Alex, Mom, Kids") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Text("Avatar Color", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        avatarColors.forEach { colorHex ->
+                            val chosen = selectedColorHex == colorHex
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(colorHex))
+                                    .border(
+                                        if (chosen) 3.dp else 0.dp,
+                                        if (chosen) Color.White else Color.Transparent,
+                                        CircleShape
+                                    )
+                                    .clickable { selectedColorHex = colorHex },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (chosen) Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column {
+                            Text("Kids Profile Mode", fontWeight = FontWeight.Bold)
+                            Text("Filters content to G/PG & Kids shows", fontSize = 12.sp, color = Color.Gray)
+                        }
+                        Switch(
+                            checked = createIsKids,
+                            onCheckedChange = { createIsKids = it }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val input = createName.trim()
+                        if (input.isNotBlank()) {
+                            viewModel.createProfile(input, selectedColorHex, createIsKids)
+                            showCreateProfileDialog = false
+                            android.widget.Toast.makeText(context, "Profile '$input' created", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ) { Text("Create") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreateProfileDialog = false }) { Text("Cancel") }
+            }
+        )
     }
 
     if (showMetadataProviderDialog) {
