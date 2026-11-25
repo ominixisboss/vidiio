@@ -104,7 +104,7 @@ data class PlayerUiState(
     val isVlcActive: Boolean = false,
 ) {
     val isEmbed: Boolean
-        get() = selectedSource?.url?.let { it.contains("embed") || it.contains("vidsrc") } == true
+        get() = selectedSource?.let { it.isWebPage || it.url.contains("embed") || it.url.contains("vidsrc") } == true
 
     val isMagnet: Boolean
         get() = selectedSource?.url?.startsWith("magnet:") == true

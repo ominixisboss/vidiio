@@ -108,12 +108,14 @@ fun StremioStream.toStreamSource(): StreamSource? {
     val sizeBytes = (bh["videoSize"] as? Number)?.toLong()
     val label = (title ?: name ?: "").trim()
 
+    // Some providers (NuvioSports' PPV feeds) never link the file: the feed is their web player
+    // page, which the player opens in a WebView. Dropped here, it was missing from the list even
+    // though it was the only one carrying the event; flagged here, the UI can say a page opens.
+    val webPage = url.isNullOrBlank() && !externalUrl.isNullOrBlank()
+
     val streamUrl = when {
         !url.isNullOrBlank() -> url!!
-        // Some providers (NuvioSports' PPV feeds) never link the file: the stream is their web
-        // player page, which the player already opens in a WebView. Dropped here, that feed was
-        // missing from the list even though it was the only one carrying the event.
-        !externalUrl.isNullOrBlank() -> unwrapPlayerPage(externalUrl!!)
+        webPage -> unwrapPlayerPage(externalUrl!!)
         !infoHash.isNullOrBlank() -> buildMagnet(infoHash!!, filename ?: label.substringBefore('\n'))
         else -> return null
     }
@@ -133,6 +135,7 @@ fun StremioStream.toStreamSource(): StreamSource? {
         sourceName = "Stremio",
         sourceId = "stremio",
         serverName = displayName,
+        isWebPage = webPage,
         isM3u8 = streamUrl.substringBefore('?').endsWith(".m3u8", true),
         quality = QUALITY_RE.find(label)?.value?.uppercase() ?: QUALITY_RE.find(streamTitle.orEmpty())?.value?.uppercase(),
         size = sizeBytes?.let { humanSize(it) } ?: label.let {

@@ -288,7 +288,8 @@ fun LiveTvScreen(
                                             horizontalArrangement = Arrangement.SpaceBetween
                                         ) {
                                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                                                Text("⚡", fontSize = 16.sp)
+                                                // A web-player page is not a feed: say what the tap opens.
+                                                Text(if (source.isWebPage) "🌐" else "⚡", fontSize = 16.sp)
                                                 Spacer(Modifier.width(10.dp))
                                                 Column {
                                                     Text(
@@ -299,6 +300,13 @@ fun LiveTvScreen(
                                                         maxLines = 1,
                                                         overflow = TextOverflow.Ellipsis
                                                     )
+                                                    if (source.isWebPage) {
+                                                        Text(
+                                                            text = "Web player page · opens in the app",
+                                                            color = Color.White.copy(alpha = 0.6f),
+                                                            fontSize = 11.sp
+                                                        )
+                                                    }
                                                     source.quality?.let { q ->
                                                         Text(
                                                             text = "Quality: $q",
@@ -315,7 +323,7 @@ fun LiveTvScreen(
                                                     .background(FlixAccent.copy(alpha = 0.2f))
                                                     .padding(horizontal = 12.dp, vertical = 6.dp)
                                         ) {
-                                                Text("WATCH", color = FlixAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                Text(if (source.isWebPage) "OPEN" else "WATCH", color = FlixAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
