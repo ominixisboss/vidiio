@@ -182,7 +182,8 @@ fun LiveTvScreen(
                 onPlay(opening, streams.first())
             }
         }
-        if (streams == null || streams.size > 1) {
+        // One stream plays at once; none keeps the sheet up so the item and its outcome stay visible.
+        if (streams == null || streams.size != 1) {
             val shape = RoundedCornerShape(20.dp)
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = viewModel::dismiss,
@@ -248,7 +249,7 @@ fun LiveTvScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "No live streams found right now. Check back near game time!",
+                                    text = "No playable live stream for this one right now.",
                                     color = Color.White.copy(alpha = 0.7f),
                                     textAlign = TextAlign.Center,
                                     fontSize = 14.sp
