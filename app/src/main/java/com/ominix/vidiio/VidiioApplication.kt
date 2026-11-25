@@ -164,7 +164,12 @@ class VidiioApplication : Application() {
     // ── HTTP ─────────────────────────────────────────────────────────────────────
 
     private val loggingInterceptor by lazy {
-        HttpLoggingInterceptor().apply {
+        // Addon transport URLs carry their credentials in the path (PenguPlay's auth token,
+        // SubSource's account key), so every line is redacted before it reaches logcat, where
+        // `adb logcat` and any other app with log access could copy it.
+        HttpLoggingInterceptor { message ->
+            Log.i("OkHttp", com.ominix.vidiio.data.stremio.redactCredentials(message))
+        }.apply {
             // BODY buffers every full response into memory before returning it - with the
             // HTML-scraping sources that means multi-MB pages copied + UTF-8 decoded on the
             // hot path. HEADERS keeps the useful request/response lines without that cost.
@@ -327,6 +332,8 @@ class VidiioApplication : Application() {
     }
 
     val addonManager: AddonManager by lazy {
+        // [playbackHttpClient]: addon pages are scraped for their feed, so they get the client with
+        // the proxy setting, DoH and no logging (a logged body would buffer whole pages).
         AddonManager(stremioRetrofit.create(StremioService::class.java), settingsRepository)
     }
 

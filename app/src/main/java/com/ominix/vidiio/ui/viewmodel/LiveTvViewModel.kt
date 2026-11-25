@@ -138,11 +138,7 @@ class LiveTvViewModel(
                 events.map { event ->
                     async {
                         runCatching {
-                            addonManager.addonLiveStreams(event).mapNotNull { s ->
-                                s.toStreamSource()?.let { src ->
-                                    src.copy(serverName = "${event.addonName}: ${src.serverName}", isLive = true)
-                                }
-                            }
+                            addonManager.addonLiveStreams(event).toLiveSources(event.addonName)
                         }.onFailure { e -> if (e is CancellationException) throw e }.getOrDefault(emptyList())
                     }
                 }.awaitAll().flatten()
@@ -292,7 +288,7 @@ class LiveTvViewModel(
                 Log.w(TAG, "Live streams for ${movie.id} failed", e)
                 emptyList()
             }
-            val streams = offered.mapNotNull { it.toStreamSource()?.copy(isLive = true) }
+            val streams = offered.toLiveSources()
             // Entries that were all filtered out are PenguPlay's sign-in clip, not an empty
             // catalogue: say so, since the viewer's link is the thing that has to change.
             val emptyNote = if (addonEvent == null && offered.isNotEmpty() && streams.isEmpty()) SIGN_IN_NOTE else null
@@ -300,6 +296,20 @@ class LiveTvViewModel(
             // in two seconds, taking with it the only sign of what happened to the item just tapped.
             _state.update { if (it.opening?.id != movie.id) it else it.copy(streams = streams, emptyNote = emptyNote) }
         }
+    }
+
+    /**
+     * [streams] as playable sources, optionally tagged with the addon's own name.
+     *
+     * A provider that only offers a web player page is kept: the player opens those pages in its
+     * WebView, which is the only way that feed can be watched. "Support us" links are not feeds.
+     */
+    private fun List<com.ominix.vidiio.data.model.stremio.StremioStream>.toLiveSources(
+        prefix: String? = null,
+    ): List<StreamSource> = mapNotNull { stream ->
+        if (stream.externalUrl?.contains("donate", ignoreCase = true) == true) return@mapNotNull null
+        val live = stream.toStreamSource()?.copy(isLive = true) ?: return@mapNotNull null
+        if (prefix == null) live else live.copy(serverName = "$prefix: ${live.serverName}")
     }
 
     fun dismiss() {
