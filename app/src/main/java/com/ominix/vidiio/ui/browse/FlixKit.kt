@@ -165,6 +165,10 @@ fun FlixHeader(text: String, modifier: Modifier = Modifier) {
         color = Color.White,
         style = MaterialTheme.typography.titleLarge,
         fontWeight = FontWeight.Bold,
+        // Addon rows can carry long names ("Nuvio Live Sports · Sports Replays"); on a phone that
+        // ran off the edge. One line with an ellipsis keeps every row header the same height.
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
         modifier = modifier.padding(horizontal = 14.dp)
     )
 }
