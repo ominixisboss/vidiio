@@ -34,8 +34,6 @@ import com.ominix.vidiio.ui.components.ErrorState
 import com.ominix.vidiio.ui.components.FilterRow
 import com.ominix.vidiio.ui.components.MovieItem
 import com.ominix.vidiio.ui.components.PosterGridSkeleton
-import com.ominix.vidiio.ui.components.RiveAnimation
-import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalIsTv
 import com.ominix.vidiio.ui.viewmodel.SearchUiState
@@ -120,38 +118,12 @@ fun SearchScreen(
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             when (val state = uiState) {
-                is SearchUiState.Idle -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        RiveAnimation(
-                            url = "https://public.rive.app/community/runtime-files/2042-4040-avatar-pack-use-case.riv",
-                            modifier = Modifier.size(200.dp),
-                            fallback = {
-                                Icon(
-                                    Icons.Rounded.Search,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(100.dp).alpha(0.3f),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Find your next favorite",
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Search for movies, TV shows, and anime.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+                is SearchUiState.Idle -> EmptyState(
+                    title = "Find your next favorite",
+                    message = "Search for movies, TV shows, and anime.",
+                    icon = Icons.Rounded.Search,
+                    modifier = Modifier.align(Alignment.Center)
+                )
                 is SearchUiState.Loading -> {
                     PosterGridSkeleton(modifier = Modifier.fillMaxSize())
                 }

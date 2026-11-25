@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ominix.vidiio.data.model.Movie
@@ -26,8 +25,6 @@ import com.ominix.vidiio.ui.components.FilterRow
 import com.ominix.vidiio.ui.components.GlassCard
 import com.ominix.vidiio.ui.components.MovieItem
 import com.ominix.vidiio.ui.components.PosterGridSkeleton
-import com.ominix.vidiio.ui.components.RiveAnimation
-import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.viewmodel.FavoritesUiState
 import com.ominix.vidiio.ui.viewmodel.FavoritesViewModel
@@ -94,38 +91,12 @@ fun FavoritesScreen(
                     }
 
                     if (state.movies.isEmpty()) {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            RiveAnimation(
-                                url = "https://public.rive.app/community/runtime-files/2042-4040-avatar-pack-use-case.riv",
-                                modifier = Modifier.size(200.dp),
-                                fallback = {
-                                    Icon(
-                                        Icons.Rounded.FavoriteBorder,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(100.dp),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                    )
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "Your list is empty",
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Explore and add your favorite movies and shows here.",
-                                modifier = Modifier.padding(horizontal = 24.dp),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        EmptyState(
+                            title = "Your list is empty",
+                            message = "Explore and add your favorite movies and shows here.",
+                            icon = Icons.Rounded.FavoriteBorder,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
                     } else {
                         Column(modifier = Modifier.fillMaxSize()) {
                             FilterRow(
@@ -166,8 +137,11 @@ fun FavoritesScreen(
                         }
                     }
                 }
+                // The list is read from the local database, so there is nothing a retry could
+                // re-run here: the state explains the failure and offers no button.
                 is FavoritesUiState.Error -> ErrorState(
-                    onRetry = viewModel::retry,
+                    title = "Couldn't read your list",
+                    message = "Your saved titles live on this device. Restart Vidiio to try again.",
                     modifier = Modifier.align(Alignment.Center)
                 )
             }

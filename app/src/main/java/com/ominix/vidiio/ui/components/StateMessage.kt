@@ -7,6 +7,7 @@ import android.net.NetworkCapabilities
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,8 +16,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.ErrorOutline
@@ -57,51 +60,69 @@ fun StateMessage(
     onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        // A phone in landscape is ~360dp tall, and at 1.5x fonts the app bar leaves the states as
+        // little as 140dp. Below that the full-size state cannot fit, so it shrinks instead of
+        // pushing its last line under the navigation bar.
+        val compact = maxHeight < 190.dp
+        // A filtered list on a landscape phone leaves about 90dp once the filter chips are drawn:
+        // not enough for the icon, so the icon goes and the two lines stay visible.
+        // An action adds 48dp, so a retry has to lose the icon sooner than a plain message does.
+        val tiny = maxHeight < 120.dp || (actionLabel != null && maxHeight < 200.dp)
+        val iconBox = if (compact) 40.dp else 64.dp
+        val glyph = if (compact) 22.dp else 30.dp
+        Column(
             modifier = Modifier
-                .size(64.dp)
-                .background(Color.White.copy(alpha = 0.07f), CircleShape),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    horizontal = if (compact) 24.dp else 32.dp,
+                    vertical = if (tiny) 2.dp else if (compact) 8.dp else 16.dp
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(30.dp)
-            )
+        if (!tiny) {
+            Box(
+                modifier = Modifier
+                    .size(iconBox)
+                    .background(Color.White.copy(alpha = 0.07f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(glyph)
+                )
+            }
+            Spacer(Modifier.height(if (compact) 6.dp else 14.dp))
         }
-        Spacer(Modifier.height(14.dp))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground,
             textAlign = TextAlign.Center
         )
         if (!message.isNullOrBlank()) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(if (tiny) 2.dp else if (compact) 4.dp else 8.dp))
             Text(
                 text = message,
-                style = MaterialTheme.typography.bodyMedium,
+                style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
         }
         if (actionLabel != null && onAction != null) {
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(if (tiny) 8.dp else if (compact) 10.dp else 18.dp))
             val shape = RoundedCornerShape(24.dp)
             Button(
                 onClick = onAction,
                 shape = shape,
                 modifier = Modifier
-                    .heightIn(min = 48.dp)
+                    // Still a full-size target; only the padding around it shrinks.
+                    .heightIn(min = if (tiny) 44.dp else 48.dp)
                     .tvFocusRing(shape)
             ) {
                 Icon(Icons.Rounded.Refresh, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -109,39 +130,44 @@ fun StateMessage(
                 Text(actionLabel, fontWeight = FontWeight.SemiBold)
             }
         }
+        }
     }
 }
 
 /**
  * A failed load. The technical message stays in the log: what is shown is either "you're
  * offline" (when the device says so) or a plain apology, never "Error: java.io.IOException".
+ *
+ * [onRetry] is deliberately optional: only pass it when the load behind this state can actually
+ * be re-run from here (a network fetch). A screen reading the local database passes nothing, so
+ * it never offers a button that cannot change the outcome. Pass [title]/[message] for those local
+ * failures, where the default network copy would be wrong.
  */
 @Composable
 fun ErrorState(
     onRetry: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     title: String? = null,
+    message: String? = null,
 ) {
-    val online = rememberIsOnline()
-    if (!online) {
-        StateMessage(
-            title = title ?: "You're offline",
-            message = "Vidiio needs a connection for this. Check your network and try again.",
-            icon = Icons.Rounded.CloudOff,
-            actionLabel = if (onRetry != null) "Try again" else null,
-            onAction = onRetry,
-            modifier = modifier
-        )
-    } else {
-        StateMessage(
-            title = title ?: "Something went wrong",
-            message = "Vidiio couldn't load this. It may be a temporary problem.",
-            icon = Icons.Rounded.ErrorOutline,
-            actionLabel = if (onRetry != null) "Try again" else null,
-            onAction = onRetry,
-            modifier = modifier
-        )
-    }
+    // Offline copy only applies when the caller has not explained the failure itself.
+    val offline = title == null && !rememberIsOnline()
+    StateMessage(
+        title = when {
+            offline -> "You're offline"
+            title != null -> title
+            else -> "Something went wrong"
+        },
+        message = when {
+            offline -> "Vidiio needs a connection for this. Check your network and try again."
+            message != null -> message
+            else -> "Vidiio couldn't load this. It may be a temporary problem."
+        },
+        icon = if (offline) Icons.Rounded.CloudOff else Icons.Rounded.ErrorOutline,
+        actionLabel = if (onRetry != null) "Try again" else null,
+        onAction = onRetry,
+        modifier = modifier
+    )
 }
 
 /** Nothing to show: an empty list, or a filter that matched nothing. */

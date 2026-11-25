@@ -261,8 +261,16 @@ class MovieRepository(
         }.filter { it.movies.isNotEmpty() }
     }.getOrDefault(emptyList())
 
-    suspend fun search(query: String): List<Movie> = try {
+    /**
+     * Search that reports a failed lookup instead of returning an empty list. The search screen
+     * needs to tell "nothing matched" apart from "the request failed", otherwise being offline
+     * looks exactly like a query with no results.
+     */
+    suspend fun searchOrThrow(query: String): List<Movie> =
         tmdbService.searchMulti(query).results.map { it.toMovie() }
+
+    suspend fun search(query: String): List<Movie> = try {
+        searchOrThrow(query)
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         Log.e("MovieRepository", "Search error", e)

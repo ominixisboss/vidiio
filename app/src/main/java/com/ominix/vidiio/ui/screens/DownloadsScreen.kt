@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.ominix.vidiio.ui.components.EmptyState
 import com.ominix.vidiio.ui.components.FilterRow
 import com.ominix.vidiio.ui.components.GlassCard
-import com.ominix.vidiio.ui.components.RiveAnimation
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.viewmodel.DownloadsViewModel
 
@@ -113,37 +112,11 @@ fun DownloadsScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)
-                ) {
-                    RiveAnimation(
-                        url = "https://public.rive.app/community/runtime-files/2042-4040-avatar-pack-use-case.riv",
-                        modifier = Modifier.size(200.dp),
-                        fallback = {
-                            Icon(
-                                Icons.Rounded.CloudOff,
-                                contentDescription = null,
-                                modifier = Modifier.size(100.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "No downloads yet",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onBackground
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Downloads will appear here once you start saving content for offline viewing.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
+                EmptyState(
+                    title = "No downloads yet",
+                    message = "Downloads will appear here once you start saving content for offline viewing.",
+                    icon = Icons.Rounded.CloudOff
+                )
             }
         } else {
             Column(

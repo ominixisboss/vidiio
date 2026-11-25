@@ -52,7 +52,8 @@ class SearchViewModel(
         viewModelScope.launch {
             _uiState.value = SearchUiState.Loading
             try {
-                val results = movieRepository.search(currentQuery)
+                // searchOrThrow, not search: a failed request must not look like "no results".
+                val results = movieRepository.searchOrThrow(currentQuery)
                 _uiState.value = SearchUiState.Success(results)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
