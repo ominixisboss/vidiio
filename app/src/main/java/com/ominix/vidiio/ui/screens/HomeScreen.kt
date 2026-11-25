@@ -193,7 +193,8 @@ fun HomeScreen(
                         )
                     } else LazyColumn(
                         state = scrollState,
-                        modifier = Modifier.fillMaxSize(),
+                        // Clear the navigation bar, which sits over the last shelf in landscape.
+                        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
                         contentPadding = PaddingValues(bottom = 32.dp),
                         verticalArrangement = Arrangement.spacedBy(spec.rowGap)
                     ) {

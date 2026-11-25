@@ -104,7 +104,9 @@ fun LiveTvScreen(
 
     Box(modifier.fillMaxSize().background(FlixBackground)) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().statusBarsPadding(),
+            // Both insets: in landscape the navigation bar runs along the bottom (gesture) or the
+            // right edge (three buttons), and the last shelf must not end underneath it.
+            modifier = Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding(),
             contentPadding = PaddingValues(top = 14.dp, bottom = 48.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
