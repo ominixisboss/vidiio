@@ -1,5 +1,8 @@
 package com.ominix.vidiio.ui.player.components
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,10 +68,17 @@ fun EpisodeSidebar(
         runCatching { playingFocus.requestFocus() }
     }
 
+    // Arrives the same way the picker panels do, so every player menu reads as one kind of thing.
+    val slide = androidx.compose.runtime.remember { Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        slide.animateTo(1f, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow))
+    }
+
     Surface(
         modifier = modifier
             .fillMaxHeight()
-            .width(280.dp),
+            .width(280.dp)
+            .graphicsLayer { translationX = size.width * (1f - slide.value) },
         // Solid and dark with explicit light text: the theme surface can be light, and the video shows through a translucent one.
         color = Color(0xFF14161B),
         contentColor = Color.White

@@ -9,6 +9,9 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -61,6 +64,9 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
+
+/** Player menus animate themselves in; on the way out they only need a short fade. */
+private val MenuExit: ExitTransition = fadeOut(tween(130))
 
 /**
  * The player.
@@ -514,7 +520,7 @@ fun PlayerScreen(
             }
         }
 
-        if (showSubtitleMenu) {
+        AnimatedVisibility(visible = showSubtitleMenu, enter = EnterTransition.None, exit = MenuExit) {
             SubtitleMenu(
                 subtitles = subtitles,
                 selectedUrl = state.selectedSubtitleUrl,
@@ -528,7 +534,7 @@ fun PlayerScreen(
             )
         }
 
-        if (showSourcesMenu) {
+        AnimatedVisibility(visible = showSourcesMenu, enter = EnterTransition.None, exit = MenuExit) {
             SourcesPanel(
                 sources = streamSources,
                 selectedSource = state.selectedSource,
@@ -541,7 +547,7 @@ fun PlayerScreen(
             )
         }
 
-        if (showAudioMenu) {
+        AnimatedVisibility(visible = showAudioMenu, enter = EnterTransition.None, exit = MenuExit) {
             AudioMenu(
                 tracks = state.availableAudioTracks,
                 selectedTrack = state.selectedAudioTrack,
@@ -550,7 +556,7 @@ fun PlayerScreen(
             )
         }
 
-        if (showSpeedMenu) {
+        AnimatedVisibility(visible = showSpeedMenu, enter = EnterTransition.None, exit = MenuExit) {
             SpeedMenu(
                 currentSpeed = state.playbackSpeed,
                 onSpeedSelect = playerViewModel::setSpeed,
@@ -558,7 +564,7 @@ fun PlayerScreen(
             )
         }
 
-        if (showAspectMenu) {
+        AnimatedVisibility(visible = showAspectMenu, enter = EnterTransition.None, exit = MenuExit) {
             AspectMenu(
                 currentMode = state.resizeMode,
                 onModeSelect = playerViewModel::setResizeMode,

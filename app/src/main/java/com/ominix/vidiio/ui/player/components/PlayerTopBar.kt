@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +43,14 @@ fun PlayerTopBar(
     onPlayExternal: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    // A phone cannot hold the title, subtitle, quality badge, player mode and three actions in
+    // one row: the title was collapsing to an ellipsis. There the quality moves into the subtitle
+    // line and the player mode is abbreviated, so the title keeps its room.
+    val compact = LocalConfiguration.current.screenWidthDp < 600
+    val subtitleLine = if (compact) {
+        listOfNotNull(subtitle, quality?.uppercase()).joinToString(" · ").ifBlank { null }
+    } else subtitle
+
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -90,9 +99,9 @@ fun PlayerTopBar(
                     overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Bold
                 )
-                if (subtitle != null) {
+                if (subtitleLine != null) {
                     Text(
-                        text = subtitle,
+                        text = subtitleLine,
                         style = MaterialTheme.typography.bodyMedium,
                         color = Color.White.copy(alpha = 0.7f),
                         maxLines = 1,
@@ -103,7 +112,7 @@ fun PlayerTopBar(
 
             Spacer(modifier = Modifier.width(16.dp))
 
-            if (quality != null) {
+            if (quality != null && !compact) {
                 Surface(
                     color = Color.White.copy(alpha = 0.15f),
                     shape = RoundedCornerShape(8.dp),
@@ -140,7 +149,9 @@ fun PlayerTopBar(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = if (activePlayer == MediaPlayerChoice.VLC) "VLC PLAYER" else "INTERNAL",
+                                text = if (activePlayer == MediaPlayerChoice.VLC) {
+                                    if (compact) "VLC" else "VLC PLAYER"
+                                } else if (compact) "INT" else "INTERNAL",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold

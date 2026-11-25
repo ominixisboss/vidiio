@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.ominix.vidiio.ui.components.tvClickable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -26,6 +26,9 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+/** Below this width the transport needs two button rows: one row pushes the last controls off-screen. */
+private const val COMPACT_WIDTH_DP = 600
 
 @Composable
 fun PlayerTransport(
@@ -52,6 +55,9 @@ fun PlayerTransport(
     onToggleFullscreen: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // A phone has no room for the time label beside nine controls at the same time.
+    val compact = LocalConfiguration.current.screenWidthDp < COMPACT_WIDTH_DP
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -160,11 +166,7 @@ fun PlayerTransport(
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        val timeLabel: @Composable () -> Unit = {
             // A live feed has no end time: "00:00 / 00:00" reads like a broken video.
             Text(
                 text = if (isLive) "LIVE" else "${formatTime((sliderValue * duration).toLong())} / ${formatTime(duration)}",
@@ -172,98 +174,178 @@ fun PlayerTransport(
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (isLive) FontWeight.Bold else FontWeight.Medium
             )
+        }
 
-            // Continuous single focus row for all transport & secondary control buttons
-            val playPauseFocusRequester = remember { FocusRequester() }
-            LaunchedEffect(Unit) {
-                runCatching { playPauseFocusRequester.requestFocus() }
-            }
-
+        if (compact) {
+            // Time on its own line, then transport, then the menus: everything stays on screen.
+            timeLabel()
+            PrimaryTransport(isPlaying, onPlayPause, onRewind, onForward)
+            SecondaryTransport(
+                isSubtitlesActive = isSubtitlesActive,
+                isAudioActive = isAudioActive,
+                isSpeedActive = isSpeedActive,
+                isAspectActive = isAspectActive,
+                isFullscreen = isFullscreen,
+                playbackSpeed = playbackSpeed,
+                onToggleSubtitles = onToggleSubtitles,
+                onToggleAudio = onToggleAudio,
+                onToggleSpeed = onToggleSpeed,
+                onToggleSources = onToggleSources,
+                onToggleAspect = onToggleAspect,
+                onToggleFullscreen = onToggleFullscreen
+            )
+        } else {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                TransportIconButton(Icons.Rounded.Replay10, "Rewind", onClick = onRewind)
-                
-                Box(
-                    modifier = Modifier
-                        .focusRequester(playPauseFocusRequester)
-                        .tvClickable(
-                            onClick = onPlayPause,
-                            shape = CircleShape,
-                            focusScale = 1.12f
-                        ),
-                    contentAlignment = Alignment.Center
+                timeLabel()
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    IconButton(
-                        onClick = onPlayPause,
-                        modifier = Modifier.size(56.dp).focusProperties { canFocus = false },
-                        colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        Icon(
-                            if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = "Play/Pause",
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                }
+                    PrimaryTransport(isPlaying, onPlayPause, onRewind, onForward)
 
-                TransportIconButton(Icons.Rounded.Forward10, "Forward", onClick = onForward)
+                    Spacer(Modifier.width(8.dp))
 
-                Spacer(modifier = Modifier.width(8.dp))
-
-                TransportToggleIcon(
-                    icon = Icons.Rounded.Subtitles,
-                    isActive = isSubtitlesActive,
-                    onClick = onToggleSubtitles
-                )
-                TransportToggleIcon(
-                    icon = Icons.Rounded.Audiotrack,
-                    isActive = isAudioActive,
-                    onClick = onToggleAudio
-                )
-                
-                Box(
-                    modifier = Modifier.tvClickable(
-                        onClick = onToggleSpeed,
-                        shape = CircleShape,
-                        focusScale = 1.12f
-                    )
-                ) {
-                    TextButton(onClick = onToggleSpeed, modifier = Modifier.focusProperties { canFocus = false }) {
-                        Text(
-                            text = "${playbackSpeed}x",
-                            color = if (isSpeedActive) MaterialTheme.colorScheme.primary else Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-                }
-
-                if (onToggleSources != null) {
-                    TransportToggleIcon(
-                        icon = Icons.Rounded.SwapHoriz,
-                        isActive = false,
-                        onClick = onToggleSources
+                    SecondaryTransport(
+                        isSubtitlesActive = isSubtitlesActive,
+                        isAudioActive = isAudioActive,
+                        isSpeedActive = isSpeedActive,
+                        isAspectActive = isAspectActive,
+                        isFullscreen = isFullscreen,
+                        playbackSpeed = playbackSpeed,
+                        onToggleSubtitles = onToggleSubtitles,
+                        onToggleAudio = onToggleAudio,
+                        onToggleSpeed = onToggleSpeed,
+                        onToggleSources = onToggleSources,
+                        onToggleAspect = onToggleAspect,
+                        onToggleFullscreen = onToggleFullscreen
                     )
                 }
+            }
+        }
+    }
+}
 
-                TransportToggleIcon(
-                    icon = Icons.Rounded.AspectRatio,
-                    isActive = isAspectActive,
-                    onClick = onToggleAspect
+/** Rewind, play/pause, forward. Play/pause takes focus when the chrome appears. */
+@Composable
+private fun PrimaryTransport(
+    isPlaying: Boolean,
+    onPlayPause: () -> Unit,
+    onRewind: () -> Unit,
+    onForward: () -> Unit
+) {
+    val playPauseFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        runCatching { playPauseFocusRequester.requestFocus() }
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        TransportIconButton(Icons.Rounded.Replay10, "Rewind", onClick = onRewind)
+
+        Box(
+            modifier = Modifier
+                .focusRequester(playPauseFocusRequester)
+                .tvClickable(
+                    onClick = onPlayPause,
+                    shape = CircleShape,
+                    focusScale = 1.12f
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(
+                onClick = onPlayPause,
+                modifier = Modifier.size(56.dp).focusProperties { canFocus = false },
+                colors = IconButtonDefaults.iconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
                 )
-
-                TransportIconButton(
-                    if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                    "Fullscreen",
-                    onClick = onToggleFullscreen
+            ) {
+                Icon(
+                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    contentDescription = "Play/Pause",
+                    modifier = Modifier.size(32.dp)
                 )
             }
         }
+
+        TransportIconButton(Icons.Rounded.Forward10, "Forward", onClick = onForward)
+    }
+}
+
+/** The menu buttons: subtitles, audio, speed, sources, aspect, fullscreen. */
+@Composable
+private fun SecondaryTransport(
+    isSubtitlesActive: Boolean,
+    isAudioActive: Boolean,
+    isSpeedActive: Boolean,
+    isAspectActive: Boolean,
+    isFullscreen: Boolean,
+    playbackSpeed: Float,
+    onToggleSubtitles: () -> Unit,
+    onToggleAudio: () -> Unit,
+    onToggleSpeed: () -> Unit,
+    onToggleSources: (() -> Unit)?,
+    onToggleAspect: () -> Unit,
+    onToggleFullscreen: () -> Unit
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        TransportToggleIcon(
+            icon = Icons.Rounded.Subtitles,
+            isActive = isSubtitlesActive,
+            onClick = onToggleSubtitles
+        )
+        TransportToggleIcon(
+            icon = Icons.Rounded.Audiotrack,
+            isActive = isAudioActive,
+            onClick = onToggleAudio
+        )
+
+        Box(
+            modifier = Modifier.tvClickable(
+                onClick = onToggleSpeed,
+                shape = CircleShape,
+                focusScale = 1.12f
+            )
+        ) {
+            TextButton(onClick = onToggleSpeed, modifier = Modifier.focusProperties { canFocus = false }) {
+                Text(
+                    text = "${playbackSpeed}x",
+                    color = if (isSpeedActive) MaterialTheme.colorScheme.primary else Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        if (onToggleSources != null) {
+            TransportToggleIcon(
+                icon = Icons.Rounded.SwapHoriz,
+                isActive = false,
+                onClick = onToggleSources
+            )
+        }
+
+        TransportToggleIcon(
+            icon = Icons.Rounded.AspectRatio,
+            isActive = isAspectActive,
+            onClick = onToggleAspect
+        )
+
+        TransportIconButton(
+            if (isFullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+            "Fullscreen",
+            onClick = onToggleFullscreen
+        )
     }
 }
 

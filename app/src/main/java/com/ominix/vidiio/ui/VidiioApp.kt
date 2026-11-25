@@ -403,7 +403,15 @@ fun VidiioApp() {
     )
     val libraryTop = top == VidiioRoute.Library || top == VidiioRoute.Favorites || top == VidiioRoute.Downloads || top == VidiioRoute.Settings
     val library = item(VidiioRoute.Library, libraryTop, Icons.Rounded.VideoLibrary, "Library")
-    val barItems = listOf(home, movies, tv, anime, search, library)
+    // Six tabs on a phone is tight: the bar uses short labels so none of them is cut off.
+    val barItems = listOf(
+        item(VidiioRoute.Home, top == VidiioRoute.Home, Icons.Rounded.Home, "Home"),
+        item(VidiioRoute.Movies, top == VidiioRoute.Movies, Icons.Rounded.Movie, "Movies"),
+        item(VidiioRoute.TvShows, top == VidiioRoute.TvShows, Icons.Rounded.Tv, "TV"),
+        item(VidiioRoute.Anime, top == VidiioRoute.Anime, Icons.Rounded.AutoAwesome, "Anime"),
+        item(VidiioRoute.Search(), top is VidiioRoute.Search, Icons.Rounded.Search, "Search"),
+        item(VidiioRoute.Library, libraryTop, Icons.Rounded.VideoLibrary, "Library"),
+    )
     val useBottomBar = layoutType == NavigationSuiteType.NavigationBar
 
     // Phones get search + library shortcuts on the pages' headers; TVs and tablets have the menu.
