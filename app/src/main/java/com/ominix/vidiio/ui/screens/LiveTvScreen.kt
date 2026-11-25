@@ -249,7 +249,7 @@ fun LiveTvScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
-                                    text = "No playable live stream for this one right now.",
+                                    text = state.emptyNote ?: "No playable live stream for this one right now.",
                                     color = Color.White.copy(alpha = 0.7f),
                                     textAlign = TextAlign.Center,
                                     fontSize = 14.sp
