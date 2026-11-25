@@ -765,7 +765,39 @@ class PlayerViewModel(
     // ── Transport ────────────────────────────────────────────────────────────
 
     fun togglePlayPause() = if (player.isPlaying) pause() else play()
-    fun play() = player.play()
+
+    fun play() {
+        snapToLiveEdgeIfBehind()
+        player.play()
+    }
+
+    /**
+     * Re-joins the live edge when playback resumes well behind it.
+     *
+     * A paused live feed keeps its position while the playlist keeps sliding, so resuming just
+     * continues from wherever it stopped - minutes behind for a long pause, because nothing
+     * here ever asked to move forward. ExoPlayer only reports BEHIND_LIVE_WINDOW once the
+     * position has already left the window, which leaves everything between the live edge and
+     * the window edge playing as a recording. This closes that gap.
+     *
+     * A fresh live open sits a few target durations behind the end, so the threshold is that
+     * offset plus slack: a short pause keeps its DVR position, a long one rejoins live.
+     */
+    private fun snapToLiveEdgeIfBehind() {
+        if (!isLiveFeed() || player.playbackState == Player.STATE_IDLE) return
+        // The DVR window length for a live feed; unset until the playlist has been parsed.
+        val window = player.duration
+        if (window <= 0L) return
+        val behind = window - player.currentPosition
+        // Half the window, capped: a live playlist can carry minutes of DVR or only a handful
+        // of segments, and the threshold has to make sense for both.
+        if (behind <= minOf(LIVE_EDGE_SNAP_BEHIND_MS, window / 2)) return
+        // Same idea for where to land: keep an eighth of the window as headroom, never more
+        // than the fixed padding, so a 60 s window is not rejoined 30 s back.
+        val headroom = minOf(LIVE_EDGE_PADDING_MS, window / 8)
+        player.seekTo(player.currentMediaItemIndex, (window - headroom).coerceAtLeast(0L))
+    }
+
     fun pause() {
         player.pause()
         runCatching { session.saveWatchProgress(player.currentPosition, player.duration) }
@@ -1007,3 +1039,9 @@ private const val LIVE_RETRY_LIMIT = 3
 
 /** Wait before each live retry; multiplied by the attempt number so a dead feed backs off. */
 private const val LIVE_RETRY_DELAY_MS = 1_500L
+
+/** How far behind the window end a resumed live feed may sit before it rejoins the edge. */
+private const val LIVE_EDGE_SNAP_BEHIND_MS = 60_000L
+
+/** Headroom a rejoin leaves at the window end: the newest segments may still be being written. */
+private const val LIVE_EDGE_PADDING_MS = 30_000L
