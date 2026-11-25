@@ -329,7 +329,6 @@ class LiveTvViewModel(
         const val SCORES_REFRESH_MS = 60_000L
 
         /** Why a PenguPlay live item has nothing to play: the addon answered with its sign-in clip. */
-        const val SIGN_IN_NOTE = "PenguPlay answered with its sign-in clip instead of a stream. " +
-            "Sign in at pengu.uk and re-add your link in Settings."
+        const val SIGN_IN_NOTE = com.ominix.vidiio.data.stremio.SIGN_IN_CLIP_NOTE
     }
 }

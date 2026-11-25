@@ -33,6 +33,13 @@ data class InstalledAddon(val url: String, val manifest: Manifest) {
     val baseUrl: String get() = url.substringBeforeLast('/') + "/"
 }
 
+/**
+ * What the installed addons answered for one stream request: their streams, plus whether a
+ * PenguPlay addon answered with nothing but its sign-in clip, so its links were withheld
+ * rather than simply absent.
+ */
+data class AddonStreams(val streams: List<StremioStream>, val penguSignInOnly: Boolean = false)
+
 class AddonManager(
     private val stremioService: StremioService,
     private val settingsRepository: SettingsRepository,
@@ -75,11 +82,11 @@ class AddonManager(
      * shared deadline over the whole batch, that slow answer cancelled every other addon's
      * links with it - the addon that needed the time was the one that lost everything.
      */
-    suspend fun getStreams(type: String, id: String): List<StremioStream> = coroutineScope {
+    suspend fun getStreams(type: String, id: String): AddonStreams = coroutineScope {
         val streamAddons = getInstalledAddons().filter { it.manifest.hasResource("stream") }
-        streamAddons.map { addon ->
+        val answers = streamAddons.map { addon ->
             async {
-                try {
+                val offered = try {
                     withTimeoutOrNull(streamBudgetMs(addon)) {
                         stremioService.getStreams("${addon.baseUrl}stream/$type/$id.json").streams
                     }.orEmpty()
@@ -88,8 +95,17 @@ class AddonManager(
                     Log.e("AddonManager", "Error fetching streams from ${addon.manifest.name}", e)
                     emptyList()
                 }
+                addon to offered
             }
-        }.awaitAll().flatten()
+        }.awaitAll()
+        AddonStreams(
+            streams = answers.flatMap { it.second },
+            // An answer made only of sign-in clips means this addon's links were withheld, not absent.
+            penguSignInOnly = answers.any { (addon, offered) ->
+                addon.baseUrl.contains("pengu.uk", ignoreCase = true) &&
+                    offered.isNotEmpty() && offered.all { it.isSignInClip() }
+            },
+        )
     }
 
     /** How long one addon may take to answer a stream request. */
@@ -460,9 +476,15 @@ class AddonManager(
         emptyList()
     }
 
-    /** The playable streams for one PenguPlay live event or channel. */
+    /**
+     * The playable streams for one PenguPlay live event or channel. Empty when it does not answer
+     * in time: the sheet waiting on this must never spin forever.
+     */
     suspend fun penguLiveStreams(type: String, id: String): List<StremioStream> =
-        stremioService.getStreams("${penguBaseUrl()}stream/$type/${java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")}.json").streams
+        withTimeoutOrNull(PENGU_LIVE_TIMEOUT_MS) {
+            stremioService.getStreams("${penguBaseUrl()}stream/$type/${java.net.URLEncoder.encode(id, "UTF-8").replace("+", "%20")}.json").streams
+        }.also { if (it == null) Log.w("AddonManager", "PenguPlay live streams timed out after ${PENGU_LIVE_TIMEOUT_MS}ms") }
+            .orEmpty()
 
     private fun Manifest.hasResource(name: String): Boolean {
         val res = resources ?: return false
@@ -493,6 +515,9 @@ class AddonManager(
 
         /** PenguPlay asks ~27 providers at once and needs far longer than a scraper addon. */
         private const val PENGU_STREAM_TIMEOUT_MS = 60_000L
+
+        /** Budget for one live event or channel, so the Live TV sheet cannot wait forever. */
+        private const val PENGU_LIVE_TIMEOUT_MS = 45_000L
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(

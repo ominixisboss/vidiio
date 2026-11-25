@@ -82,6 +82,10 @@ class MediaSession(
     private val _isSearchingSources = MutableStateFlow(true)
     val isSearchingSources: StateFlow<Boolean> = _isSearchingSources.asStateFlow()
 
+    /** Why addon sources are missing, when the search has something the viewer can act on. */
+    private val _sourcesNote = MutableStateFlow<String?>(null)
+    val sourcesNote: StateFlow<String?> = _sourcesNote.asStateFlow()
+
     private val _subtitles = MutableStateFlow<List<SubtitleTrack>>(emptyList())
     val subtitles: StateFlow<List<SubtitleTrack>> = _subtitles.asStateFlow()
 
@@ -267,12 +271,13 @@ class MediaSession(
         scrapingJob?.cancel()
         scrapingJob = scope.launch {
             _isSearchingSources.value = true
+            _sourcesNote.value = null
             try {
                 // Collect until every scraper has finished or the overall budget is hit.
                 // The per-scraper timeout lives in MovieRepository; don't cut them off early
                 // here — the crypto-heavy providers (Cinejoy, VidSrc, Stremio) need >12s.
                 withTimeoutOrNull(SCRAPE_TIMEOUT_MS) {
-                    movieRepository.getStreamSources(movie, episode)
+                    movieRepository.getStreamSources(movie, episode) { note -> _sourcesNote.value = note }
                         .collect { source ->
                             // A result for another episode (a late arrival from the previous one, or an addon that
                             // answers with the wrong file) must never reach the picker.
@@ -303,6 +308,7 @@ class MediaSession(
         cancelProbes()
         _sourceHealth.value = emptyMap()
         _allFoundSources.value = emptyList()
+        _sourcesNote.value = null
         _selectedEpisode.value = episode
         // observeSettings() re-scrapes on the episode change.
     }

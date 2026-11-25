@@ -25,6 +25,14 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+/** The parts of the details screen that come from [MediaSession] but are not the sources themselves. */
+private data class DetailsExtras(
+    val searching: Boolean,
+    val favorite: Boolean,
+    val error: String?,
+    val note: String?,
+)
+
 sealed interface DetailsUiState {
     data object Loading : DetailsUiState
     data class Success(
@@ -33,7 +41,9 @@ sealed interface DetailsUiState {
         val subtitles: List<SubtitleTrack> = emptyList(),
         val isFavorite: Boolean = false,
         val selectedEpisode: Episode? = null,
-        val isSearchingSources: Boolean = true
+        val isSearchingSources: Boolean = true,
+        /** Shown above the sources when there is a reason they are missing (a sign-in-only addon). */
+        val sourcesNote: String? = null
     ) : DetailsUiState
     data class Error(val message: String) : DetailsUiState
 }
@@ -96,20 +106,21 @@ class DetailsViewModel(
         session.streamSources,
         session.subtitles,
         session.selectedEpisode,
-        combine(session.isSearchingSources, _isFavorite, session.error) { searching, favorite, error ->
-            Triple(searching, favorite, error)
+        combine(session.isSearchingSources, _isFavorite, session.error, session.sourcesNote) { searching, favorite, error, note ->
+            DetailsExtras(searching, favorite, error, note)
         }
-    ) { resolvedMovie, sources, subtitles, episode, (searching, favorite, error) ->
+    ) { resolvedMovie, sources, subtitles, episode, extras ->
         when {
-            error != null -> DetailsUiState.Error(error)
+            extras.error != null -> DetailsUiState.Error(extras.error)
             resolvedMovie == null -> DetailsUiState.Loading
             else -> DetailsUiState.Success(
                 movie = resolvedMovie,
                 streamSources = sources,
                 subtitles = subtitles,
-                isFavorite = favorite,
+                isFavorite = extras.favorite,
                 selectedEpisode = episode,
-                isSearchingSources = searching
+                isSearchingSources = extras.searching,
+                sourcesNote = extras.note
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DetailsUiState.Loading)
