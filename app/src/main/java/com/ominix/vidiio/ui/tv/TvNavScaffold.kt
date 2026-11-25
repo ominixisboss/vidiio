@@ -36,8 +36,11 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 data class TvNavItem(
@@ -224,7 +227,18 @@ fun TvNavScaffold(
                             }
                         },
                         icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label, fontWeight = FontWeight.Bold) },
+                        label = {
+                            // Same cap as the bottom bar: at large system fonts a rail item is
+                            // narrower than words like "Downloads".
+                            val fontScale = LocalDensity.current.fontScale
+                            Text(
+                                item.label,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = (minOf(12f * fontScale, 13.5f) / fontScale).sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
                         colors = railColors,
                         modifier = if (item.selected) Modifier.focusRequester(selectedItemFocus) else Modifier
                     )
