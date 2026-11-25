@@ -11,6 +11,11 @@ data class StreamSource(
     val isM3u8: Boolean = true,
     /** A live feed (IPTV channel, live event): never resumed, progressed or auto-advanced. */
     val isLive: Boolean = false,
+    /**
+     * Not a media file but a provider's web player page (NuvioSports' PPV feeds): the player opens
+     * it in its WebView. Kept apart from a stream so the UI says a page will open.
+     */
+    val isWebPage: Boolean = false,
     val quality: String? = null,
     val size: String? = null,
     val seeders: Int? = null,
