@@ -166,6 +166,7 @@ fun DetailsScreen(
                         onShowUnavailableChange = viewModel::setShowUnavailable,
                         selectedEpisode = state.selectedEpisode,
                         isSearchingSources = state.isSearchingSources,
+                        sourcesNote = state.sourcesNote,
                         onEpisodeSelected = { episode ->
                             viewModel.selectEpisode(episode)
                             autoPlayEpisodeId = episode.id
@@ -226,6 +227,8 @@ fun MovieDetailContent(
     onShowUnavailableChange: (Boolean) -> Unit,
     selectedEpisode: Episode?,
     isSearchingSources: Boolean,
+    /** Why addon sources are missing, when there is something to say (PenguPlay's sign-in clip). */
+    sourcesNote: String? = null,
     onEpisodeSelected: (Episode) -> Unit,
     onPlayClick: (StreamSource) -> Unit,
     onDownloadClick: (StreamSource) -> Unit,
@@ -527,6 +530,17 @@ fun MovieDetailContent(
                 IconButton(onClick = onToggleSourceSelector) {
                     Icon(Icons.Rounded.Settings, contentDescription = "Select Sources", tint = MaterialTheme.colorScheme.onBackground)
                 }
+            }
+        }
+
+        if (sourcesNote != null) {
+            item(key = "sources-note") {
+                Text(
+                    text = sourcesNote,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp)
+                )
             }
         }
 

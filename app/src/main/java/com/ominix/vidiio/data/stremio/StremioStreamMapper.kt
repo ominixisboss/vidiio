@@ -50,6 +50,16 @@ private fun isSignInPlaceholder(url: String?, title: String?): Boolean {
 }
 
 /**
+ * What to tell the viewer when a token-gated addon answered with nothing but that clip: its links
+ * are missing for a reason the viewer can fix, so say so rather than showing fewer sources.
+ */
+const val SIGN_IN_CLIP_NOTE = "PenguPlay answered with its sign-in clip instead of a stream. " +
+    "Sign in at pengu.uk and re-add your link in Settings."
+
+/** True when this stream is an addon's sign-in clip rather than media. */
+internal fun StremioStream.isSignInClip(): Boolean = isSignInPlaceholder(url, title)
+
+/**
  * Maps a Stremio addon stream to a [StreamSource] that both the player and the
  * downloader can consume:
  *  - `url` streams  → HTTP/HLS (with proxyHeaders carried through)
@@ -60,7 +70,7 @@ private fun isSignInPlaceholder(url: String?, title: String?): Boolean {
 fun StremioStream.toStreamSource(): StreamSource? {
     // Filtered before anything else: a sign-in clip has a real URL and would otherwise be
     // probed, verified as playable media and offered as a source.
-    if (isSignInPlaceholder(url, title)) return null
+    if (isSignInClip()) return null
 
     val bh = behaviorHints ?: emptyMap()
 

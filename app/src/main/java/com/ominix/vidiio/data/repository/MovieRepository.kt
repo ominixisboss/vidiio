@@ -452,23 +452,39 @@ class MovieRepository(
         }
     }
 
-    /** Sources found for an episode, kept briefly so coming back to it (or the next-episode prefetch) is instant. */
-    private val sourceCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Long, List<StreamSource>>>()
+    /** One cached search: when it ran, what it found, and anything it had to explain. */
+    private data class CachedSources(val foundAt: Long, val sources: List<StreamSource>, val note: String?)
 
-    fun getStreamSources(movie: Movie, episode: Episode? = null): Flow<StreamSource> = kotlinx.coroutines.flow.flow {
+    /** Sources found for an episode, kept briefly so coming back to it (or the next-episode prefetch) is instant. */
+    private val sourceCache = java.util.concurrent.ConcurrentHashMap<String, CachedSources>()
+
+    fun getStreamSources(
+        movie: Movie,
+        episode: Episode? = null,
+        /** Called when the addon search has something to explain, e.g. PenguPlay's sign-in clip. */
+        onNote: ((String) -> Unit)? = null,
+    ): Flow<StreamSource> = kotlinx.coroutines.flow.flow {
         val key = "${movie.id}:${episode?.seasonNumber}:${episode?.episodeNumber}"
         val hit = sourceCache[key]
-        if (hit != null && System.currentTimeMillis() - hit.first < SOURCE_TTL_MS) {
-            hit.second.forEach { emit(it) }
+        if (hit != null && System.currentTimeMillis() - hit.foundAt < SOURCE_TTL_MS) {
+            // The note is cached too: a re-scrape served from here must not drop the explanation
+            // the first run gave (settings emissions re-run the search straight after it).
+            hit.note?.let { onNote?.invoke(it) }
+            hit.sources.forEach { emit(it) }
             return@flow
         }
         val found = mutableListOf<StreamSource>()
-        loadStreamSources(movie, episode).collect { found += it; emit(it) }
+        var note: String? = null
+        loadStreamSources(movie, episode) { n -> note = n; onNote?.invoke(n) }.collect { found += it; emit(it) }
         // Only a complete run is worth keeping; a cancelled one falls out above without reaching here.
-        if (found.isNotEmpty()) sourceCache[key] = System.currentTimeMillis() to found.toList()
+        if (found.isNotEmpty()) sourceCache[key] = CachedSources(System.currentTimeMillis(), found.toList(), note)
     }
 
-    private fun loadStreamSources(movie: Movie, episode: Episode? = null): Flow<StreamSource> = channelFlow {
+    private fun loadStreamSources(
+        movie: Movie,
+        episode: Episode? = null,
+        onNote: ((String) -> Unit)? = null,
+    ): Flow<StreamSource> = channelFlow {
         val enabledScrapers = getEnabledScrapers()
 
         // Several scrapers need the IMDb id (Stremio addons) or match better with it.
@@ -524,7 +540,11 @@ class MovieRepository(
                         // Each addon is bounded inside AddonManager. A shared deadline here used to
                         // cancel the whole batch, so one slow addon (PenguPlay) meant no links from
                         // any addon - including the ones that had already answered.
-                        addonManager.getStreams(stremioType, sid).forEach { stremioStream ->
+                        val answer = addonManager.getStreams(stremioType, sid)
+                        if (answer.penguSignInOnly) {
+                            onNote?.invoke(com.ominix.vidiio.data.stremio.SIGN_IN_CLIP_NOTE)
+                        }
+                        answer.streams.forEach { stremioStream ->
                             stremioStream.toStreamSource()?.let { send(it) }
                         }
                     }
