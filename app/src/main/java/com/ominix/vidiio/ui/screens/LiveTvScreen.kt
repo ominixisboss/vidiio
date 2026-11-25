@@ -3,6 +3,7 @@ package com.ominix.vidiio.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
@@ -14,12 +15,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.AlertDialog
@@ -185,14 +188,23 @@ fun LiveTvScreen(
         // One stream plays at once; none keeps the sheet up so the item and its outcome stay visible.
         if (streams == null || streams.size != 1) {
             val shape = RoundedCornerShape(20.dp)
+            // A fixed 320dp list plus the header is taller than a phone held sideways, which cut the
+            // last feeds off the dialog. Leave room for the frame instead, and keep it a phone-width
+            // dialog rather than a full-screen sheet in landscape.
+            val feedListMaxHeight = minOf(
+                320.dp,
+                (LocalConfiguration.current.screenHeightDp.dp - 200.dp).coerceAtLeast(120.dp)
+            )
             androidx.compose.ui.window.Dialog(
                 onDismissRequest = viewModel::dismiss,
                 properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
             ) {
                 Surface(
                     modifier = Modifier
+                        .padding(20.dp)
+                        .widthIn(max = 560.dp)
                         .fillMaxWidth()
-                        .padding(20.dp),
+                        .navigationBarsPadding(),
                     shape = shape,
                     color = Color(0xFF18181C),
                     border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
@@ -264,7 +276,7 @@ fun LiveTvScreen(
                             )
                             LazyColumn(
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.heightIn(max = 320.dp)
+                                modifier = Modifier.heightIn(max = feedListMaxHeight)
                             ) {
                                 items(streams) { source ->
                                     val itemShape = RoundedCornerShape(12.dp)

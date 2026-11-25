@@ -241,7 +241,6 @@ fun AspectMenu(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .navigationBarsPadding()
         ) {
             item {
                 Text(

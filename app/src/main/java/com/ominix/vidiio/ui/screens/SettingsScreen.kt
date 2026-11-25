@@ -717,7 +717,11 @@ fun SettingsScreen(
                 border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    // A landscape phone has ~450dp of height: the profile list has to scroll
+                    // rather than run past the bottom of the dialog.
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -919,7 +923,9 @@ fun SettingsScreen(
                 border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
             ) {
                 Column(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
