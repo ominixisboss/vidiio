@@ -146,6 +146,9 @@ class DetailsViewModel(
 
     fun selectEpisode(episode: Episode) = session.selectEpisode(episode)
 
+    /** "Try again" after the details lookup failed. */
+    fun retry() = session.retryLoad()
+
     fun downloadSource(source: StreamSource) = session.downloadSource(source)
 
     fun toggleFavorite() {

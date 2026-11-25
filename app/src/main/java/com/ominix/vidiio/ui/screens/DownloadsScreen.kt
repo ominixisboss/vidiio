@@ -26,6 +26,9 @@ import com.ominix.vidiio.data.model.DownloadStatus
 import com.ominix.vidiio.data.model.DownloadTask
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.MovieType
+import androidx.compose.ui.text.style.TextOverflow
+import com.ominix.vidiio.ui.components.EmptyState
+import com.ominix.vidiio.ui.components.FilterRow
 import com.ominix.vidiio.ui.components.GlassCard
 import com.ominix.vidiio.ui.components.RiveAnimation
 import com.ominix.vidiio.ui.components.tvClickable
@@ -148,40 +151,32 @@ fun DownloadsScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("All", "Downloading", "Completed").forEach { filter ->
-                        val isSelected = selectedFilter == filter
-                        Surface(
-                            modifier = Modifier.tvClickable(
-                                onClick = { selectedFilter = filter },
-                                shape = RoundedCornerShape(16.dp),
-                                focusScale = 1.05f
-                            ),
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent,
-                            border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
-                        ) {
-                            Text(
-                                text = filter,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
-                                fontSize = 13.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
+                FilterRow(
+                    options = listOf("All", "Downloading", "Completed"),
+                    selected = selectedFilter,
+                    onSelect = { selectedFilter = it },
+                    trailing = "${filteredDownloads.size}"
+                )
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (filteredDownloads.isEmpty()) {
+                        item {
+                            Box(
+                                modifier = Modifier.fillParentMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                EmptyState(
+                                    title = "No ${selectedFilter.lowercase()} downloads",
+                                    message = "Downloads you start will show up here.",
+                                    icon = Icons.Rounded.Download
+                                )
+                            }
+                        }
+                    }
                     items(filteredDownloads) { task ->
                         DownloadItem(
                             task = task,
@@ -243,7 +238,7 @@ fun DownloadItem(
                         fontSize = 16.sp
                     )
                     Text(
-                        text = task.status.name,
+                        text = downloadStatusLabel(task),
                         color = when(task.status) {
                             DownloadStatus.COMPLETED -> Color(0xFF4CAF50)
                             DownloadStatus.FAILED -> Color(0xFFF44336)
@@ -252,6 +247,15 @@ fun DownloadItem(
                         },
                         fontSize = 12.sp
                     )
+                    if (task.status == DownloadStatus.FAILED && !task.errorMessage.isNullOrBlank()) {
+                        Text(
+                            text = task.errorMessage,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 
                 if (task.status == DownloadStatus.COMPLETED) {
@@ -303,19 +307,29 @@ fun DownloadItem(
                     Text(
                         text = "${task.progress.toInt()}%",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp
+                        fontSize = 12.sp
                     )
                     if (task.totalSize > 0) {
                         Text(
                             text = "${formatSize(task.downloadedSize)} / ${formatSize(task.totalSize)}",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 10.sp
+                            fontSize = 12.sp
                         )
                     }
                 }
             }
         }
     }
+}
+
+/** What the download is doing, in words rather than the enum constant. */
+private fun downloadStatusLabel(task: DownloadTask): String = when (task.status) {
+    DownloadStatus.QUEUED -> "Waiting to start"
+    DownloadStatus.DOWNLOADING -> "Downloading \u00b7 ${task.progress.toInt()}%"
+    DownloadStatus.PAUSED -> "Paused \u00b7 ${task.progress.toInt()}%"
+    DownloadStatus.COMPLETED -> "Downloaded"
+    DownloadStatus.FAILED -> "Download failed"
+    DownloadStatus.CANCELLED -> "Cancelled"
 }
 
 fun formatSize(size: Long): String {

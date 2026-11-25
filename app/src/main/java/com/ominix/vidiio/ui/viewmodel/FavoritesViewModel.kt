@@ -5,28 +5,53 @@ import androidx.lifecycle.viewModelScope
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.toMovie
 import com.ominix.vidiio.data.repository.FavoriteRepository
+import com.ominix.vidiio.data.repository.WatchProgressRepository
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 
 sealed interface FavoritesUiState {
     data object Loading : FavoritesUiState
-    data class Success(val movies: List<Movie>) : FavoritesUiState
+    data class Success(
+        val movies: List<Movie>,
+        /** How far into each title the viewer is, keyed by movie id. */
+        val progress: Map<String, Float> = emptyMap(),
+    ) : FavoritesUiState
     data class Error(val message: String) : FavoritesUiState
 }
 
 class FavoritesViewModel(
-    private val favoriteRepository: FavoriteRepository
+    private val favoriteRepository: FavoriteRepository,
+    watchProgressRepository: WatchProgressRepository,
 ) : ViewModel() {
 
-    val uiState: StateFlow<FavoritesUiState> = favoriteRepository.favorites
-        .map { favorites ->
-            FavoritesUiState.Success(favorites.map { it.toMovie() })
+    /** Bumped by [retry]: re-subscribes to the database instead of leaving a dead error screen. */
+    private val retryTrigger = MutableStateFlow(0)
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val uiState: StateFlow<FavoritesUiState> = retryTrigger
+        .flatMapLatest {
+            combine(favoriteRepository.favorites, watchProgressRepository.all) { favorites, progress ->
+                FavoritesUiState.Success(
+                    movies = favorites.map { it.toMovie() },
+                    progress = progress.associate { it.id to it.progressFraction }
+                ) as FavoritesUiState
+            }.catch { error ->
+                emit(FavoritesUiState.Error(error.message ?: "Couldn't read your list"))
+            }
         }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = FavoritesUiState.Loading
         )
+
+    fun retry() {
+        retryTrigger.value += 1
+    }
 }

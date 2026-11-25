@@ -11,6 +11,9 @@ class WatchProgressRepository(private val dao: WatchProgressDao) {
     /** Recently watched, newest first. Only entries that are actually mid-way through. */
     val continueWatching: Flow<List<WatchProgress>> = dao.getRecent()
 
+    /** Every title with a saved position, for progress bars on posters. */
+    val all: Flow<List<WatchProgress>> = dao.getAll()
+
     suspend fun get(id: String): WatchProgress? = dao.get(id)
 
     /**

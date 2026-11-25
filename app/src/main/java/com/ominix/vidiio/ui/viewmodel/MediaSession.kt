@@ -219,12 +219,14 @@ class MediaSession(
         }
     }
 
+    private var detailsJob: Job? = null
+
     private fun loadDetails() {
         if (isLive) {
             _movie.value = initialMovie
             return
         }
-        scope.launch {
+        detailsJob = scope.launch {
             try {
                 val details = movieRepository.getMovieDetails(initialMovie)
 
@@ -265,6 +267,15 @@ class MediaSession(
                 _error.value = e.message ?: "Unknown error"
             }
         }
+    }
+
+    /** Retry a details lookup that failed, from the error screen's button. */
+    fun retryLoad() {
+        if (isLive || detailsJob?.isActive == true) return
+        _error.value = null
+        _movie.value = null
+        _selectedEpisode.value = null
+        loadDetails()
     }
 
     private fun startScraping(movie: Movie, episode: Episode?) {

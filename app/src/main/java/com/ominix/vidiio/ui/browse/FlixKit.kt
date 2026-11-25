@@ -24,18 +24,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.ui.components.tvClickable
 import java.util.Locale
@@ -87,6 +91,10 @@ fun TileRow(content: LazyListScope.() -> Unit) {
 @Composable
 fun FlixPoster(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp? = 118.dp, corner: Dp = 8.dp) {
     val shape = RoundedCornerShape(corner)
+    val context = LocalContext.current
+    val request = remember(movie.posterUrl) {
+        ImageRequest.Builder(context).data(movie.posterUrl).crossfade(180).build()
+    }
     Column(
         modifier = modifier.then(if (width != null) Modifier.width(width) else Modifier.fillMaxWidth())
     ) {
@@ -100,8 +108,10 @@ fun FlixPoster(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier,
         ) {
             if (movie.posterUrl.isNotBlank()) {
                 AsyncImage(
-                    model = movie.posterUrl,
+                    model = request,
                     contentDescription = movie.title,
+                    placeholder = ColorPainter(Color(0xFF1B1B1B)),
+                    error = ColorPainter(Color(0xFF1B1B1B)),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )

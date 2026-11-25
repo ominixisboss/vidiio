@@ -20,8 +20,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.MovieType
+import com.ominix.vidiio.ui.components.EmptyState
+import com.ominix.vidiio.ui.components.ErrorState
+import com.ominix.vidiio.ui.components.FilterRow
 import com.ominix.vidiio.ui.components.GlassCard
 import com.ominix.vidiio.ui.components.MovieItem
+import com.ominix.vidiio.ui.components.PosterGridSkeleton
 import com.ominix.vidiio.ui.components.RiveAnimation
 import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.components.tvClickable
@@ -76,7 +80,7 @@ fun FavoritesScreen(
         Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             when (val state = uiState) {
                 is FavoritesUiState.Loading -> {
-                    RiveLoader(modifier = Modifier.align(Alignment.Center))
+                    PosterGridSkeleton(modifier = Modifier.fillMaxSize())
                 }
                 is FavoritesUiState.Success -> {
                     val filteredMovies = remember(state.movies, selectedFilter) {
@@ -124,59 +128,48 @@ fun FavoritesScreen(
                         }
                     } else {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf("All", "Movies", "TV Shows").forEach { filter ->
-                                    val isSelected = selectedFilter == filter
-                                    Surface(
-                                        modifier = Modifier.tvClickable(
-                                            onClick = { selectedFilter = filter },
-                                            shape = RoundedCornerShape(16.dp),
-                                            focusScale = 1.05f
-                                        ),
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent,
-                                        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
-                                    ) {
-                                        Text(
-                                            text = filter,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            FilterRow(
+                                options = listOf("All", "Movies", "TV Shows"),
+                                selected = selectedFilter,
+                                onSelect = { selectedFilter = it },
+                                trailing = "${filteredMovies.size}"
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (filteredMovies.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EmptyState(
+                                        title = "No ${selectedFilter.lowercase()} in your list",
+                                        message = "Save a title and it will appear here.",
+                                        icon = Icons.Rounded.FavoriteBorder
+                                    )
+                                }
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Adaptive(minSize = 104.dp),
+                                    contentPadding = PaddingValues(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(filteredMovies) { movie ->
+                                        MovieItem(
+                                            movie = movie,
+                                            onClick = { onMovieClick(movie) },
+                                            progress = state.progress[movie.id]
                                         )
                                     }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(3),
-                                contentPadding = PaddingValues(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(filteredMovies) { movie ->
-                                    MovieItem(
-                                        movie = movie,
-                                        onClick = { onMovieClick(movie) }
-                                    )
                                 }
                             }
                         }
                     }
                 }
-                is FavoritesUiState.Error -> {
-                    Text(
-                        text = "Error: ${state.message}",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
+                is FavoritesUiState.Error -> ErrorState(
+                    onRetry = viewModel::retry,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }

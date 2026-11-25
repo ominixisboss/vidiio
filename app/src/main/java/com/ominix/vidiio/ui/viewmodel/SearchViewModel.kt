@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.repository.MovieRepository
+import com.ominix.vidiio.data.repository.WatchProgressRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import android.util.Log
 import kotlinx.coroutines.CancellationException
@@ -18,7 +22,10 @@ sealed interface SearchUiState {
     data class Error(val message: String) : SearchUiState
 }
 
-class SearchViewModel(private val movieRepository: MovieRepository) : ViewModel() {
+class SearchViewModel(
+    private val movieRepository: MovieRepository,
+    watchProgressRepository: WatchProgressRepository,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SearchUiState>(SearchUiState.Idle)
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
@@ -26,9 +33,17 @@ class SearchViewModel(private val movieRepository: MovieRepository) : ViewModel(
     private val _query = MutableStateFlow("")
     val query: StateFlow<String> = _query.asStateFlow()
 
+    /** How far into each title the viewer is, keyed by movie id, for the poster progress bars. */
+    val progress: StateFlow<Map<String, Float>> = watchProgressRepository.all
+        .map { entries -> entries.associate { it.id to it.progressFraction } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
     fun onQueryChange(newQuery: String) {
         _query.value = newQuery
     }
+
+    /** "Try again" after a failed search: run the same query again. */
+    fun retry() = search()
 
     fun search() {
         val currentQuery = _query.value

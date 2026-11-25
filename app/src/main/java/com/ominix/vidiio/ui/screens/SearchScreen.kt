@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -27,10 +29,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.MovieType
+import com.ominix.vidiio.ui.components.EmptyState
+import com.ominix.vidiio.ui.components.ErrorState
+import com.ominix.vidiio.ui.components.FilterRow
 import com.ominix.vidiio.ui.components.MovieItem
+import com.ominix.vidiio.ui.components.PosterGridSkeleton
 import com.ominix.vidiio.ui.components.RiveAnimation
 import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.components.tvClickable
+import com.ominix.vidiio.ui.tv.LocalIsTv
 import com.ominix.vidiio.ui.viewmodel.SearchUiState
 import com.ominix.vidiio.ui.viewmodel.SearchViewModel
 
@@ -43,8 +50,19 @@ fun SearchScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val query by viewModel.query.collectAsState()
+    val progressById by viewModel.progress.collectAsState()
     var selectedFilter by remember { mutableStateOf("All") }
     var isSearchFocused by remember { mutableStateOf(false) }
+    val isTv = LocalIsTv.current
+    val searchFocus = remember { FocusRequester() }
+    // Opening Search from the bar should put the cursor in the field, not make you tap it first.
+    // On a TV the remote stays on the menu, and a query carried in from Home already has results.
+    LaunchedEffect(Unit) {
+        if (!isTv && query.isBlank()) {
+            kotlinx.coroutines.delay(250)
+            runCatching { searchFocus.requestFocus() }
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -61,6 +79,7 @@ fun SearchScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(end = 16.dp)
+                            .focusRequester(searchFocus)
                             .onFocusChanged { isSearchFocused = it.isFocused }
                             .border(
                                 width = if (isSearchFocused) 2.dp else 0.5.dp,
@@ -134,7 +153,7 @@ fun SearchScreen(
                     }
                 }
                 is SearchUiState.Loading -> {
-                    RiveLoader(modifier = Modifier.align(Alignment.Center))
+                    PosterGridSkeleton(modifier = Modifier.fillMaxSize())
                 }
                 is SearchUiState.Success -> {
                     val filteredResults = remember(state.results, selectedFilter) {
@@ -148,82 +167,56 @@ fun SearchScreen(
                     }
 
                     if (state.results.isEmpty()) {
-                        Column(
-                            modifier = Modifier.align(Alignment.Center).padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            RiveAnimation(
-                                url = "https://public.rive.app/community/runtime-files/2042-4040-avatar-pack-use-case.riv",
-                                modifier = Modifier.size(200.dp),
-                                fallback = {
-                                    Icon(
-                                        Icons.Rounded.Search,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(100.dp).alpha(0.3f),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "No results found for \"$query\"",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                            )
-                        }
+                        EmptyState(
+                            title = "No results for \"$query\"",
+                            message = "Try a different spelling, or search for an actor or director.",
+                            icon = Icons.Rounded.Search,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
                     } else {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf("All", "Movies", "TV Shows").forEach { filter ->
-                                    val isSelected = selectedFilter == filter
-                                    Surface(
-                                        modifier = Modifier.tvClickable(
-                                            onClick = { selectedFilter = filter },
-                                            shape = RoundedCornerShape(16.dp),
-                                            focusScale = 1.05f
-                                        ),
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent,
-                                        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else BorderStroke(0.5.dp, Color.White.copy(alpha = 0.1f))
-                                    ) {
-                                        Text(
-                                            text = filter,
-                                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.8f),
-                                            fontSize = 13.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            FilterRow(
+                                options = listOf("All", "Movies", "TV Shows"),
+                                selected = selectedFilter,
+                                onSelect = { selectedFilter = it },
+                                trailing = "${filteredResults.size}"
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (filteredResults.isEmpty()) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    EmptyState(
+                                        title = "No ${selectedFilter.lowercase()} in these results",
+                                        message = "Try another filter to see everything that was found.",
+                                        icon = Icons.Rounded.Search
+                                    )
+                                }
+                            } else {
+                                LazyVerticalGrid(
+                                    columns = GridCells.Adaptive(minSize = 104.dp),
+                                    contentPadding = PaddingValues(16.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxSize()
+                                ) {
+                                    items(filteredResults) { movie ->
+                                        MovieItem(
+                                            movie = movie,
+                                            onClick = { onNavigateToDetails(movie) },
+                                            progress = progressById[movie.id]
                                         )
                                     }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(8.dp))
-                            LazyVerticalGrid(
-                                columns = GridCells.Fixed(3),
-                                contentPadding = PaddingValues(16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                items(filteredResults) { movie ->
-                                    MovieItem(movie = movie, onClick = { onNavigateToDetails(movie) })
                                 }
                             }
                         }
                     }
                 }
-                is SearchUiState.Error -> {
-                    Text(
-                        text = "Error: ${state.message}",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
+                is SearchUiState.Error -> ErrorState(
+                    onRetry = viewModel::retry,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }
