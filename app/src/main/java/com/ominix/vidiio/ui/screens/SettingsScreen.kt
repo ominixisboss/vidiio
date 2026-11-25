@@ -88,43 +88,45 @@ private fun SettingCardRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isFocused) Color.Black else Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(Modifier.width(16.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isFocused) Color.Black else Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.width(16.dp))
+            // Status below the title: at 1.5x fonts a right-aligned status squeezed titles such as
+            // "App Settings, Profiles & Appearance" into an ellipsis with no way to read them.
+            Column(Modifier.weight(1f)) {
                 Text(
                     text = title,
                     color = if (isFocused) Color.Black else Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!statusText.isNullOrBlank()) {
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         text = statusText,
                         color = if (isFocused) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.6f),
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(Modifier.width(8.dp))
                 }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = if (isFocused) Color.Black else Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.size(20.dp)
-                )
             }
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = if (isFocused) Color.Black else Color.White.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
