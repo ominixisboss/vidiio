@@ -27,8 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -402,6 +405,12 @@ fun VidiioApp() {
         item(VidiioRoute.Settings, top == VidiioRoute.Settings, Icons.Rounded.Settings, "Settings"),
     )
     val useBottomBar = layoutType == NavigationSuiteType.NavigationBar
+    // A seven-tab landscape phone leaves little room for text. Cap the bottom-bar labels at 13.5sp
+    // effective: at 1.5x the system font "Settings" ran off the right edge, and a three-button
+    // navigation bar on that side took even more room. The portrait bar would wrap labels at that
+    // size too. The rest of the app, and the side menu, keep the full scale.
+    val barFontScale = LocalDensity.current.fontScale
+    val barLabelSize = (minOf(12f * barFontScale, 13.5f) / barFontScale).sp
     // A phone held sideways has a bar that is wide but short: unlike the six-tab portrait bar it
     // has room for Settings. Put Settings on it, because a scroll down the Library page made it
     // easy to miss entirely. In portrait Settings still lives behind the Library tab.
@@ -469,7 +478,19 @@ fun VidiioApp() {
                                 selected = nav.selected,
                                 onClick = nav.onClick,
                                 icon = { Icon(nav.icon, contentDescription = nav.label) },
-                                label = { Text(nav.label, fontWeight = FontWeight.Bold) },
+                                label = {
+                                    if (useBottomBar) {
+                                        Text(
+                                            nav.label,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = barLabelSize,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    } else {
+                                        Text(nav.label, fontWeight = FontWeight.Bold)
+                                    }
+                                },
                                 colors = navItemColors
                             )
                         }
