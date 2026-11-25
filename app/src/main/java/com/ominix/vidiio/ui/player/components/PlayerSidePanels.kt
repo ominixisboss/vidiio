@@ -91,7 +91,12 @@ fun EpisodeSidebar(
         color = Color(0xFF14161B),
         contentColor = Color.White
     ) {
-        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+        Column(
+            modifier = Modifier
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 12.dp)
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     "Episodes",

@@ -11,9 +11,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -29,6 +30,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -43,8 +45,10 @@ import kotlin.math.roundToInt
  * (handled by PlayerScreen) closes it. Tapping the dimmed area still dismisses it on touch.
  *
  * It slides in from the right on a spring while its scrim fades, so opening a menu reads as the
- * menu arriving rather than the screen cutting. The width is capped at 440dp but also at 92% of
- * the screen: on a phone the old fixed 440dp was wider than the screen and ran off the edge.
+ * menu arriving rather than the screen cutting. The width is 92% of the screen, but never more
+ * than 440dp: on a phone 440dp would run off the edge, and in landscape 92% alone made every
+ * menu a wall across most of the screen. Its content also clears the status and navigation bars,
+ * which otherwise sat on top of the title and the last row.
  *
  * The slide is a layout offset rather than a graphics layer: a layer moves pixels without moving
  * the hit area, which left the panel eating taps on the right edge while it was still off screen.
@@ -58,6 +62,7 @@ fun PlayerSidePanel(
     val slide = remember { Animatable(0f) }
     // Measured width, so the panel can be placed off screen and travel with the animation.
     var panelWidth by remember { mutableIntStateOf(0) }
+    val width = minOf(440.dp, LocalConfiguration.current.screenWidthDp.dp * 0.92f)
 
     LaunchedEffect(Unit) {
         slide.animateTo(1f, spring(dampingRatio = 0.88f, stiffness = Spring.StiffnessMediumLow))
@@ -80,8 +85,7 @@ fun PlayerSidePanel(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .fillMaxWidth(0.92f)
-                .widthIn(max = 440.dp)
+                .width(width)
                 .onSizeChanged { panelWidth = it.width }
                 // Offset during layout, not on the layer: the panel's touch target then travels with
                 // it, so taps near the right edge reach the player until the menu is actually there.
@@ -90,7 +94,12 @@ fun PlayerSidePanel(
                 .focusRequester(focus)
                 .focusGroup()
         ) {
-            Column(content = content)
+            Column(
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+                content = content
+            )
         }
     }
 }
