@@ -102,7 +102,16 @@ class SourceVerifier(client: OkHttpClient) {
         } catch (e: CancellationException) {
             throw e
         } catch (e: IOException) {
-            SourceHealth(SourceStatus.DEAD, note = if (e is java.net.SocketTimeoutException) "Timed out" else "Unreachable")
+            // A connect timeout means the host is not answering at all. A read timeout on a 4K
+            // file is usually just a slow first byte, which says nothing about the link, so it is
+            // left unverified instead of being hidden as dead.
+            val connectTimeout = e is java.net.SocketTimeoutException &&
+                e.message?.contains("connect", ignoreCase = true) == true
+            when {
+                e !is java.net.SocketTimeoutException -> SourceHealth(SourceStatus.DEAD, note = "Unreachable")
+                connectTimeout -> SourceHealth(SourceStatus.DEAD, note = "Unreachable")
+                else -> SourceHealth(SourceStatus.UNKNOWN, note = "Slow")
+            }
         } catch (e: Exception) {
             SourceHealth(SourceStatus.UNKNOWN)
         }
@@ -158,6 +167,10 @@ class SourceVerifier(client: OkHttpClient) {
                 in 200..206 -> Unit
                 // Rate limited: says nothing about whether the link is good.
                 408, 429 -> return SourceHealth(SourceStatus.UNKNOWN, note = "Busy")
+                // Refused, not missing. Token-gated CDNs (PenguPlay) and hotlink protection
+                // answer 403 for a probe whose headers they dislike while the same URL plays
+                // in the player, so this is not evidence that the file is gone.
+                401, 403 -> return SourceHealth(SourceStatus.UNKNOWN, note = "HTTP $code")
                 else -> return SourceHealth(SourceStatus.DEAD, note = "HTTP $code")
             }
 

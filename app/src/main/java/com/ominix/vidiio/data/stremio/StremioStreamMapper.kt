@@ -39,6 +39,17 @@ private val SEEDERS_RE = Regex("""(?:👤|Seeders?:?|👥)\s*(\d+)""", RegexOpti
 private val QUALITY_RE = Regex("""\b(2160p|4k|1080p|720p|480p|360p|CAM|HDCAM|WEB-?DL|WEBRip|BluRay|BRRip|HDRip)\b""", RegexOption.IGNORE_CASE)
 
 /**
+ * The "you must sign in" clip some token-gated addons (PenguPlay) return instead of
+ * the film when the credential is missing, stale or revoked. It is not media and must never
+ * reach the player, where it would play as a short video and look like a broken source.
+ */
+private fun isSignInPlaceholder(url: String?, title: String?): Boolean {
+    if (url != null && url.substringBefore('?').endsWith("/signin.mp4", ignoreCase = true)) return true
+    val label = title?.lowercase().orEmpty()
+    return label.contains("must sign in") || label.contains("sign in at ")
+}
+
+/**
  * Maps a Stremio addon stream to a [StreamSource] that both the player and the
  * downloader can consume:
  *  - `url` streams  → HTTP/HLS (with proxyHeaders carried through)
@@ -47,6 +58,10 @@ private val QUALITY_RE = Regex("""\b(2160p|4k|1080p|720p|480p|360p|CAM|HDCAM|WEB
  */
 @Suppress("UNCHECKED_CAST")
 fun StremioStream.toStreamSource(): StreamSource? {
+    // Filtered before anything else: a sign-in clip has a real URL and would otherwise be
+    // probed, verified as playable media and offered as a source.
+    if (isSignInPlaceholder(url, title)) return null
+
     val bh = behaviorHints ?: emptyMap()
 
     val proxyHeaders = ((bh["proxyHeaders"] as? Map<String, Any?>)?.get("request")) as? Map<String, Any?>

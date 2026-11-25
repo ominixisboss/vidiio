@@ -521,10 +521,11 @@ class MovieRepository(
                     }
 
                     listOfNotNull(nativeId, imdbStremioId).distinct().forEach { sid ->
-                        withTimeoutOrNull(SCRAPER_TIMEOUT_MS) {
-                            addonManager.getStreams(stremioType, sid).forEach { stremioStream ->
-                                stremioStream.toStreamSource()?.let { send(it) }
-                            }
+                        // Each addon is bounded inside AddonManager. A shared deadline here used to
+                        // cancel the whole batch, so one slow addon (PenguPlay) meant no links from
+                        // any addon - including the ones that had already answered.
+                        addonManager.getStreams(stremioType, sid).forEach { stremioStream ->
+                            stremioStream.toStreamSource()?.let { send(it) }
                         }
                     }
                 } catch (e: Exception) {
