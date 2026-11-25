@@ -18,6 +18,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.ui.focus.onFocusChanged
 import kotlinx.coroutines.launch
@@ -280,61 +282,93 @@ fun VpnReminderDialog(
 ) {
     var dontShowAgain by remember { mutableStateOf(false) }
 
-    AlertDialog(
+    // A landscape phone only leaves a dialog about 250dp before the system bars, and the stock
+    // AlertDialog gave the body a single line at 1.5x fonts. Size this one explicitly and keep the
+    // icon beside the title, so the body gets a real viewport instead of collapsing.
+    val dialogHeight = minOf(
+        androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.85f,
+        340f
+    ).coerceAtLeast(220f).dp
+    // Height left for the title and body once the action row and padding are accounted for. The
+    // dialog wraps to its content, so a short message keeps it compact and only a tall one scrolls.
+    val maxScrollHeight = (dialogHeight - 108.dp).coerceAtLeast(80.dp)
+    androidx.compose.ui.window.Dialog(
         onDismissRequest = { onDismiss(dontShowAgain) },
-        containerColor = MaterialTheme.colorScheme.surface,
-        titleContentColor = MaterialTheme.colorScheme.onSurface,
-        textContentColor = MaterialTheme.colorScheme.onSurface,
-        icon = {
-            Icon(
-                Icons.Rounded.VpnKey,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(36.dp)
-            )
-        },
-        title = {
-            Text(
-                "VPN & Privacy Reminder",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
-        },
-        text = {
-            Column {
-                Text(
-                    "For your privacy and security while streaming content, we strongly recommend using an active VPN or configuring a SOCKS5/HTTP Proxy in Settings.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { dontShowAgain = !dontShowAgain }
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(horizontal = 20.dp)
+                .widthIn(max = 560.dp)
+                .fillMaxWidth()
+                .heightIn(max = dialogHeight),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                // The title scrolls with the body: at 1.5x fonts it wraps to two lines, and keeping
+                // it outside a fixed viewport made the content overflow the dialog's height cap.
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = maxScrollHeight)
+                        .verticalScroll(rememberScrollState())
                 ) {
-                    Checkbox(
-                        checked = dontShowAgain,
-                        onCheckedChange = { dontShowAgain = it },
-                        colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Rounded.VpnKey,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            "VPN & Privacy Reminder",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     Text(
-                        "Don't show again",
+                        "For your privacy and security while streaming content, we strongly recommend using an active VPN or configuring a SOCKS5/HTTP Proxy in Settings.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onDismiss(dontShowAgain) },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-            ) {
-                Text("I Understand", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(10.dp))
+                // Keep the option beside the button: inside the scroll area it disappeared below
+                // the fold at 1.5x fonts, leaving no hint that it existed.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { dontShowAgain = !dontShowAgain }
+                    ) {
+                        Checkbox(
+                            checked = dontShowAgain,
+                            onCheckedChange = { dontShowAgain = it },
+                            colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Don't show again",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Button(
+                        onClick = { onDismiss(dontShowAgain) },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text("I Understand", fontWeight = FontWeight.Bold)
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable

@@ -405,12 +405,12 @@ fun VidiioApp() {
         item(VidiioRoute.Settings, top == VidiioRoute.Settings, Icons.Rounded.Settings, "Settings"),
     )
     val useBottomBar = layoutType == NavigationSuiteType.NavigationBar
-    // A seven-tab landscape phone leaves little room for text. Cap the bottom-bar labels at 13.5sp
-    // effective: at 1.5x the system font "Settings" ran off the right edge, and a three-button
-    // navigation bar on that side took even more room. The portrait bar would wrap labels at that
-    // size too. The rest of the app, and the side menu, keep the full scale.
-    val barFontScale = LocalDensity.current.fontScale
-    val barLabelSize = (minOf(12f * barFontScale, 13.5f) / barFontScale).sp
+    // Navigation labels have to fit a fixed-width bar or rail. Cap them at 13.5sp effective: at
+    // 1.5x the system font "Settings" ran off the right edge of the bar, "Downloads" filled the
+    // whole side menu, and a three-button navigation bar took even more room. The rest of the app
+    // keeps the full scale.
+    val navFontScale = LocalDensity.current.fontScale
+    val navLabelSize = (minOf(12f * navFontScale, 13.5f) / navFontScale).sp
     // A phone held sideways has a bar that is wide but short: unlike the six-tab portrait bar it
     // has room for Settings. Put Settings on it, because a scroll down the Library page made it
     // easy to miss entirely. In portrait Settings still lives behind the Library tab.
@@ -479,17 +479,13 @@ fun VidiioApp() {
                                 onClick = nav.onClick,
                                 icon = { Icon(nav.icon, contentDescription = nav.label) },
                                 label = {
-                                    if (useBottomBar) {
-                                        Text(
-                                            nav.label,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = barLabelSize,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    } else {
-                                        Text(nav.label, fontWeight = FontWeight.Bold)
-                                    }
+                                    Text(
+                                        nav.label,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = navLabelSize,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 },
                                 colors = navItemColors
                             )
