@@ -67,7 +67,7 @@ class AddonManager(
                     }
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
-                    Log.e("AddonManager", "Error fetching manifest from $url", e); null
+                    Log.e("AddonManager", "Error fetching manifest from ${redactCredentials(url)}", e); null
                 }
                 m?.let { InstalledAddon(url, it) }
             }
@@ -530,6 +530,7 @@ class AddonManager(
 
         /** NuvioSports needs longer: it asks every provider for a feed before answering. */
         private const val NUVIO_LIVE_TIMEOUT_MS = 60_000L
+
 
         /**
          * Live TV addons bundled with the app: always listed on the Live TV page and not removable.

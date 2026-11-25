@@ -60,6 +60,18 @@ const val SIGN_IN_CLIP_NOTE = "PenguPlay answered with its sign-in clip instead 
 internal fun StremioStream.isSignInClip(): Boolean = isSignInPlaceholder(url, title)
 
 /**
+ * The player page inside a provider wrapper (`/watch?url=<page>`), or [url] itself.
+ *
+ * The wrapper is a bare iframe, and these players refuse to be framed, so the WebView shows a
+ * black page for it. The inner page is the one that actually runs the player.
+ */
+private fun unwrapPlayerPage(url: String): String {
+    val inner = url.substringAfter("?url=", "").substringBefore('&').takeIf { it.isNotBlank() } ?: return url
+    val decoded = runCatching { java.net.URLDecoder.decode(inner, "UTF-8") }.getOrDefault(inner)
+    return decoded.takeIf { it.startsWith("http://") || it.startsWith("https://") } ?: url
+}
+
+/**
  * Maps a Stremio addon stream to a [StreamSource] that both the player and the
  * downloader can consume:
  *  - `url` streams  → HTTP/HLS (with proxyHeaders carried through)
@@ -98,6 +110,10 @@ fun StremioStream.toStreamSource(): StreamSource? {
 
     val streamUrl = when {
         !url.isNullOrBlank() -> url!!
+        // Some providers (NuvioSports' PPV feeds) never link the file: the stream is their web
+        // player page, which the player already opens in a WebView. Dropped here, that feed was
+        // missing from the list even though it was the only one carrying the event.
+        !externalUrl.isNullOrBlank() -> unwrapPlayerPage(externalUrl!!)
         !infoHash.isNullOrBlank() -> buildMagnet(infoHash!!, filename ?: label.substringBefore('\n'))
         else -> return null
     }

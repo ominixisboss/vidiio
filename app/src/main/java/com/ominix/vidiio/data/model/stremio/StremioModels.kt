@@ -128,6 +128,8 @@ data class StremioStream(
     val name: String? = null,
     val title: String? = null,
     val url: String? = null,
+    /** A web player page holding the feed, for providers that never link the media file. */
+    val externalUrl: String? = null,
     val infoHash: String? = null,
     val fileIdx: Int? = null,
     val behaviorHints: Map<String, Any>? = null
