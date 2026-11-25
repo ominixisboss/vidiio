@@ -63,6 +63,7 @@ import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.TOP10_LABEL
 import com.ominix.vidiio.data.model.WatchProgress
 import com.ominix.vidiio.data.repository.HomeStyle
+import com.ominix.vidiio.ui.components.ErrorState
 import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.components.tvFocusRing
@@ -247,15 +248,10 @@ fun HomeScreen(
                     }
                 }
             }
-            is HomeUiState.Error -> {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(text = "Error: ${state.message}", color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { viewModel.refresh() }) { Text("Retry") }
-                }
-            }
+            is HomeUiState.Error -> ErrorState(
+                onRetry = { viewModel.refresh() },
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
 
         LocalBrowseShortcuts.current?.takeIf { !LocalIsTv.current }?.let { shortcuts ->
