@@ -435,10 +435,18 @@ class AddonManager(
 
     /** The streams one addon offers for one of its live events. */
     suspend fun addonLiveStreams(event: LiveAddonEvent): List<StremioStream> =
-        kotlinx.coroutines.withTimeoutOrNull(STREAM_TIMEOUT_MS) {
+        kotlinx.coroutines.withTimeoutOrNull(liveStreamBudgetMs(event)) {
             val id = java.net.URLEncoder.encode(event.meta.id, "UTF-8").replace("+", "%20")
             stremioService.getStreams("${event.baseUrl}stream/${event.type}/$id.json").streams
         }.orEmpty()
+
+    /**
+     * How long one addon may take to answer for a live event. NuvioSports fans out to many
+     * providers per event and a 15s budget cut real feeds off mid-answer (measured 15.1s).
+     */
+    private fun liveStreamBudgetMs(event: LiveAddonEvent): Long =
+        if (event.baseUrl.contains("nuviosports", ignoreCase = true)) NUVIO_LIVE_TIMEOUT_MS
+        else STREAM_TIMEOUT_MS
 
     private class LiveSources(
         val catalogs: List<Pair<InstalledAddon, com.ominix.vidiio.data.model.stremio.Catalog>>,
@@ -519,6 +527,9 @@ class AddonManager(
 
         /** Budget for one live event or channel, so the Live TV sheet cannot wait forever. */
         private const val PENGU_LIVE_TIMEOUT_MS = 45_000L
+
+        /** NuvioSports needs longer: it asks every provider for a feed before answering. */
+        private const val NUVIO_LIVE_TIMEOUT_MS = 60_000L
 
         /**
          * Live TV addons bundled with the app: always listed on the Live TV page and not removable.
