@@ -21,7 +21,12 @@ fun TorrentFileSheet(
     files: List<TorrentFileInfo>,
     onFileSelect: (TorrentFileInfo) -> Unit
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    // Fully expanded: a landscape phone is only ~450dp tall, so the half-height resting state hid
+    // all but the first file or two behind a drag.
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Select File", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))

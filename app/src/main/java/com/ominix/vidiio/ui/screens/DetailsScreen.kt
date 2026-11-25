@@ -574,7 +574,8 @@ fun SourceSelectorBottomSheet(
     onDismiss: () -> Unit,
     viewModel: DetailsViewModel
 ) {
-    val sheetState = rememberModalBottomSheetState()
+    // Fully expanded: in landscape the half-height resting state cut the second source off.
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val enabledSources by viewModel.enabledSources.collectAsState()
     
     ModalBottomSheet(

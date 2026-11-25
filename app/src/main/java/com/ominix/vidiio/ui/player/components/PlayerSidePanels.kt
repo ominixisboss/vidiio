@@ -206,7 +206,9 @@ fun SourcesPanel(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            LazyColumn {
+            // Take the height that is left: in landscape the panel is short, and the list has to
+            // scroll inside it instead of running past the bottom edge.
+            LazyColumn(modifier = Modifier.weight(1f)) {
                 items(sources) { source ->
                     ListItem(
                         headlineContent = { Text(source.serverName) },
