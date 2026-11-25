@@ -238,8 +238,28 @@ class VidiioApplication : Application() {
             .build()
     }
 
+    /**
+     * Refuses cleartext on the API/addon client.
+     *
+     * The network security config has to allow cleartext for media, because Live TV streams
+     * are user-supplied and many are HTTP-only. Every response this client parses decides
+     * what the player loads next, so that half of the app stays HTTPS-only here instead: a
+     * scraper page or addon manifest cannot be read over plain HTTP.
+     */
+    private val httpsOnlyInterceptor = Interceptor { chain ->
+        val url = chain.request().url
+        // The embedded TorrServer speaks plain HTTP, on loopback only.
+        val loopback = url.host == "localhost" || url.host == "127.0.0.1" ||
+            url.host == "::1" || url.host == "[::1]"
+        if (!url.isHttps && !loopback) {
+            throw IOException("Blocked cleartext request to ${url.host}: this client only talks HTTPS")
+        }
+        chain.proceed(chain.request())
+    }
+
     val okHttpClient: OkHttpClient by lazy {
         baseClientBuilder()
+            .addInterceptor(httpsOnlyInterceptor)
             .addInterceptor(loggingInterceptor)
             .dns(dns)
             .build()

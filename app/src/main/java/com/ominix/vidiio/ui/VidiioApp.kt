@@ -308,7 +308,7 @@ fun VidiioApp() {
         ) { key ->
             val playerViewModel: com.ominix.vidiio.ui.player.PlayerViewModel = viewModel(
                 key = "player_${key.movie.id}_${key.episodeId ?: ""}",
-                factory = VidiioViewModelFactories.player(application, key.movie, key.episodeId)
+                factory = VidiioViewModelFactories.player(application, key.movie, key.episodeId, key.source)
             )
             PlayerScreen(
                 playerViewModel = playerViewModel,

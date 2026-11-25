@@ -108,7 +108,7 @@ class LiveTvViewModel(
     fun openGame(game: Game) {
         streamJob?.cancel()
         val title = "${game.away.name} at ${game.home.name}"
-        val movie = Movie(id = "game:${game.league.name}:${game.id}", title = title, posterUrl = game.home.logo.orEmpty(), source = PENGU_SOURCE)
+        val movie = Movie(id = "game:${game.league.name}:${game.id}", title = title, posterUrl = game.home.logo.orEmpty(), source = LIVE_SOURCE)
         _state.update { it.copy(opening = movie, streams = null, message = null) }
         streamJob = viewModelScope.launch {
             val keys = listOf(game.home.name, game.away.name).map { it.lowercase() }
@@ -119,7 +119,7 @@ class LiveTvViewModel(
                     addonManager.penguLiveSearch(game.league.penguCatalog, team).firstOrNull { matches(it.name) }
                 }
                 event?.let {
-                    runCatching { addonManager.penguLiveStreams(PENGU_TYPE, it.id).mapNotNull { s -> s.toStreamSource() } }
+                    runCatching { addonManager.penguLiveStreams(PENGU_TYPE, it.id).mapNotNull { s -> s.toStreamSource()?.copy(isLive = true) } }
                         .onFailure { e -> if (e is CancellationException) throw e }
                         .getOrDefault(emptyList())
                 }.orEmpty()
@@ -134,7 +134,9 @@ class LiveTvViewModel(
                     async {
                         runCatching {
                             addonManager.addonLiveStreams(event).mapNotNull { s ->
-                                s.toStreamSource()?.let { src -> src.copy(serverName = "${event.addonName}: ${src.serverName}") }
+                                s.toStreamSource()?.let { src ->
+                                    src.copy(serverName = "${event.addonName}: ${src.serverName}", isLive = true)
+                                }
                             }
                         }.onFailure { e -> if (e is CancellationException) throw e }.getOrDefault(emptyList())
                     }
@@ -158,6 +160,8 @@ class LiveTvViewModel(
         _state.update { it.copy(rows = null, failed = false) }
         refreshJob = viewModelScope.launch {
             val links = settings.liveLinksFlow.first()
+            // Everything is fetched at once; rows are then published as each kind lands, so a
+            // multi-megabyte channel list never holds up the viewer's own links.
             val mine = links.map { link ->
                 async {
                     runCatching { iptv.fromLink(link.name, link.url) }
@@ -184,7 +188,7 @@ class LiveTvViewModel(
                     .onFailure { if (it is CancellationException) throw it; Log.w(TAG, "Channel list failed", it) }
                     .getOrNull()
             }
-            val channelRows = channels.await()?.map { (category, list) -> channelRow(category, list) }
+
             val loaded = mine.awaitAll()
             // Playlists get a row each; single streams share one "My Channels" row.
             val (lists, singles) = loaded.mapNotNull { (_, channels) -> channels }.partition { it.size > 1 }
@@ -192,8 +196,11 @@ class LiveTvViewModel(
                 listOfNotNull(singles.flatten().takeIf { it.isNotEmpty() }?.let { channelRow(MY_CHANNELS, it) })
             val broken = loaded.filter { it.second == null }.map { it.first.name }
 
+            // Publish as each kind lands: a slow channel list must not hold up the viewer's links.
+            var rows = myRows
+            if (rows.isNotEmpty()) _state.update { it.copy(rows = rows) }
+
             val rawAddonRows = addonRows.await() + pengu.await()
-            // Sort items inside each event row so active live streams/matches are listed first
             val processedAddonRows = rawAddonRows.map { row ->
                 if (row.items.isEmpty()) row
                 else {
@@ -204,15 +211,17 @@ class LiveTvViewModel(
                     row.copy(items = sortedItems)
                 }
             }
-            // Sort live rows so rows with active events appear before empty rows
             val (activeAddonRows, emptyAddonRows) = processedAddonRows.partition { it.items.isNotEmpty() }
-            val rows = myRows + activeAddonRows + emptyAddonRows + channelRows.orEmpty()
-            _state.update {
-                it.copy(
-                    rows = rows,
-                    failed = rows.isEmpty() && channelRows == null,
-                    message = broken.takeIf { b -> b.isNotEmpty() }?.let { b -> "Couldn't load: ${b.joinToString(", ")}" } ?: it.message,
-                )
+            rows = myRows + activeAddonRows + emptyAddonRows
+            if (rows.isNotEmpty()) _state.update { it.copy(rows = rows) }
+
+            // The free channel list is the biggest download, so it lands last.
+            val channelRows = channels.await()?.map { (category, list) -> channelRow(category, list) }
+            rows = rows + channelRows.orEmpty()
+            _state.update { it.copy(rows = rows, failed = rows.isEmpty() && channelRows.isNullOrEmpty()) }
+
+            if (broken.isNotEmpty()) {
+                _state.update { it.copy(message = "Couldn't load: ${broken.joinToString(", ")}") }
             }
         }
     }
@@ -243,7 +252,7 @@ class LiveTvViewModel(
             posterUrl = meta.poster ?: meta.logo ?: meta.background ?: "",
             backdropUrl = meta.background,
             synopsis = meta.description ?: meta.releaseInfo,
-            source = ADDON_SOURCE,
+            source = LIVE_SOURCE,
         )
     }
 
@@ -251,7 +260,7 @@ class LiveTvViewModel(
         LiveRow(title, channels.map { channel ->
             val id = "iptv:${channel.source.url}"
             channelStreams[id] = channel.source
-            Movie(id = id, title = channel.name, posterUrl = channel.logo.orEmpty(), source = CHANNEL_SOURCE)
+            Movie(id = id, title = channel.name, posterUrl = channel.logo.orEmpty(), source = LIVE_SOURCE)
         }, channels = true)
 
     /** A channel plays at once; a PenguPlay event fetches its streams first and may offer several. */
@@ -265,8 +274,8 @@ class LiveTvViewModel(
         val addonEvent = addonEvents[movie.id]
         streamJob = viewModelScope.launch {
             val streams = try {
-                if (addonEvent != null) addonManager.addonLiveStreams(addonEvent).mapNotNull { it.toStreamSource() }
-                else addonManager.penguLiveStreams(PENGU_TYPE, movie.id).mapNotNull { it.toStreamSource() }
+                if (addonEvent != null) addonManager.addonLiveStreams(addonEvent).mapNotNull { it.toStreamSource()?.copy(isLive = true) }
+                else addonManager.penguLiveStreams(PENGU_TYPE, movie.id).mapNotNull { it.toStreamSource()?.copy(isLive = true) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -294,16 +303,15 @@ class LiveTvViewModel(
         posterUrl = poster ?: background ?: logo ?: "",
         backdropUrl = background,
         synopsis = description ?: releaseInfo,
-        source = PENGU_SOURCE,
+        source = LIVE_SOURCE,
     )
 
     private companion object {
         const val TAG = "LiveTvViewModel"
         const val PENGU_TYPE = "tv"
-        const val PENGU_SOURCE = "pengu-live"
-        const val CHANNEL_SOURCE = "iptv"
+        /** Every entry the Live TV page can open - channel, PenguPlay event, addon event. */
+        const val LIVE_SOURCE = "live"
         const val MY_CHANNELS = "My Channels"
-        const val ADDON_SOURCE = "addon-live"
         /** How many matching addon events a game pulls streams from. */
         const val MAX_GAME_EVENTS = 6
         const val SCORES_REFRESH_MS = 60_000L

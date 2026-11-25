@@ -386,6 +386,7 @@ fun PlayerScreen(
                     position = state.positionMs,
                     duration = state.durationMs,
                     bufferedPosition = state.bufferedPositionMs,
+                    isLive = state.isLive,
                     isSubtitlesActive = state.subtitlesEnabled,
                     isAudioActive = state.selectedAudioTrack != null,
                     isSpeedActive = state.playbackSpeed != 1.0f,

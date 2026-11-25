@@ -44,7 +44,7 @@ material3AdaptiveNavigationSuite = "1.4.0"
 datastorePreferences = "1.2.1"
 material = "1.14.0"
 jsoup = "1.23.2"
-media3 = "1.8.0"
+media3 = "1.11.1"
 assMedia = "0.5.1"
 riveAndroid = "11.11.0"
 

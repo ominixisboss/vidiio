@@ -5,6 +5,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.ominix.vidiio.VidiioApplication
 import com.ominix.vidiio.data.model.Movie
+import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.ui.player.PlayerViewModel
 
 /**
@@ -82,7 +83,8 @@ object VidiioViewModelFactories {
     fun player(
         app: VidiioApplication,
         movie: Movie,
-        initialEpisodeId: String? = null
+        initialEpisodeId: String? = null,
+        initialSource: StreamSource? = null
     ): ViewModelProvider.Factory = viewModelFactory {
         initializer {
             PlayerViewModel(
@@ -95,7 +97,8 @@ object VidiioViewModelFactories {
                 app.watchProgressRepository,
                 app.addonManager,
                 movie,
-                initialEpisodeId
+                initialEpisodeId,
+                initialSource
             )
         }
     }

@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Default-deny cleartext. Every scraper response we parse decides what the player
-  loads next, so an unencrypted one is a remote-control channel for anyone on the
-  same network. HTTPS is required everywhere except the loopback exceptions below.
+  Cleartext is permitted because of Live TV. Its streams are whatever the viewer pasted
+  into Settings > Live TV, and a large share of public IPTV feeds and panels are HTTP-only,
+  so a blanket deny made those channels impossible to open at all.
 
-  If a source you need is HTTP-only, add its host to the domain-config below
-  rather than re-enabling cleartext globally.
+  Only media gets to use it: every API, scraper and addon request goes through
+  VidiioApplication.okHttpClient, which still refuses plain HTTP in code. That keeps the
+  original concern - an unencrypted scraper response deciding what the player loads next -
+  enforced where it matters.
 -->
 <network-security-config>
     <!--
@@ -18,7 +20,7 @@
       SHA-256 values). They only add trust for those CAs; the system store is still consulted
       first and in full. A TV with a wrong clock fails the same way, and no certificate fixes that.
     -->
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true">
         <trust-anchors>
             <certificates src="system" />
             <certificates src="@raw/amazon_root_1" />

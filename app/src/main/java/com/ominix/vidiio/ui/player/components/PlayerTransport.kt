@@ -33,6 +33,7 @@ fun PlayerTransport(
     position: Long,
     duration: Long,
     bufferedPosition: Long,
+    isLive: Boolean = false,
     isSubtitlesActive: Boolean,
     isAudioActive: Boolean,
     isSpeedActive: Boolean,
@@ -164,11 +165,12 @@ fun PlayerTransport(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // A live feed has no end time: "00:00 / 00:00" reads like a broken video.
             Text(
-                text = "${formatTime((sliderValue * duration).toLong())} / ${formatTime(duration)}",
-                color = Color.White,
+                text = if (isLive) "LIVE" else "${formatTime((sliderValue * duration).toLong())} / ${formatTime(duration)}",
+                color = if (isLive) Color(0xFFE5242F) else Color.White,
                 style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
+                fontWeight = if (isLive) FontWeight.Bold else FontWeight.Medium
             )
 
             // Continuous single focus row for all transport & secondary control buttons

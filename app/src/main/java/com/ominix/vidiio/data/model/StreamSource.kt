@@ -9,6 +9,8 @@ data class StreamSource(
     val sourceName: String = "",
     val sourceId: String = "",
     val isM3u8: Boolean = true,
+    /** A live feed (IPTV channel, live event): never resumed, progressed or auto-advanced. */
+    val isLive: Boolean = false,
     val quality: String? = null,
     val size: String? = null,
     val seeders: Int? = null,

@@ -91,6 +91,8 @@ data class PlayerUiState(
     val showAutoNext: Boolean = false,
     val autoNextSeconds: Int = 5,
 
+    /** Live TV (an IPTV channel or a live event): no end time, no progress, no intro skip. */
+    val isLive: Boolean = false,
     val isTorrentStream: Boolean = false,
     val isTorrentLoading: Boolean = false,
     val torrentFiles: List<TorrentFileInfo>? = null,
@@ -132,6 +134,7 @@ class PlayerViewModel(
     addonManager: AddonManager,
     movie: Movie,
     initialEpisodeId: String? = null,
+    initialSource: StreamSource? = null,
 ) : AndroidViewModel(application) {
 
     /**
@@ -151,7 +154,8 @@ class PlayerViewModel(
         watchProgressRepository = watchProgressRepository,
         addonManager = addonManager,
         initialMovie = movie,
-        initialEpisodeId = initialEpisodeId
+        initialEpisodeId = initialEpisodeId,
+        initialSource = initialSource
     )
 
     val movie: StateFlow<Movie?> = session.movie
@@ -285,6 +289,9 @@ class PlayerViewModel(
     /** Sources that failed to decode on this device, so the fallback never loops back to them. */
     private val skippedUrls = mutableSetOf<String>()
 
+    /** Attempts already spent re-opening a live feed that dropped; reset per source and per retry. */
+    private var liveRetries = 0
+
     /** Bumped to re-run the screen's source-preparation effect. */
     private val _retryTrigger = MutableStateFlow(0)
     val retryTrigger: StateFlow<Int> = _retryTrigger.asStateFlow()
@@ -309,6 +316,37 @@ class PlayerViewModel(
         override fun onPlayerError(error: PlaybackException) {
             val current = _state.value.selectedSource
             val currentUrl = current?.url
+            val live = isLiveFeed()
+
+            // A live feed has no second source to fall back to, and losing it for a moment (a
+            // segment at the live edge, a CDN hiccup) is normal. Rejoin or retry the same URL
+            // rather than declaring the channel dead.
+            if (live) {
+                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                    // A stall, or the app sitting in the background, left the live window.
+                    player.seekToDefaultPosition()
+                    player.prepare()
+                    player.play()
+                    return
+                }
+                if (current != null && liveRetries < LIVE_RETRY_LIMIT) {
+                    liveRetries++
+                    _state.update { it.copy(isBuffering = true, errorMessage = null) }
+                    viewModelScope.launch {
+                        delay(LIVE_RETRY_DELAY_MS * liveRetries)
+                        // Only if the viewer is still on this feed.
+                        if (_state.value.selectedSource?.url == currentUrl) startPlayback(current)
+                    }
+                    return
+                }
+                _state.update {
+                    it.copy(
+                        isBuffering = false,
+                        errorMessage = "Live stream stopped: ${error.localizedMessage ?: "the feed is offline"}",
+                    )
+                }
+                return
+            }
 
             // Mark the failed stream as dead in health state
             if (currentUrl != null) {
@@ -514,18 +552,32 @@ class PlayerViewModel(
 
     // ── Position polling, resume, skip/auto-next ─────────────────────────────
 
+    /**
+     * Whether the feed being played is live.
+     *
+     * The source knows: the IPTV parser and the live addon paths flag it before playback starts,
+     * which is what makes the first seconds behave. ExoPlayer only knows once it has parsed a live
+     * playlist, so it covers feeds from providers that do not flag anything.
+     */
+    private fun isLiveFeed(): Boolean =
+        player.isCurrentMediaItemLive || _state.value.selectedSource?.isLive == true
+
     private fun startPolling() {
         if (pollJob != null) return
         pollJob = viewModelScope.launch {
             var tick = 0
             while (true) {
                 val position = player.currentPosition
+                val live = isLiveFeed()
                 val duration = if (player.duration > 0) player.duration else 0L
+                // A live feed can report a finite DVR window, but none of the film logic below
+                // (resume, intro skip, up next, progress) may run for it.
+                val vodDuration = if (live) 0L else duration
 
                 // Some addons answer an unauthorised request with a short "sign in at <site>" clip instead of the
                 // film. A real film or episode is never under a minute, so an addon stream that short is one of
                 // those: skip it, tell the viewer where to sign in, and move on to the next source.
-                if (duration in 1L..PLACEHOLDER_MAX_MS && player.playbackState == Player.STATE_READY) {
+                if (!live && duration in 1L..PLACEHOLDER_MAX_MS && player.playbackState == Player.STATE_READY) {
                     val current = _state.value.selectedSource
                     if (current != null && current.sourceId == "stremio" && !current.url.startsWith("magnet:") &&
                         !skippedUrls.contains(current.url)
@@ -547,9 +599,9 @@ class PlayerViewModel(
 
                 // Something already watched is being reopened: ask whether to carry on or start over, rather
                 // than silently jumping. The video waits (paused) until the viewer chooses.
-                if (!didResume && resumePositionMs > 0L && duration > 0L && player.playbackState == Player.STATE_READY) {
+                if (!didResume && resumePositionMs > 0L && vodDuration > 0L && player.playbackState == Player.STATE_READY) {
                     didResume = true
-                    val nearEnd = resumePositionMs >= duration - 60_000L
+                    val nearEnd = resumePositionMs >= vodDuration - 60_000L
                     if (resumePositionMs >= RESUME_PROMPT_MIN_MS && !nearEnd) {
                         player.pause()
                         _state.update { it.copy(resumePromptMs = resumePositionMs) }
@@ -559,24 +611,25 @@ class PlayerViewModel(
                 val playing = player.isPlaying
 
                 // Halfway through, get the next episode ready in the background.
-                if (playing && duration > 0L && position > duration * 0.35) prefetchNextEpisode()
+                if (playing && vodDuration > 0L && position > vodDuration * 0.35) prefetchNextEpisode()
 
                 // Persist progress every ~10s of playback.
-                if (playing && duration > 0L && ++tick % 20 == 0) {
-                    session.saveWatchProgress(position, duration)
+                if (playing && vodDuration > 0L && ++tick % 20 == 0) {
+                    session.saveWatchProgress(position, vodDuration)
                 }
 
                 _state.update { s ->
                     var next = s.copy(
                         positionMs = position,
                         durationMs = duration,
-                        bufferedPositionMs = player.bufferedPosition
+                        bufferedPositionMs = player.bufferedPosition,
+                        isLive = live,
                     )
-                    if (duration > 0) {
+                    if (vodDuration > 0) {
                         val inIntroRange = position in 5000L..90000L
                         if (!inIntroRange) isIntroDismissed = false
 
-                        val remaining = duration - position
+                        val remaining = vodDuration - position
                         next = next.copy(
                             showSkipIntro = inIntroRange && !isIntroDismissed,
                             showSkipOutro = remaining < 120000L && duration > 120000L,
@@ -613,6 +666,7 @@ class PlayerViewModel(
             it.copy(selectedSource = source, pickedTorrentFileIndex = null, isVlcActive = false)
         }
         torrentPrepareRetries = 0
+        liveRetries = 0
     }
 
     fun setMediaPlayerChoice(choice: MediaPlayerChoice) {
@@ -681,13 +735,32 @@ class PlayerViewModel(
 
         val mediaItem = MediaItem.Builder()
             .setUri(source.url)
-            .setMimeType(if (source.isM3u8) MimeTypes.APPLICATION_M3U8 else null)
+            .setMimeType(streamMimeType(source))
             .build()
 
-        player.setMediaItem(mediaItem)
+        // C.TIME_UNSET, not 0: a live HLS feed usually carries a DVR window, and position 0 is
+        // its oldest segment - minutes behind the live edge. TIME_UNSET starts at the default
+        // position, which for a live window is the edge.
+        player.setMediaItem(mediaItem, C.TIME_UNSET)
+        _state.update { it.copy(isLive = source.isLive, errorMessage = null) }
         player.prepare()
         player.play()
     }
+
+    /**
+     * The container to open [source] as, when its URL says so.
+     *
+     * ExoPlayer infers HLS and DASH from a plain ".m3u8"/".mpd" path, but not when the URL
+     * carries a token, a query string or no extension at all - the shape most IPTV panels hand
+     * out - and a live feed opened as a progressive file simply fails. So only HLS needs help,
+     * and the source already knows whether it is HLS.
+     */
+    private fun streamMimeType(source: StreamSource): String? =
+        if (source.isM3u8 || source.url.contains("m3u8", ignoreCase = true)) {
+            MimeTypes.APPLICATION_M3U8
+        } else {
+            null
+        }
 
     // ── Transport ────────────────────────────────────────────────────────────
 
@@ -871,6 +944,9 @@ class PlayerViewModel(
     }
 
     fun retry() {
+        // A manual retry gets its live attempts back, otherwise the button would reopen the
+        // feed only to re-show the error the exhausted retries already produced.
+        liveRetries = 0
         _state.update { it.copy(errorMessage = null, isTorrentLoading = false) }
         _retryTrigger.update { it + 1 }
     }
@@ -925,3 +1001,9 @@ private const val PLACEHOLDER_MAX_MS = 75_000L
 
 /** Saved progress shorter than this is not worth asking about; playback just starts from the beginning. */
 private const val RESUME_PROMPT_MIN_MS = 30_000L
+
+/** How many times a live feed that dropped is re-opened before the error is shown. */
+private const val LIVE_RETRY_LIMIT = 3
+
+/** Wait before each live retry; multiplied by the attempt number so a dead feed backs off. */
+private const val LIVE_RETRY_DELAY_MS = 1_500L

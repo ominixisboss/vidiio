@@ -61,13 +61,15 @@ class MediaSession(
     private val addonManager: AddonManager,
     private val initialMovie: Movie,
     private val initialEpisodeId: String? = null,
+    /** The stream the player was opened with, when the caller already picked one (Live TV). */
+    initialSource: StreamSource? = null,
     /** Called once per episode with the first working torrent, so its peers can be gathered early. */
     private val prefetch: ((StreamSource) -> Unit)? = null,
 ) {
     private var prefetched = false
 
-    /** Live TV (a channel or a PenguPlay event): played as given, with no details lookup, source search or resume point. */
-    private val isLive = initialMovie.source in LIVE_SOURCES
+    /** Live TV: played as given, with no details lookup, source search or resume point. */
+    private val isLive = initialSource?.isLive == true
 
     private val _movie = MutableStateFlow<Movie?>(null)
     val movie: StateFlow<Movie?> = _movie.asStateFlow()
@@ -450,9 +452,6 @@ class MediaSession(
     }
 
     private companion object {
-        /** Movie.source values the Live TV page uses. */
-        val LIVE_SOURCES = setOf("iptv", "pengu-live", "addon-live")
-
         /** Overall wall-clock budget for one source search across all scrapers + Stremio. */
         const val SCRAPE_TIMEOUT_MS = 45_000L
 
