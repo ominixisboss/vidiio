@@ -282,11 +282,9 @@ class LiveTvViewModel(
                 Log.w(TAG, "Live streams for ${movie.id} failed", e)
                 emptyList()
             }
-            _state.update {
-                if (it.opening?.id != movie.id) it
-                else if (streams.isEmpty()) it.copy(opening = null, message = "No live stream for ${movie.title} right now.")
-                else it.copy(streams = streams)
-            }
+            // An empty answer keeps the sheet open on its "nothing found" state. A toast was gone
+            // in two seconds, taking with it the only sign of what happened to the item just tapped.
+            _state.update { if (it.opening?.id != movie.id) it else it.copy(streams = streams) }
         }
     }
 
