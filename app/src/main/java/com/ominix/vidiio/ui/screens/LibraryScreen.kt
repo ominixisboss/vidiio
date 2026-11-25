@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,7 +27,9 @@ import androidx.compose.material.icons.rounded.LiveTv
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +56,8 @@ import com.ominix.vidiio.ui.components.tvClickable
 @Composable
 fun LibraryScreen(
     onOpen: (VidiioRoute) -> Unit,
+    /** Name of the active profile, shown as a chip so it is clear whose list this is. */
+    profileName: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var shown by remember { mutableStateOf(false) }
@@ -69,18 +74,42 @@ fun LibraryScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                text = "Library",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            Text(
-                text = "What you saved, downloaded and watch live.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.55f)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = "Library",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "What you saved, downloaded and watch live.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.55f)
+                )
+            }
+            if (profileName != null) {
+                Surface(
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .widthIn(max = 148.dp),
+                    shape = RoundedCornerShape(50),
+                    color = Color.White.copy(alpha = 0.08f)
+                ) {
+                    Text(
+                        text = profileName,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
         }
 
         SectionLabel("Watch", shown, 0)

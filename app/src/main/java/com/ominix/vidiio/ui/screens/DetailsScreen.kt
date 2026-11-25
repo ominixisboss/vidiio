@@ -42,6 +42,7 @@ import com.ominix.vidiio.data.model.Episode
 import com.ominix.vidiio.data.model.MovieType
 import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.data.repository.SourceHealth
+import com.ominix.vidiio.ui.components.ErrorState
 import com.ominix.vidiio.ui.components.SourceHealthBadge
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.components.GlassCard
@@ -57,6 +58,8 @@ fun DetailsScreen(
     onPlay: (Movie, Episode?, StreamSource) -> Unit,
     autoPlaySeason: Int? = null,
     autoPlayEpisode: Int? = null,
+    /** The poster that was tapped, shown while the full details load. */
+    initialMovie: Movie? = null,
     modifier: Modifier = Modifier
 ) {
     val sourceHealth by viewModel.sourceHealth.collectAsState()
@@ -101,7 +104,10 @@ fun DetailsScreen(
         Box(modifier = Modifier.padding(padding).fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             when (val state = uiState) {
                 is DetailsUiState.Loading -> {
-                    RiveLoader(modifier = Modifier.align(Alignment.Center))
+                    DetailsLoadingPlaceholder(
+                        movie = initialMovie,
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
                 is DetailsUiState.Success -> {
                     val permissionsState = com.google.accompanist.permissions.rememberMultiplePermissionsState(
@@ -198,13 +204,10 @@ fun DetailsScreen(
                         }
                     }
                 }
-                is DetailsUiState.Error -> {
-                    Text(
-                        text = "Error: ${state.message}",
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.align(Alignment.Center)
-                    )
-                }
+                is DetailsUiState.Error -> ErrorState(
+                    onRetry = viewModel::retry,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }
@@ -214,6 +217,63 @@ fun DetailsScreen(
             onDismiss = { showSourceSelector = false },
             viewModel = viewModel
         )
+    }
+}
+
+/**
+ * The first frame after tapping a poster: show that poster and title immediately, with the
+ * spinner in place of the controls, instead of a blank page that fills in a second later.
+ */
+@Composable
+private fun DetailsLoadingPlaceholder(movie: Movie?, modifier: Modifier = Modifier) {
+    if (movie == null) {
+        Box(modifier, contentAlignment = Alignment.Center) { RiveLoader() }
+        return
+    }
+    Box(modifier) {
+        AsyncImage(
+            model = movie.backdropUrl ?: movie.posterUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp)
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(400.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
+                        startY = 240f
+                    )
+                )
+        )
+        Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+            Text(
+                text = movie.title,
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Black,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Loading details\u2026",
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
     }
 }
 

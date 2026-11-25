@@ -60,11 +60,11 @@ object VidiioViewModelFactories {
     }
 
     fun search(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
-        initializer { SearchViewModel(app.movieRepository) }
+        initializer { SearchViewModel(app.movieRepository, app.watchProgressRepository) }
     }
 
     fun favorites(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
-        initializer { FavoritesViewModel(app.favoriteRepository) }
+        initializer { FavoritesViewModel(app.favoriteRepository, app.watchProgressRepository) }
     }
 
     fun downloads(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {

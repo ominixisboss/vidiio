@@ -77,6 +77,12 @@ fun VidiioApp() {
     // `application` directly - only what this composable itself uses is hoisted here.
     val settingsRepository = application.settingsRepository
 
+    // Whose list is this? Profiles live in Settings, but the answer should be visible while browsing.
+    val profiles by application.profileRepository.allProfiles
+        .collectAsState(initial = emptyList<com.ominix.vidiio.data.model.UserProfile>())
+    val activeProfileId by settingsRepository.activeProfileIdFlow.collectAsState(initial = "default")
+    val activeProfileName = profiles.firstOrNull { it.id == activeProfileId }?.name
+
     val homeStyle by settingsRepository.homeStyleFlow
         .collectAsState(initial = com.ominix.vidiio.data.repository.HomeStyle.VIDIIO)
 
@@ -199,7 +205,11 @@ fun VidiioApp() {
             )
         }
         entry<VidiioRoute.Library> {
-            LibraryScreen(onOpen = { route -> navigator.navigate(route) }, modifier = Modifier.fillMaxSize())
+            LibraryScreen(
+                onOpen = { route -> navigator.navigate(route) },
+                profileName = activeProfileName,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         entry<VidiioRoute.Anime>(
             metadata = metadata {
@@ -294,6 +304,7 @@ fun VidiioApp() {
                 viewModel = viewModel,
                 autoPlaySeason = key.autoPlaySeason,
                 autoPlayEpisode = key.autoPlayEpisode,
+                initialMovie = key.movie,
                 onBack = { navigator.goBack() },
                 onPlay = { movie, episode, source -> 
                     navigator.navigate(VidiioRoute.Player(movie, episode?.id, source)) 
@@ -426,6 +437,10 @@ fun VidiioApp() {
         add(item(VidiioRoute.Movies, top == VidiioRoute.Movies, Icons.Rounded.Movie, "Movies"))
         add(item(VidiioRoute.TvShows, top == VidiioRoute.TvShows, Icons.Rounded.Tv, "TV"))
         add(item(VidiioRoute.Anime, top == VidiioRoute.Anime, Icons.Rounded.AutoAwesome, "Anime"))
+        // A landscape phone's bar is wide enough for Live TV; the portrait bar's six tabs are not.
+        if (adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+            add(item(VidiioRoute.LiveTv, top == VidiioRoute.LiveTv, Icons.Rounded.LiveTv, "Live TV"))
+        }
         add(item(VidiioRoute.Search(), top is VidiioRoute.Search, Icons.Rounded.Search, "Search"))
         add(library)
         if (settingsOnBar) {

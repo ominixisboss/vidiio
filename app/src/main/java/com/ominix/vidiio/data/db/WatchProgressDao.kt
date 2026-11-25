@@ -9,6 +9,10 @@ interface WatchProgressDao {
     @Query("SELECT * FROM watch_progress ORDER BY updatedAt DESC LIMIT 20")
     fun getRecent(): Flow<List<WatchProgress>>
 
+    /** Every saved position, so posters in a grid can show how far in they are. */
+    @Query("SELECT * FROM watch_progress")
+    fun getAll(): Flow<List<WatchProgress>>
+
     @Query("SELECT * FROM watch_progress WHERE id = :id LIMIT 1")
     suspend fun get(id: String): WatchProgress?
 
