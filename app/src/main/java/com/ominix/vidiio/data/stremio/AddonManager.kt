@@ -450,7 +450,8 @@ class AddonManager(
      * regular addons that are not movies, series or anime (sport, sports, tv, events, ...).
      */
     private suspend fun liveSources(): LiveSources = coroutineScope {
-        val liveUrls = settingsRepository.liveAddonsFlow.first().toList()
+        // Bundled live addons are always present, whatever the viewer's own list says.
+        val liveUrls = (settingsRepository.liveAddonsFlow.first().toList() + BUILTIN_LIVE_ADDON_URLS).distinct()
         val live = async { loadAddons(liveUrls) }
         val regular = async {
             getInstalledAddons().filter { it.url !in BUILTIN_ADDON_URLS && it.url !in liveUrls && !it.baseUrl.contains("pengu.uk", ignoreCase = true) }
@@ -518,6 +519,16 @@ class AddonManager(
 
         /** Budget for one live event or channel, so the Live TV sheet cannot wait forever. */
         private const val PENGU_LIVE_TIMEOUT_MS = 45_000L
+
+        /**
+         * Live TV addons bundled with the app: always listed on the Live TV page and not removable.
+         *
+         * NuvioSports, pre-configured for US leagues. Its config segment holds only preferences
+         * (timezone and league ids), no credential, so it is safe to ship - unlike SubSource below.
+         */
+        val BUILTIN_LIVE_ADDON_URLS = listOf(
+            "https://nuviosports.xyz/eyJ0aW1lem9uZSI6IkFtZXJpY2EvTmV3X1lvcmsiLCJsaXZlTGVhZ3VlcyI6eyJpZHMiOlsibWxzIiwibndzbCIsImVwbCIsIm5mbCIsImNvbGxlZ2UtZm9vdGJhbGwiLCJuYmEiLCJ3bmJhIiwiY29sbGVnZS1iYXNrZXRiYWxsIiwibWxiIiwibmhsIiwiZm9ybXVsYS0xIiwibW90b2dwIiwibmFzY2FyIiwiaW5keWNhciIsInVmYyIsImJveGluZyIsInBnYS10b3VyIiwibGl2LWdvbGYiXSwiY3VzdG9tIjpbXSwib3RoZXIiOmZhbHNlfSwic3BvcnRzIjoiZm9vdGJhbGwsYmFza2V0YmFsbCxhbWVyaWNhbl9mb290YmFsbCxtb3RvcnNwb3J0LGhja2V5LGJhc2ViYWxsLGNvbGxlZ2UsbW1hIn0/manifest.json"
+        )
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(
