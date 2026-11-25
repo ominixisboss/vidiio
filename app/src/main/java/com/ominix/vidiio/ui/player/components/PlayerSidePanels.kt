@@ -27,10 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.ominix.vidiio.data.model.Episode
@@ -38,6 +39,7 @@ import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.data.repository.SourceHealth
 import com.ominix.vidiio.ui.components.SourceHealthBadge
+import kotlin.math.roundToInt
 
 /**
  * Episode picker for the player: a slim panel with a row of season chips and one compact line per
@@ -73,12 +75,18 @@ fun EpisodeSidebar(
     androidx.compose.runtime.LaunchedEffect(Unit) {
         slide.animateTo(1f, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow))
     }
+    // Measured width, so the panel can be placed off screen and travel with the animation.
+    var panelWidth by remember { mutableIntStateOf(0) }
 
     Surface(
         modifier = modifier
             .fillMaxHeight()
             .width(280.dp)
-            .graphicsLayer { translationX = size.width * (1f - slide.value) },
+            .onSizeChanged { panelWidth = it.width }
+            // Offset during layout, not on the layer: a layer would move the pixels while leaving
+            // the touch target at the final position, so the arriving panel ate taps it had not
+            // reached yet.
+            .offset { IntOffset((panelWidth * (1f - slide.value)).roundToInt(), 0) },
         // Solid and dark with explicit light text: the theme surface can be light, and the video shows through a translucent one.
         color = Color(0xFF14161B),
         contentColor = Color.White
