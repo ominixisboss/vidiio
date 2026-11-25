@@ -44,6 +44,8 @@ data class LiveTvState(
     val opening: Movie? = null,
     /** Streams for [opening]; null while they load. */
     val streams: List<StreamSource>? = null,
+    /** What the sheet says when [streams] is empty, so the outcome explains itself. */
+    val emptyNote: String? = null,
     val message: String? = null,
     /** Today's games per league (null while loading), and the league whose games are shown. */
     val sports: List<Pair<League, List<Game>>>? = null,
@@ -109,20 +111,23 @@ class LiveTvViewModel(
         streamJob?.cancel()
         val title = "${game.away.name} at ${game.home.name}"
         val movie = Movie(id = "game:${game.league.name}:${game.id}", title = title, posterUrl = game.home.logo.orEmpty(), source = LIVE_SOURCE)
-        _state.update { it.copy(opening = movie, streams = null, message = null) }
+        _state.update { it.copy(opening = movie, streams = null, emptyNote = null, message = null) }
         streamJob = viewModelScope.launch {
             val keys = listOf(game.home.name, game.away.name).map { it.lowercase() }
             fun matches(name: String) = name.lowercase().let { n -> keys.any { key -> n.contains(key) || n.contains(key.substringAfterLast(' ')) } }
             // Ask PenguPlay and every installed live addon at once; teams are searched by nickname ("Chiefs").
-            val penguStreams = async {
+            val pengu = async {
                 val event = listOf(game.away.name, game.home.name).firstNotNullOfOrNull { team ->
                     addonManager.penguLiveSearch(game.league.penguCatalog, team).firstOrNull { matches(it.name) }
                 }
-                event?.let {
-                    runCatching { addonManager.penguLiveStreams(PENGU_TYPE, it.id).mapNotNull { s -> s.toStreamSource()?.copy(isLive = true) } }
+                val offered = event?.let {
+                    runCatching { addonManager.penguLiveStreams(PENGU_TYPE, it.id) }
                         .onFailure { e -> if (e is CancellationException) throw e }
                         .getOrDefault(emptyList())
                 }.orEmpty()
+                val mapped = offered.mapNotNull { s -> s.toStreamSource()?.copy(isLive = true) }
+                // Entries that were all filtered out are PenguPlay's sign-in clip.
+                mapped to (offered.isNotEmpty() && mapped.isEmpty())
             }
             val addonStreams = async {
                 val nicknames = listOf(game.away.name, game.home.name).map { it.substringAfterLast(' ') }.distinct()
@@ -142,15 +147,20 @@ class LiveTvViewModel(
                     }
                 }.awaitAll().flatten()
             }
-            val streams = (penguStreams.await() + addonStreams.await()).distinctBy { it.url }
+            val (penguStreams, penguSignInOnly) = pengu.await()
+            val streams = (penguStreams + addonStreams.await()).distinctBy { it.url }
+            // Same sheet as a tapped channel: a game with nothing playable keeps the networks it
+            // airs on in view, instead of a toast that vanishes before it can be read.
             _state.update {
                 if (it.opening?.id != movie.id) it
-                else if (streams.isEmpty()) it.copy(
-                    opening = null,
-                    message = "No stream found for this game." +
-                        (game.networks.takeIf { n -> n.isNotEmpty() }?.let { n -> " It's on ${n.joinToString(", ")}." } ?: "")
+                else it.copy(
+                    streams = streams,
+                    emptyNote = if (streams.isEmpty()) buildString {
+                        append("No stream found for this game.")
+                        game.networks.takeIf { n -> n.isNotEmpty() }?.let { append(" It's on ${it.joinToString(", ")}.") }
+                        if (penguSignInOnly) append(' ').append(SIGN_IN_NOTE)
+                    } else null
                 )
-                else it.copy(streams = streams)
             }
         }
     }
@@ -267,30 +277,34 @@ class LiveTvViewModel(
     fun open(movie: Movie) {
         streamJob?.cancel()
         channelStreams[movie.id]?.let { source ->
-            _state.update { it.copy(opening = movie, streams = listOf(source), message = null) }
+            _state.update { it.copy(opening = movie, streams = listOf(source), emptyNote = null, message = null) }
             return
         }
-        _state.update { it.copy(opening = movie, streams = null, message = null) }
+        _state.update { it.copy(opening = movie, streams = null, emptyNote = null, message = null) }
         val addonEvent = addonEvents[movie.id]
         streamJob = viewModelScope.launch {
-            val streams = try {
-                if (addonEvent != null) addonManager.addonLiveStreams(addonEvent).mapNotNull { it.toStreamSource()?.copy(isLive = true) }
-                else addonManager.penguLiveStreams(PENGU_TYPE, movie.id).mapNotNull { it.toStreamSource()?.copy(isLive = true) }
+            val offered = try {
+                if (addonEvent != null) addonManager.addonLiveStreams(addonEvent)
+                else addonManager.penguLiveStreams(PENGU_TYPE, movie.id)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Live streams for ${movie.id} failed", e)
                 emptyList()
             }
+            val streams = offered.mapNotNull { it.toStreamSource()?.copy(isLive = true) }
+            // Entries that were all filtered out are PenguPlay's sign-in clip, not an empty
+            // catalogue: say so, since the viewer's link is the thing that has to change.
+            val emptyNote = if (addonEvent == null && offered.isNotEmpty() && streams.isEmpty()) SIGN_IN_NOTE else null
             // An empty answer keeps the sheet open on its "nothing found" state. A toast was gone
             // in two seconds, taking with it the only sign of what happened to the item just tapped.
-            _state.update { if (it.opening?.id != movie.id) it else it.copy(streams = streams) }
+            _state.update { if (it.opening?.id != movie.id) it else it.copy(streams = streams, emptyNote = emptyNote) }
         }
     }
 
     fun dismiss() {
         streamJob?.cancel()
-        _state.update { it.copy(opening = null, streams = null) }
+        _state.update { it.copy(opening = null, streams = null, emptyNote = null) }
     }
 
     fun clearMessage() = _state.update { it.copy(message = null) }
@@ -313,5 +327,9 @@ class LiveTvViewModel(
         /** How many matching addon events a game pulls streams from. */
         const val MAX_GAME_EVENTS = 6
         const val SCORES_REFRESH_MS = 60_000L
+
+        /** Why a PenguPlay live item has nothing to play: the addon answered with its sign-in clip. */
+        const val SIGN_IN_NOTE = "PenguPlay answered with its sign-in clip instead of a stream. " +
+            "Sign in at pengu.uk and re-add your link in Settings."
     }
 }
