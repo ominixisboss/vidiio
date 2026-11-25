@@ -192,14 +192,24 @@ fun BrowseHero(
         }
     }
 
+    // A landscape phone only has ~360dp of height, and the bottom bar covers the last ~104dp.
+    // At the old fixed 460dp the hero's title, metadata and buttons were below the fold and under
+    // the bar. On short screens, keep the hero above the bar and lay its copy out from the top.
+    val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val compact = !isTv && screenHeight < 420
+    val heroHeight = when {
+        compact -> (screenHeight - 104).coerceAtLeast(220).dp
+        isTv -> 440.dp
+        else -> 460.dp
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (isTv) 440.dp else 460.dp)
+            .height(heroHeight)
             .onFocusChanged { if (it.hasFocus) onFocused() }
     ) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            HeroPage(palette, items[page], rank = page + 1, loading = loadingKey == items[page].key, onOpen = { onOpen(page) })
+            HeroPage(palette, items[page], rank = page + 1, loading = loadingKey == items[page].key, compact = compact, onOpen = { onOpen(page) })
         }
 
         if (items.size > 1) {
@@ -218,22 +228,25 @@ fun BrowseHero(
             }
         }
 
-        // The page's own mark, top left, clear of the status bar.
-        Row(
-            modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = palette.primary, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = palette.label,
-                style = TextStyle(
-                    brush = Brush.horizontalGradient(listOf(palette.primary, palette.secondary, palette.tertiary)),
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 3.sp
+        // The page's own mark, top left, clear of the status bar. Compact heroes put their copy
+        // there instead, so the mark would collide with the title.
+        if (!compact) {
+            Row(
+                modifier = Modifier.statusBarsPadding().padding(start = 16.dp, top = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = palette.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = palette.label,
+                    style = TextStyle(
+                        brush = Brush.horizontalGradient(listOf(palette.primary, palette.secondary, palette.tertiary)),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 3.sp
+                    )
                 )
-            )
+            }
         }
 
         // Phone shortcuts: search, and the library (My List / Downloads / Settings).
@@ -274,6 +287,7 @@ private fun HeroPage(
     spec: HeroSpec,
     rank: Int,
     loading: Boolean,
+    compact: Boolean,
     onOpen: () -> Unit,
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -301,8 +315,13 @@ private fun HeroPage(
 
         Column(
             modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 20.dp, end = 20.dp, bottom = 34.dp)
+                .align(if (compact) Alignment.TopStart else Alignment.BottomStart)
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    top = if (compact) 48.dp else 0.dp,
+                    bottom = if (compact) 0.dp else 34.dp
+                )
                 .widthIn(max = 560.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -331,7 +350,7 @@ private fun HeroPage(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            if (spec.blurb.isNotBlank()) {
+            if (spec.blurb.isNotBlank() && !compact) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = spec.blurb,

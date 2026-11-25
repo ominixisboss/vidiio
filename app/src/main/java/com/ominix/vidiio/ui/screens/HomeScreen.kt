@@ -567,7 +567,12 @@ fun HeroCarousel(movies: List<Movie>, spec: HomeStyleSpec, onMovieClick: (Movie)
         }
     }
 
-    Box(modifier = Modifier.fillMaxWidth().height(spec.heroHeight)) {
+    // Keep the title and buttons above the bottom bar on a short landscape phone; at the fixed
+    // 460-500dp height they were entirely below the first screenful.
+    val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val compact = !isTv && screenHeight < 420
+    val heroHeight = if (compact) (screenHeight - 104).coerceAtLeast(220).dp else spec.heroHeight
+    Box(modifier = Modifier.fillMaxWidth().height(heroHeight)) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val movie = movies[page]
             Box(Modifier.fillMaxSize().tvClickable(onClick = { onMovieClick(movie) }, enabled = !isTv)) {
@@ -589,10 +594,12 @@ fun HeroCarousel(movies: List<Movie>, spec: HomeStyleSpec, onMovieClick: (Movie)
                     HeroTagBadge(spec)
                     Text(
                         text = movie.title,
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                         textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(16.dp))
@@ -624,10 +631,13 @@ fun HeroStatic(movie: Movie, spec: HomeStyleSpec, onMovieClick: (Movie) -> Unit)
     val inset = spec.heroKind == HeroKind.SPOTLIGHT
     val corner = if (inset) 20.dp else 0.dp
 
+    val screenHeight = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    val compact = !isTv && screenHeight < 420
+    val heroHeight = if (compact) (screenHeight - 104).coerceAtLeast(220).dp else spec.heroHeight
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(spec.heroHeight)
+            .height(heroHeight)
             .then(if (inset) Modifier.padding(horizontal = 12.dp, vertical = 8.dp) else Modifier)
             .tvClickable(onClick = { onMovieClick(movie) }, shape = RoundedCornerShape(corner), enabled = !isTv)
     ) {
@@ -653,10 +663,12 @@ fun HeroStatic(movie: Movie, spec: HomeStyleSpec, onMovieClick: (Movie) -> Unit)
             HeroTagBadge(spec)
             Text(
                 text = movie.title,
-                style = MaterialTheme.typography.headlineMedium,
+                style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 textAlign = if (spec.heroCenterText) TextAlign.Center else TextAlign.Start,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(horizontal = 24.dp)
             )
             movie.synopsis?.takeIf { spec.heroKind == HeroKind.BANNER }?.let {
