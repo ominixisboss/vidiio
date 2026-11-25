@@ -243,6 +243,7 @@ class PlayerViewModel(
         nextPrefetched = false
         upNextJob?.cancel()
         skippedUrls.clear()
+        hlsRetryUrls.clear()
         // The saved resume point belongs to the episode that was playing, not to the one being switched to:
         // without this the new episode seeks to the old one's timestamp as soon as it loads.
         resumePositionMs = 0L
@@ -288,6 +289,9 @@ class PlayerViewModel(
 
     /** Sources that failed to decode on this device, so the fallback never loops back to them. */
     private val skippedUrls = mutableSetOf<String>()
+
+    /** URLs already re-opened as HLS once, so a link that fails in both forms is not retried forever. */
+    private val hlsRetryUrls = mutableSetOf<String>()
 
     /** Attempts already spent re-opening a live feed that dropped; reset per source and per retry. */
     private var liveRetries = 0
@@ -345,6 +349,19 @@ class PlayerViewModel(
                         errorMessage = "Live stream stopped: ${error.localizedMessage ?: "the feed is offline"}",
                     )
                 }
+                return
+            }
+
+            // Some providers serve an HLS playlist from a URL with no .m3u8 in it (PenguPlay hands
+            // out /play/<id>?psig=…), so the source was never flagged HLS and ExoPlayer opened the
+            // playlist as a progressive file and failed to parse it. Reopen the same URL as HLS
+            // once before writing the link off.
+            if (current != null && currentUrl != null && !current.isM3u8 &&
+                !current.url.contains("m3u8", ignoreCase = true) &&
+                isContainerParseError(error) && hlsRetryUrls.add(currentUrl)
+            ) {
+                _state.update { it.copy(isBuffering = true, errorMessage = null) }
+                startPlayback(current.copy(isM3u8 = true))
                 return
             }
 
@@ -745,6 +762,22 @@ class PlayerViewModel(
         _state.update { it.copy(isLive = source.isLive, errorMessage = null) }
         player.prepare()
         player.play()
+    }
+
+    /**
+     * Whether ExoPlayer failed because it could not parse what it was given, rather than because
+     * the link was unreachable. Those are the only failures worth re-opening as HLS: a 404 or a
+     * timeout says nothing about the container.
+     */
+    private fun isContainerParseError(error: PlaybackException): Boolean {
+        // PlaybackException itself only says "Source error"; the reason is in the cause chain.
+        var cause: Throwable? = error
+        while (cause != null) {
+            if (cause is androidx.media3.exoplayer.source.UnrecognizedInputFormatException) return true
+            if (cause.message?.contains("None of the available extractors", ignoreCase = true) == true) return true
+            cause = cause.cause
+        }
+        return error.errorCode in 3001..3004
     }
 
     /**

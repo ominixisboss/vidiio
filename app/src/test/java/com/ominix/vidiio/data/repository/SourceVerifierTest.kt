@@ -27,8 +27,17 @@ class SourceVerifierTest {
 
     @Test
     fun `error statuses are dead`() {
-        for (code in listOf(401, 403, 404, 410, 500, 503)) {
+        for (code in listOf(404, 410, 500, 503)) {
             assertEquals("HTTP $code", SourceStatus.DEAD, judge(code, "video/mp4"))
+        }
+    }
+
+    @Test
+    fun `a refused request is unverified, not dead`() {
+        // Token-gated CDNs (PenguPlay) and hotlink protection answer 401/403 to a probe while
+        // the same url plays in the player, so a refusal must not hide the source.
+        for (code in listOf(401, 403)) {
+            assertEquals("HTTP $code", SourceStatus.UNKNOWN, judge(code, "video/mp4"))
         }
     }
 

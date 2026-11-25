@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
@@ -66,12 +67,22 @@ class AddonManager(
         }.awaitAll().filterNotNull()
     }
 
+    /**
+     * Streams offered by every installed addon that declares the `stream` resource.
+     *
+     * Each addon gets its own deadline. PenguPlay answers one request by fanning out to ~27
+     * providers and is routinely slower than a plain scraper addon; when the caller held one
+     * shared deadline over the whole batch, that slow answer cancelled every other addon's
+     * links with it - the addon that needed the time was the one that lost everything.
+     */
     suspend fun getStreams(type: String, id: String): List<StremioStream> = coroutineScope {
         val streamAddons = getInstalledAddons().filter { it.manifest.hasResource("stream") }
         streamAddons.map { addon ->
             async {
                 try {
-                    stremioService.getStreams("${addon.baseUrl}stream/$type/$id.json").streams
+                    withTimeoutOrNull(streamBudgetMs(addon)) {
+                        stremioService.getStreams("${addon.baseUrl}stream/$type/$id.json").streams
+                    }.orEmpty()
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     Log.e("AddonManager", "Error fetching streams from ${addon.manifest.name}", e)
@@ -80,6 +91,11 @@ class AddonManager(
             }
         }.awaitAll().flatten()
     }
+
+    /** How long one addon may take to answer a stream request. */
+    private fun streamBudgetMs(addon: InstalledAddon): Long =
+        if (addon.baseUrl.contains("pengu.uk", ignoreCase = true)) PENGU_STREAM_TIMEOUT_MS
+        else ADDON_STREAM_TIMEOUT_MS
 
     /**
      * Subtitles offered by every installed addon that declares the `subtitles` resource.
@@ -471,6 +487,12 @@ class AddonManager(
         /** Catalogue types that are on-demand video; every other type an addon uses counts as live. */
         private val VOD_TYPES = setOf("movie", "series", "anime", "other")
         private const val STREAM_TIMEOUT_MS = 15_000L
+
+        /** Budget for one regular addon's stream request. */
+        private const val ADDON_STREAM_TIMEOUT_MS = 25_000L
+
+        /** PenguPlay asks ~27 providers at once and needs far longer than a scraper addon. */
+        private const val PENGU_STREAM_TIMEOUT_MS = 60_000L
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(
