@@ -18,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -25,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -35,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.first
 import com.ominix.vidiio.VidiioApplication
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.ui.viewmodel.PosterActionsViewModel
@@ -64,17 +67,20 @@ fun PosterActionsSheet(
     )
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val inMyList = movie.id in favoriteIds
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val firstAction = remember { FocusRequester() }
     // The sheet leaves focus on its drag handle as it opens, which on a TV means the first
-    // OK press does nothing. Hand focus to Play once the sheet has settled.
-    LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(350)
+    // OK press does nothing. Wait for the sheet to actually reach its shown state and then
+    // hand focus to Play: a fixed delay is a race on a slower TV.
+    LaunchedEffect(sheetState) {
+        snapshotFlow { sheetState.currentValue }
+            .first { it == SheetValue.Expanded }
         runCatching { firstAction.requestFocus() }
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = sheetState,
         containerColor = MaterialTheme.colorScheme.surface,
         contentColor = MaterialTheme.colorScheme.onSurface
     ) {
