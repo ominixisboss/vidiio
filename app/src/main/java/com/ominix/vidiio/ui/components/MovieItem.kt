@@ -44,6 +44,7 @@ fun MovieItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     progress: Float? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(20.dp)
     val context = LocalContext.current
@@ -58,7 +59,7 @@ fun MovieItem(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .tvClickable(onClick = onClick, shape = shape)
+            .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape)
             .border(0.5.dp, Color.White.copy(alpha = 0.15f), shape)
     ) {
         AsyncImage(

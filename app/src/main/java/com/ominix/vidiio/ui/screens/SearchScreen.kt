@@ -44,6 +44,8 @@ import com.ominix.vidiio.ui.viewmodel.SearchViewModel
 fun SearchScreen(
     viewModel: SearchViewModel,
     onNavigateToDetails: (Movie) -> Unit,
+    /** Long-press "Play": open the title and start its best stream. */
+    onPlay: (Movie) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -51,6 +53,7 @@ fun SearchScreen(
     val progressById by viewModel.progress.collectAsState()
     var selectedFilter by remember { mutableStateOf("All") }
     var isSearchFocused by remember { mutableStateOf(false) }
+    var actionsFor by remember { mutableStateOf<Movie?>(null) }
     val isTv = LocalIsTv.current
     val searchFocus = remember { FocusRequester() }
     // Opening Search from the bar should put the cursor in the field, not make you tap it first.
@@ -177,7 +180,8 @@ fun SearchScreen(
                                         MovieItem(
                                             movie = movie,
                                             onClick = { onNavigateToDetails(movie) },
-                                            progress = progressById[movie.id]
+                                            progress = progressById[movie.id],
+                                            onLongClick = { actionsFor = movie }
                                         )
                                     }
                                 }
@@ -191,5 +195,14 @@ fun SearchScreen(
                 )
             }
         }
+    }
+
+    actionsFor?.let { movie ->
+        com.ominix.vidiio.ui.components.PosterActionsSheet(
+            movie = movie,
+            onDismiss = { actionsFor = null },
+            onPlay = onPlay,
+            onDetails = onNavigateToDetails
+        )
     }
 }

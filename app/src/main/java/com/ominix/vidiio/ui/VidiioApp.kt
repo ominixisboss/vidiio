@@ -119,6 +119,7 @@ fun VidiioApp() {
                 onOpenAnime = { navigator.navigate(VidiioRoute.Anime) },
                 onOpenGuide = { navigator.navigate(VidiioRoute.TvGuide) },
                 onOpenCollection = { title, studio -> navigator.navigate(VidiioRoute.Collection(title, studio)) },
+                onPlay = { movie -> navigator.navigate(VidiioRoute.Details(movie, autoPlay = true)) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -135,6 +136,7 @@ fun VidiioApp() {
                 viewModel = viewModel,
                 homeStyle = homeStyle,
                 onOpenMovie = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
+                onPlay = { movie -> navigator.navigate(VidiioRoute.Details(movie, autoPlay = true)) },
                 onTab = { index ->
                     when (index) {
                         0 -> navigator.navigate(VidiioRoute.Home)
@@ -193,6 +195,7 @@ fun VidiioApp() {
                 viewModel = viewModel,
                 homeStyle = homeStyle,
                 onOpenMovie = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
+                onPlay = { movie -> navigator.navigate(VidiioRoute.Details(movie, autoPlay = true)) },
                 onTab = { index ->
                     when (index) {
                         0 -> navigator.navigate(VidiioRoute.Home)
@@ -243,6 +246,7 @@ fun VidiioApp() {
             SearchScreen(
                 viewModel = viewModel,
                 onNavigateToDetails = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
+                onPlay = { movie -> navigator.navigate(VidiioRoute.Details(movie, autoPlay = true)) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -257,6 +261,7 @@ fun VidiioApp() {
             FavoritesScreen(
                 viewModel = viewModel,
                 onMovieClick = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
+                onPlay = { movie -> navigator.navigate(VidiioRoute.Details(movie, autoPlay = true)) },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -304,11 +309,13 @@ fun VidiioApp() {
                 viewModel = viewModel,
                 autoPlaySeason = key.autoPlaySeason,
                 autoPlayEpisode = key.autoPlayEpisode,
+                autoPlay = key.autoPlay,
                 initialMovie = key.movie,
                 onBack = { navigator.goBack() },
                 onPlay = { movie, episode, source -> 
                     navigator.navigate(VidiioRoute.Player(movie, episode?.id, source)) 
                 },
+                onMovieClick = { movie -> navigator.navigate(VidiioRoute.Details(movie)) },
                 modifier = Modifier.fillMaxSize()
             )
         }

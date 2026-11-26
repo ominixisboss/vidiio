@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -43,6 +45,7 @@ import com.ominix.vidiio.data.model.MovieType
 import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.data.repository.SourceHealth
 import com.ominix.vidiio.ui.components.ErrorState
+import com.ominix.vidiio.ui.components.MovieItem
 import com.ominix.vidiio.ui.components.SourceHealthBadge
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.components.GlassCard
@@ -58,14 +61,19 @@ fun DetailsScreen(
     onPlay: (Movie, Episode?, StreamSource) -> Unit,
     autoPlaySeason: Int? = null,
     autoPlayEpisode: Int? = null,
+    /** Set by a long-press Play on a poster: start the best stream as soon as it is found. */
+    autoPlay: Boolean = false,
     /** The poster that was tapped, shown while the full details load. */
     initialMovie: Movie? = null,
+    /** Opening a title from the "More like this" rail. */
+    onMovieClick: (Movie) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val sourceHealth by viewModel.sourceHealth.collectAsState()
     val unavailableCount by viewModel.unavailableCount.collectAsState()
     val showUnavailable by viewModel.showUnavailable.collectAsState()
     val uiState by viewModel.uiState.collectAsState()
+    val similar by viewModel.similar.collectAsState()
     // Up from Play has nothing reliably above it to land on (the trailer sits there), so give
     // the remote a direct route to the top bar.
     val topFocus = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -161,6 +169,23 @@ fun DetailsScreen(
                             android.widget.Toast.makeText(toastContext, "That episode is not listed yet", android.widget.Toast.LENGTH_LONG).show()
                         }
                     }
+                    // A long-press Play on a poster lands here with autoPlay set: go straight to the
+                    // best stream instead of showing a second Play button to press.
+                    LaunchedEffect(autoPlay) {
+                        if (!autoPlay || viewModel.autoPlayStarted) return@LaunchedEffect
+                        // Nothing usable after 20s: stay here, where the sources and Play are.
+                        kotlinx.coroutines.delay(20_000)
+                        viewModel.autoPlayStarted = true
+                    }
+                    LaunchedEffect(state.streamSources, state.isSearchingSources, sourceHealth) {
+                        if (!autoPlay || viewModel.autoPlayStarted) return@LaunchedEffect
+                        val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
+                            state.streamSources, sourceHealth, state.isSearchingSources, false
+                        ) ?: return@LaunchedEffect
+                        viewModel.autoPlayStarted = true
+                        onPlay(state.movie, state.selectedEpisode, best)
+                    }
+
                     androidx.activity.compose.BackHandler(enabled = autoPlayEpisodeId != null) { autoPlayEpisodeId = null }
 
                     MovieDetailContent(
@@ -173,6 +198,8 @@ fun DetailsScreen(
                         selectedEpisode = state.selectedEpisode,
                         isSearchingSources = state.isSearchingSources,
                         sourcesNote = state.sourcesNote,
+                        similar = similar,
+                        onSimilarClick = onMovieClick,
                         onEpisodeSelected = { episode ->
                             viewModel.selectEpisode(episode)
                             autoPlayEpisodeId = episode.id
@@ -298,6 +325,9 @@ fun MovieDetailContent(
     isSearchingSources: Boolean,
     /** Why addon sources are missing, when there is something to say (PenguPlay's sign-in clip). */
     sourcesNote: String? = null,
+    /** "More like this": similar titles, empty until they load or when there are none. */
+    similar: List<Movie> = emptyList(),
+    onSimilarClick: (Movie) -> Unit = {},
     onEpisodeSelected: (Episode) -> Unit,
     onPlayClick: (StreamSource) -> Unit,
     onDownloadClick: (StreamSource) -> Unit,
@@ -624,6 +654,32 @@ fun MovieDetailContent(
                         isSelected = episode.id == selectedEpisode?.id,
                         onClick = { onEpisodeSelected(episode) }
                     )
+                }
+            }
+        }
+
+        if (similar.isNotEmpty()) {
+            item(key = "more-like-this") {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    Text(
+                        text = "More like this",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(similar) { other ->
+                            MovieItem(
+                                movie = other,
+                                onClick = { onSimilarClick(other) },
+                                modifier = Modifier.width(110.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

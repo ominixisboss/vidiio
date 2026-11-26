@@ -269,6 +269,33 @@ class MovieRepository(
     suspend fun searchOrThrow(query: String): List<Movie> =
         tmdbService.searchMulti(query).results.map { it.toMovie() }
 
+    /**
+     * Titles like [movie], for the details screen's rail. Empty when TMDB has nothing to say, or
+     * when the id did not come from TMDB at all (an addon id is not a number).
+     */
+    suspend fun similar(movie: Movie): List<Movie> = try {
+        cached("similar-${movie.type}-${movie.id}") {
+            val tmdbId = movie.id.toIntOrNull()
+            if (tmdbId == null) {
+                emptyList()
+            } else {
+                val results = if (movie.type == MovieType.TV_SHOW) {
+                    tmdbService.getSimilarTVShows(tmdbId)
+                } else {
+                    tmdbService.getSimilarMovies(tmdbId)
+                }
+                results.results
+                    .filter { it.id.toString() != movie.id && it.posterPath != null }
+                    .map { it.toMovie(movie.type) }
+                    .take(20)
+            }
+        }
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        Log.e("MovieRepository", "Similar error", e)
+        emptyList()
+    }
+
     suspend fun search(query: String): List<Movie> = try {
         searchOrThrow(query)
     } catch (e: Exception) {

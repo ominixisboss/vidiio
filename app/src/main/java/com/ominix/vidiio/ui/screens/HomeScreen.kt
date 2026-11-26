@@ -87,6 +87,8 @@ fun HomeScreen(
     onOpenAnime: () -> Unit = {},
     onOpenGuide: () -> Unit = {},
     onOpenCollection: (String, Int) -> Unit = { _, _ -> },
+    /** Long-press "Play": open the title and start its best stream. */
+    onPlay: (Movie) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -94,6 +96,7 @@ fun HomeScreen(
     val homeStyle by viewModel.homeStyle.collectAsState()
     val showVpnReminder by viewModel.showVpnReminder.collectAsState()
     var vpnDialogDismissed by rememberSaveable { mutableStateOf(false) }
+    var actionsFor by remember { mutableStateOf<Movie?>(null) }
 
     val scrollState = rememberLazyListState()
 
@@ -241,6 +244,7 @@ fun HomeScreen(
                                 category.name == TOP10_LABEL -> Unit // hidden for this style
                                 else -> CategorySection(
                                     category.name, category.movies, spec, onNavigateToDetails,
+                                    onMovieLongClick = { actionsFor = it },
                                     onLoadMore = if (viewModel.canLoadMore(category.name)) ({ viewModel.loadMore(category.name) }) else null
                                 )
                             }
@@ -267,6 +271,15 @@ fun HomeScreen(
                     vpnDialogDismissed = true
                     viewModel.dismissVpnReminder(dontShowAgain)
                 }
+            )
+        }
+
+        actionsFor?.let { movie ->
+            com.ominix.vidiio.ui.components.PosterActionsSheet(
+                movie = movie,
+                onDismiss = { actionsFor = null },
+                onPlay = onPlay,
+                onDetails = onNavigateToDetails
             )
         }
     }
@@ -753,7 +766,8 @@ fun HomeCard(
     movie: Movie,
     spec: HomeStyleSpec,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null
 ) {
     // No entrance animation with a remote: cards fading and sliding in as you scroll is motion
     // on top of the scroll itself, and reads as the page shaking.
@@ -773,7 +787,7 @@ fun HomeCard(
                 .width(spec.cardWidth)
                 .height(spec.cardHeight)
                 .graphicsLayer { alpha = appear }
-                .tvClickable(onClick = onClick, shape = shape, focusScale = 1.08f)
+                .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape, focusScale = 1.08f)
         ) {
             AsyncImage(
                 model = if (spec.card == CardKind.LANDSCAPE) (movie.backdropUrl ?: movie.posterUrl) else movie.posterUrl,
@@ -824,6 +838,8 @@ fun CategorySection(
     movies: List<Movie>,
     spec: HomeStyleSpec,
     onMovieClick: (Movie) -> Unit,
+    /** Long press on a poster: play, My List, details. */
+    onMovieLongClick: ((Movie) -> Unit)? = null,
     /** Set for rows that can fetch more titles; called as the row nears its end. */
     onLoadMore: (() -> Unit)? = null,
     onSeeAll: (() -> Unit)? = null,
@@ -838,7 +854,12 @@ fun CategorySection(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(movies) { movie ->
-                HomeCard(movie, spec, onClick = { onMovieClick(movie) })
+                HomeCard(
+                    movie = movie,
+                    spec = spec,
+                    onClick = { onMovieClick(movie) },
+                    onLongClick = onMovieLongClick?.let { long -> { long(movie) } }
+                )
             }
         }
     }
