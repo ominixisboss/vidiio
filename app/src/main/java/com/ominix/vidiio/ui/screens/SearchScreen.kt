@@ -42,6 +42,7 @@ import com.ominix.vidiio.ui.components.MovieItem
 import com.ominix.vidiio.ui.components.PosterGridSkeleton
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalIsTv
+import com.ominix.vidiio.ui.tv.LocalTvRailOpener
 import com.ominix.vidiio.ui.viewmodel.SearchUiState
 import com.ominix.vidiio.ui.viewmodel.SearchViewModel
 
@@ -64,6 +65,7 @@ fun SearchScreen(
     val searchFocus = remember { FocusRequester() }
     val firstResultFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val openRail = LocalTvRailOpener.current
     val hasResults = (uiState as? SearchUiState.Success)?.results?.isNotEmpty() == true
     // Opening Search from the bar should put the cursor in the field, not make you tap it first.
     // On a TV the remote stays on the menu, and a query carried in from Home already has results.
@@ -95,11 +97,21 @@ fun SearchScreen(
                             // cursor movement, so the results below are unreachable. Down leaves
                             // the field and lands on the first poster instead.
                             .onPreviewKeyEvent { event ->
-                                if (isTv && hasResults && event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
-                                    keyboard?.hide()
-                                    runCatching { firstResultFocus.requestFocus() }.isSuccess
-                                } else {
-                                    false
+                                if (!isTv || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                                when {
+                                    // The field takes Left for the cursor, so a remote without a Menu
+                                    // key had no way into the menu from here. While the keyboard is
+                                    // up the IME owns the keys, so this only sees Left once it is down.
+                                    event.key == Key.DirectionLeft && openRail != null -> {
+                                        keyboard?.hide()
+                                        openRail()
+                                        true
+                                    }
+                                    event.key == Key.DirectionDown && hasResults -> {
+                                        keyboard?.hide()
+                                        runCatching { firstResultFocus.requestFocus() }.isSuccess
+                                    }
+                                    else -> false
                                 }
                             }
                             .border(
