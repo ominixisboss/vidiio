@@ -85,6 +85,7 @@ fun UpdatePrompt(updater: AppUpdater, checkOnStart: Boolean) {
                     }
                     error = null
                     progress = 0f
+                    updater.ignoreVersion(current.version)
                     scope.launch {
                         try {
                             val apk = updater.download(current) { p -> progress = p }
