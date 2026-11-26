@@ -861,7 +861,7 @@ fun SettingsScreen(
                         label = { Text("Profile Name") },
                         placeholder = { Text("e.g. Alex, Mom, Kids") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().tvDialogFocus()
+                        modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true)
                     )
 
                     Text("Avatar Color", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
@@ -1033,7 +1033,7 @@ fun SettingsScreen(
                     onValueChange = { metadataUrlToAdd = it },
                     label = { Text("Manifest URL (e.g. Cinemeta / Kitsu)") },
                     placeholder = { Text("https://anime-kitsu.strem.fun/manifest.json") },
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(),
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
                     singleLine = true
                 )
             },
@@ -1094,7 +1094,7 @@ fun SettingsScreen(
                     value = addonUrlToAdd,
                     onValueChange = { addonUrlToAdd = it },
                     label = { Text("Manifest URL") },
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(),
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1233,7 +1233,7 @@ fun SettingsScreen(
                         value = subtitleLanguagesToSet,
                         onValueChange = { subtitleLanguagesToSet = it },
                         label = { Text("e.g. en, es, fr") },
-                        modifier = Modifier.fillMaxWidth().tvDialogFocus(),
+                        modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1274,7 +1274,7 @@ fun SettingsScreen(
                     value = apiKeyToSet,
                     onValueChange = { apiKeyToSet = it },
                     label = { Text("API Key") },
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(),
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1335,7 +1335,7 @@ private fun AddLiveLinkDialog(onAdd: suspend (String, String) -> Unit, onDismiss
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogFocus())
+                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true))
                 Text(
                     "Addon links end in manifest.json. Playlists (M3U) and stream links (.m3u8, .mpd) also work. Web page links won't play.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1544,7 +1544,7 @@ private fun ProxySettingsDialog(
                     }
                 }
                 OutlinedTextField(host, { host = it }, label = { Text("Host") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(), colors = fieldColors)
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true), colors = fieldColors)
                 OutlinedTextField(port, { port = it.filter(Char::isDigit).take(5) }, label = { Text("Port") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
                 OutlinedTextField(user, { user = it }, label = { Text("Username (optional)") }, singleLine = true,

@@ -116,12 +116,12 @@ fun Modifier.tvClickable(
             indication = null,
             enabled = enabled,
             onClick = {
-                opener?.requester = requester
+                opener?.record(requester)
                 onClick()
             },
             onLongClick = openMenu?.let { open ->
                 {
-                    opener?.requester = requester
+                    opener?.record(requester)
                     open()
                 }
             },
