@@ -302,7 +302,9 @@ private fun BrowseContent(
                 FlixPoster(
                     movie = movie, onClick = { onOpen(movie) }, width = null,
                     modifier = Modifier.padding(horizontal = 4.dp),
-                    onLongClick = { onMovieLongClick(movie) }
+                    onLongClick = { onMovieLongClick(movie) },
+                    // Back from the details page comes back to this card.
+                    returnKey = "browse-${movie.id}"
                 )
             }
         }
@@ -578,7 +580,8 @@ private fun SeeAllCategoryGrid(
                     FlixPoster(
                         movie = movie,
                         onClick = { onOpen(movie) },
-                        width = null
+                        width = null,
+                        returnKey = "browse-${movie.id}"
                     )
                 }
             }

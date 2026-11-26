@@ -158,7 +158,12 @@ private fun PosterShelf(shelf: FlixShelf, onOpen: (Movie) -> Unit) {
         ) {
             items(shelf.movies, key = { "${shelf.title}-${it.source}-${it.id}" }) { movie ->
                 Box {
-                    FlixPoster(movie, onClick = { onOpen(movie) }, width = if (shelf.todayRibbon) 132.dp else 118.dp)
+                    FlixPoster(
+                        movie, onClick = { onOpen(movie) },
+                        width = if (shelf.todayRibbon) 132.dp else 118.dp,
+                        // Back from the details page comes back to this card.
+                        returnKey = "shelf-${shelf.title}-${movie.id}"
+                    )
                     if (shelf.todayRibbon) {
                         Text(
                             "TODAY",

@@ -176,14 +176,16 @@ fun TvNavScaffold(
     // Give the page focus whenever it appears. Pages load asynchronously (Home shows a skeleton
     // first), so keep trying until something in it takes focus.
     LaunchedEffect(pageKey, autoFocus) {
-        if (!autoFocus) return@LaunchedEffect
         delay(350)
-        // Coming back from the player: land on the card that opened it, when that card is still on
-        // the page. The page focus below would only reach the page's first control.
+        // Coming back from the player or a details page: land on the card that opened it, when that
+        // card is still on the page. The page focus below would only reach the page's first control,
+        // and a page that leaves focus alone on arrival (the search field) still has to take the
+        // viewer back to where they were - this only runs when something armed the return.
         if (focusReturn != null && focusReturn.restoreOpenerFocus(view)) {
             leaveRail = false
             return@LaunchedEffect
         }
+        if (!autoFocus) return@LaunchedEffect
         var attempts = 0
         while (attempts < 20 && !contentHasFocus && (leaveRail || !railHasFocus)) {
             runCatching { contentFocus.requestFocus() }

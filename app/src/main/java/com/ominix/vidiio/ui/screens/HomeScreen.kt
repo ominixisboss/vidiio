@@ -779,7 +779,8 @@ fun HomeCard(
     spec: HomeStyleSpec,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    onLongClick: (() -> Unit)? = null
+    onLongClick: (() -> Unit)? = null,
+    returnKey: Any? = null
 ) {
     // No entrance animation with a remote: cards fading and sliding in as you scroll is motion
     // on top of the scroll itself, and reads as the page shaking.
@@ -799,7 +800,7 @@ fun HomeCard(
                 .width(spec.cardWidth)
                 .height(spec.cardHeight)
                 .graphicsLayer { alpha = appear }
-                .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape, focusScale = 1.08f)
+                .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape, focusScale = 1.08f, returnKey = returnKey)
         ) {
             AsyncImage(
                 model = if (spec.card == CardKind.LANDSCAPE) (movie.backdropUrl ?: movie.posterUrl) else movie.posterUrl,
@@ -870,7 +871,9 @@ fun CategorySection(
                     movie = movie,
                     spec = spec,
                     onClick = { onMovieClick(movie) },
-                    onLongClick = onMovieLongClick?.let { long -> { long(movie) } }
+                    onLongClick = onMovieLongClick?.let { long -> { long(movie) } },
+                    // Back from the details page comes back to this card, in this row.
+                    returnKey = "row-${name}-${movie.id}"
                 )
             }
         }
@@ -900,7 +903,7 @@ fun Top10Section(
                         color = spec.accent.copy(alpha = 0.4f),
                         letterSpacing = (-4).sp
                     )
-                    HomeCard(movie, spec, onClick = { onMovieClick(movie) })
+                    HomeCard(movie, spec, onClick = { onMovieClick(movie) }, returnKey = "top10-${movie.id}")
                 }
             }
         }

@@ -310,13 +310,27 @@ fun VidiioApp() {
                 key = key.movie.id,
                 factory = VidiioViewModelFactories.details(application, key.movie)
             )
+            // The card that opened this page, remembered when it first composes: anything done on
+            // the page afterwards (playing, picking an episode) records openers of its own, and
+            // Back still has to land on that card.
+            val detailsReturn = LocalTvFocusReturn.current
+            var openedFrom by androidx.compose.runtime.saveable.rememberSaveable {
+                mutableStateOf(detailsReturn?.openerKey() as? String)
+            }
+            val closeDetails: () -> Unit = {
+                detailsReturn?.armAt(openedFrom)
+                navigator.goBack()
+            }
+            // A remote's Back pops the route without going through the top bar's arrow, so it has
+            // to arm the return here too.
+            androidx.activity.compose.BackHandler { closeDetails() }
             DetailsScreen(
                 viewModel = viewModel,
                 autoPlaySeason = key.autoPlaySeason,
                 autoPlayEpisode = key.autoPlayEpisode,
                 autoPlay = key.autoPlay,
                 initialMovie = key.movie,
-                onBack = { navigator.goBack() },
+                onBack = closeDetails,
                 onPlay = { movie, episode, source -> 
                     navigator.navigate(VidiioRoute.Player(movie, episode?.id, source)) 
                 },

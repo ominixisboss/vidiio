@@ -137,6 +137,8 @@ fun Modifier.tvClickable(
             onLongClick = openMenu?.let { open ->
                 {
                     opener?.record(requester)
+                    // Details picked from the sheet still belongs to this card when it closes.
+                    if (returnKey != null) focusReturn?.rememberOpener(returnKey)
                     open()
                 }
             },

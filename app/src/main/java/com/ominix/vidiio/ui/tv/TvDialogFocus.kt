@@ -168,6 +168,7 @@ fun rememberDialogReturnFocus(): () -> Unit {
  */
 class TvFocusReturn {
     private var opener: Any? = null
+    private var armedKey: Any? = null
     private var armed = false
     private val controls = HashMap<Any, FocusRequester>()
 
@@ -175,6 +176,9 @@ class TvFocusReturn {
     internal fun rememberOpener(key: Any) {
         opener = key
     }
+
+    /** The control used last - the one that opened whatever is on screen now. */
+    internal fun openerKey(): Any? = opener
 
     internal fun register(key: Any, requester: FocusRequester) {
         controls[key] = requester
@@ -186,7 +190,19 @@ class TvFocusReturn {
 
     /** The player is closing over the page it was opened from. */
     internal fun arm() {
-        if (opener != null) armed = true
+        armAt(opener)
+    }
+
+    /**
+     * The page opened from [key] is closing: focus goes back to that control when the page under
+     * it appears. Details uses this for the card it was opened from - by the time it closes, the
+     * page itself has recorded other openers (playing a source), so it has to say which one to use.
+     */
+    internal fun armAt(key: Any?) {
+        if (key != null) {
+            armedKey = key
+            armed = true
+        }
     }
 
     /**
@@ -199,7 +215,7 @@ class TvFocusReturn {
         if (!armed) return false
         var rounds = 0
         while (rounds < 12) {
-            val key = opener
+            val key = armedKey
             val target = if (armed && key != null) controls[key] else null
             if (target != null && view.hasWindowFocus()) {
                 var attempts = 0
@@ -212,6 +228,7 @@ class TvFocusReturn {
                     withFrameNanos { }
                     if (result.getOrDefault(false) && view.hasWindowFocus()) {
                         armed = false
+                        armedKey = null
                         opener = null
                         return true
                     }
@@ -221,6 +238,7 @@ class TvFocusReturn {
             delay(150)
         }
         armed = false
+        armedKey = null
         opener = null
         return false
     }

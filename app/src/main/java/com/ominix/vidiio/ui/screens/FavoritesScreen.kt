@@ -133,7 +133,9 @@ fun FavoritesScreen(
                                             movie = movie,
                                             onClick = { onMovieClick(movie) },
                                             progress = state.progress[movie.id],
-                                            onLongClick = { actionsFor = movie }
+                                            onLongClick = { actionsFor = movie },
+                                            // Back from the details page comes back to this card.
+                                            returnKey = "favorites-${movie.id}"
                                         )
                                     }
                                 }

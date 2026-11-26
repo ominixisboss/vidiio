@@ -185,7 +185,7 @@ fun TvGuideScreen(
                             )
                         }
                         items(entries, key = { "g-${it.showName}" }) { entry ->
-                            GuideRow(entry, timeFormat, onClick = { open(entry) })
+                            GuideRow(entry, timeFormat, onClick = { open(entry) }, returnKey = "guide-${entry.showName}")
                         }
                     }
                 }
@@ -195,11 +195,12 @@ fun TvGuideScreen(
 }
 
 @Composable
-private fun GuideRow(entry: GuideEntry, timeFormat: DateTimeFormatter, onClick: () -> Unit) {
+private fun GuideRow(entry: GuideEntry, timeFormat: DateTimeFormatter, onClick: () -> Unit, returnKey: Any? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .tvClickable(onClick = onClick, shape = RoundedCornerShape(8.dp))
+            // Leaving the details page it opened comes back to this row.
+            .tvClickable(onClick = onClick, shape = RoundedCornerShape(8.dp), returnKey = returnKey)
             .padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -255,7 +256,10 @@ fun CollectionScreen(
                     )
                 }
                 items(films, key = { "c-${it.source}-${it.id}" }) { movie ->
-                    FlixPoster(movie, onClick = { onOpenMovie(movie) }, width = null)
+                    FlixPoster(
+                        movie, onClick = { onOpenMovie(movie) }, width = null,
+                        returnKey = "collection-${movie.id}"
+                    )
                 }
             }
         }

@@ -219,7 +219,9 @@ fun SearchScreen(
                                             onClick = { onNavigateToDetails(movie) },
                                             modifier = if (index == 0) Modifier.focusRequester(firstResultFocus) else Modifier,
                                             progress = progressById[movie.id],
-                                            onLongClick = { actionsFor = movie }
+                                            onLongClick = { actionsFor = movie },
+                                            // Back from the details page comes back to this card.
+                                            returnKey = "search-${movie.id}"
                                         )
                                     }
                                 }

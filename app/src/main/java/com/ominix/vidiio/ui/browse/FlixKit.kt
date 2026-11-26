@@ -96,6 +96,7 @@ fun FlixPoster(
     width: Dp? = 118.dp,
     corner: Dp = 8.dp,
     onLongClick: (() -> Unit)? = null,
+    returnKey: Any? = null,
 ) {
     val shape = RoundedCornerShape(corner)
     val context = LocalContext.current
@@ -109,7 +110,7 @@ fun FlixPoster(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape)
+                .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape, returnKey = returnKey)
                 .clip(shape)
                 .background(Color.White.copy(alpha = 0.08f))
         ) {
