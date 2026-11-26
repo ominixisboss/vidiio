@@ -317,6 +317,7 @@ fun MovieDetailContent(
     }
     var trailerFailed by remember(movie.id) { mutableStateOf(lowRamDevice) }
     var trailerFullscreen by remember(movie.id) { mutableStateOf(false) }
+    var showPlayChooser by remember(movie.id) { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     // A phone in landscape is about 360dp tall. The 400dp hero then filled the whole first screen
     // by itself, so the title and Play sat below the fold: the compact layout replaces it with a
@@ -518,37 +519,61 @@ fun MovieDetailContent(
             // Play button gets a tighter frame there to keep it on the first screen.
             Column(modifier = Modifier.padding(if (compactLandscape) 8.dp else 16.dp)) {
                 if (streamSources.isNotEmpty()) {
-                    Button(
-                        onClick = { onPlayClick(streamSources.first()) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(if (compactLandscape) 48.dp else 56.dp)
-                            .tvFocusRing(RoundedCornerShape(24.dp))
-                            .onPreviewKeyEvent { event ->
-                                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                                    // Scroll back up to the trailer and put focus on its controls; with no
-                                    // trailer there, fall back to the top bar.
-                                    scope.launch {
-                                        listState.scrollToItem(0)
-                                        kotlinx.coroutines.delay(150)
-                                        runCatching { trailerFocus.requestFocus() }.onFailure { onFocusTop() }
-                                    }
-                                    true
-                                } else false
-                            },
-                        shape = RoundedCornerShape(24.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color.Black
-                        )
-                    ) {
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (movie.type == MovieType.TV_SHOW && selectedEpisode != null) "Play S${selectedEpisode.seasonNumber}:E${selectedEpisode.episodeNumber}" else "Play",
-                            fontWeight = FontWeight.Black,
-                            fontSize = 18.sp
-                        )
+                    val playShape = RoundedCornerShape(24.dp)
+                    val playHeight = if (compactLandscape) 48.dp else 56.dp
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = { onPlayClick(streamSources.first()) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(playHeight)
+                                .tvFocusRing(playShape)
+                                .onPreviewKeyEvent { event ->
+                                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                                        // Scroll back up to the trailer and put focus on its controls; with no
+                                        // trailer there, fall back to the top bar.
+                                        scope.launch {
+                                            listState.scrollToItem(0)
+                                            kotlinx.coroutines.delay(150)
+                                            runCatching { trailerFocus.requestFocus() }.onFailure { onFocusTop() }
+                                        }
+                                        true
+                                    } else false
+                                },
+                            shape = playShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White,
+                                contentColor = Color.Black
+                            )
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(28.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (movie.type == MovieType.TV_SHOW && selectedEpisode != null) "Play S${selectedEpisode.seasonNumber}:E${selectedEpisode.episodeNumber}" else "Play",
+                                fontWeight = FontWeight.Black,
+                                fontSize = 18.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        if (streamSources.size > 1) {
+                            Spacer(Modifier.width(8.dp))
+                            // More than one source: the choice belongs next to Play, not only in the
+                            // list below, so a remote never has to scroll to change it.
+                            FilledIconButton(
+                                onClick = { showPlayChooser = true },
+                                modifier = Modifier
+                                    .size(playHeight)
+                                    .tvFocusRing(playShape),
+                                shape = playShape,
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black
+                                )
+                            ) {
+                                Icon(Icons.Rounded.ExpandMore, contentDescription = "Choose a source")
+                            }
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.height(16.dp))
@@ -670,6 +695,77 @@ fun MovieDetailContent(
             // The bottom bar is drawn over this screen, so the last source needs room to scroll
             // clear of it instead of sitting underneath.
             item { Spacer(Modifier.height(104.dp)) }
+        }
+    }
+
+    if (showPlayChooser) {
+        PlaySourceSheet(
+            sources = streamSources,
+            sourceHealth = sourceHealth,
+            onDismiss = { showPlayChooser = false },
+            onPlay = { source ->
+                showPlayChooser = false
+                onPlayClick(source)
+            },
+            onDownload = onDownloadClick
+        )
+    }
+}
+
+/**
+ * Pick the source Play should use without scrolling down to the list. The rows are the same
+ * focusable glass cards as the list, health badge and download button included, so a remote can
+ * work the whole sheet.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlaySourceSheet(
+    sources: List<StreamSource>,
+    sourceHealth: Map<String, SourceHealth>,
+    onDismiss: () -> Unit,
+    onPlay: (StreamSource) -> Unit,
+    onDownload: (StreamSource) -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
+            item {
+                Column(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 8.dp)
+                ) {
+                    Text(
+                        text = "Choose a source",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Play uses the best match. Pick another one below.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            items(sources.size) { index ->
+                val source = sources[index]
+                SourceItem(
+                    source = source,
+                    health = sourceHealth[source.url],
+                    onClick = { onPlay(source) },
+                    onDownload = { onDownload(source) }
+                )
+            }
+            item { Spacer(Modifier.height(24.dp)) }
         }
     }
 }
