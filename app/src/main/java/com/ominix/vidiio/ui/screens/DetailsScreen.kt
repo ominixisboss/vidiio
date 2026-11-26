@@ -44,6 +44,7 @@ import com.ominix.vidiio.data.model.Episode
 import com.ominix.vidiio.data.model.MovieType
 import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.data.repository.SourceHealth
+import com.ominix.vidiio.data.repository.SourceStatus
 import com.ominix.vidiio.ui.components.ErrorState
 import com.ominix.vidiio.ui.components.MovieItem
 import com.ominix.vidiio.ui.components.SourceHealthBadge
@@ -170,14 +171,30 @@ fun DetailsScreen(
                         }
                     }
                     // A long-press Play on a poster lands here with autoPlay set: go straight to the
-                    // best stream instead of showing a second Play button to press.
+                    // best stream instead of showing a second Play button to press. The wait is shown
+                    // over the details page, since there is nothing to do there until it ends.
+                    var autoPlayWaiting by remember(autoPlay) {
+                        mutableStateOf(autoPlay && !viewModel.autoPlayStarted)
+                    }
                     LaunchedEffect(state.streamSources, state.isSearchingSources, sourceHealth) {
-                        if (!autoPlay || viewModel.autoPlayStarted) return@LaunchedEffect
+                        if (!autoPlay || viewModel.autoPlayStarted) {
+                            autoPlayWaiting = false
+                            return@LaunchedEffect
+                        }
                         // The first source to pass its check is usually not the best one - the rest
                         // of the scrape is still adding and checking others - so only choose once
                         // the search has settled. Waiting on a timer instead gave up at 20s while
                         // the scrape still had up to 45s to run, and then did nothing at all.
                         if (state.isSearchingSources) return@LaunchedEffect
+                        // The scrape ending is not the search ending: its last sources are probed in
+                        // the background, and the one that works can land seconds later. Saying
+                        // "no stream" now would be wrong just before one starts working.
+                        val stillChecking = state.streamSources.any { source ->
+                            val status = sourceHealth[source.url]?.status
+                            status == null || status == SourceStatus.CHECKING
+                        }
+                        if (stillChecking) return@LaunchedEffect
+                        autoPlayWaiting = false
                         viewModel.autoPlayStarted = true
                         val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
                             state.streamSources, sourceHealth, searching = false, giveUp = false
@@ -194,7 +211,15 @@ fun DetailsScreen(
                         }
                     }
 
-                    androidx.activity.compose.BackHandler(enabled = autoPlayEpisodeId != null) { autoPlayEpisodeId = null }
+                    androidx.activity.compose.BackHandler(enabled = autoPlayEpisodeId != null || autoPlayWaiting) {
+                        if (autoPlayEpisodeId != null) {
+                            autoPlayEpisodeId = null
+                        } else {
+                            // Stop waiting, and stay on the details page where the sources are.
+                            autoPlayWaiting = false
+                            viewModel.autoPlayStarted = true
+                        }
+                    }
 
                     MovieDetailContent(
                         movie = state.movie,
@@ -222,7 +247,7 @@ fun DetailsScreen(
                         onToggleSourceSelector = { showSourceSelector = true },
                         onFocusTop = { runCatching { topFocus.requestFocus() } }
                     )
-                    if (autoPlayEpisodeId != null) {
+                    if (autoPlayEpisodeId != null || autoPlayWaiting) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
