@@ -89,6 +89,8 @@ fun DetailsScreen(
     // Up from Play has nothing reliably above it to land on (the trailer sits there), so give
     // the remote a direct route to the top bar.
     val topFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    // Where the remote lands again once the finding overlay closes.
+    val playFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     var showSourceSelector by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -139,6 +141,16 @@ fun DetailsScreen(
                     // The episode whose search has actually been seen running. Until then, "not
                     // searching" only means the tap has not reached the scraper yet.
                     var episodeSearchSeen by remember { mutableStateOf<String?>(null) }
+                    // Whether this wait ended by opening the player. Then the details page is on its
+                    // way out and must not take focus back from it.
+                    var waitStartedPlayback by remember { mutableStateOf(false) }
+                    // Clearing the pending episode must clear its marker too: otherwise tapping the
+                    // same episode again would look like its new search had already run, and it
+                    // could give up before the scraper even started.
+                    fun clearEpisodeWait() {
+                        autoPlayEpisodeId = null
+                        episodeSearchSeen = null
+                    }
                     val toastContext = androidx.compose.ui.platform.LocalContext.current
                     LaunchedEffect(autoPlayEpisodeId, state.selectedEpisode?.id, state.streamSources, sourceHealth, state.isSearchingSources) {
                         val pending = autoPlayEpisodeId ?: return@LaunchedEffect
@@ -153,11 +165,12 @@ fun DetailsScreen(
                         // Same wait as a long-press Play: the scrape can end while its last sources
                         // are still being probed, and the one that works can be seconds behind.
                         if (state.streamSources.anyStillChecking(sourceHealth)) return@LaunchedEffect
-                        autoPlayEpisodeId = null
+                        clearEpisodeWait()
                         val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
                             state.streamSources, sourceHealth, searching = false, giveUp = false
                         )
                         if (best != null) {
+                            waitStartedPlayback = true
                             onPlay(state.movie, state.selectedEpisode, best)
                         } else {
                             android.widget.Toast.makeText(
@@ -176,6 +189,7 @@ fun DetailsScreen(
                             ?.episodes?.firstOrNull { it.episodeNumber == autoPlayEpisode }
                         if (target != null) {
                             viewModel.selectEpisode(target)
+                            episodeSearchSeen = null
                             autoPlayEpisodeId = target.id
                         } else {
                             android.widget.Toast.makeText(toastContext, "That episode is not listed yet", android.widget.Toast.LENGTH_LONG).show()
@@ -207,6 +221,7 @@ fun DetailsScreen(
                             state.streamSources, sourceHealth, searching = false, giveUp = false
                         )
                         if (best != null) {
+                            waitStartedPlayback = true
                             onPlay(state.movie, state.selectedEpisode, best)
                         } else {
                             // Settled with nothing playable: say so, and leave the sources on screen.
@@ -220,18 +235,34 @@ fun DetailsScreen(
 
                     val waitOverlay = autoPlayEpisodeId != null || autoPlayWaiting
                     val waitFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                    var waitHadFocus by remember { mutableStateOf(false) }
                     LaunchedEffect(waitOverlay) {
-                        if (!waitOverlay) return@LaunchedEffect
-                        // Focus has to be on the overlay, or the remote keeps driving the controls
-                        // hidden underneath it. It is attached by now; retry once if it is not.
-                        if (runCatching { waitFocus.requestFocus() }.isFailure) {
-                            kotlinx.coroutines.delay(80)
-                            runCatching { waitFocus.requestFocus() }
+                        if (waitOverlay) {
+                            waitHadFocus = true
+                            waitStartedPlayback = false
+                            // Focus has to be on the overlay, or the remote keeps driving the
+                            // controls hidden underneath it. It is attached by now; retry once.
+                            if (runCatching { waitFocus.requestFocus() }.isFailure) {
+                                kotlinx.coroutines.delay(80)
+                                runCatching { waitFocus.requestFocus() }
+                            }
+                        } else if (waitHadFocus) {
+                            waitHadFocus = false
+                            val playing = waitStartedPlayback
+                            waitStartedPlayback = false
+                            if (!playing) {
+                                // The overlay took focus with it when it closed. Give it back to
+                                // Play, or the top bar when there is no Play button to land on.
+                                kotlinx.coroutines.delay(120)
+                                if (runCatching { playFocus.requestFocus() }.isFailure) {
+                                    runCatching { topFocus.requestFocus() }
+                                }
+                            }
                         }
                     }
                     androidx.activity.compose.BackHandler(enabled = waitOverlay) {
                         if (autoPlayEpisodeId != null) {
-                            autoPlayEpisodeId = null
+                            clearEpisodeWait()
                         } else {
                             // Stop waiting, and stay on the details page where the sources are.
                             autoPlayWaiting = false
@@ -253,6 +284,9 @@ fun DetailsScreen(
                         onSimilarClick = onMovieClick,
                         onEpisodeSelected = { episode ->
                             viewModel.selectEpisode(episode)
+                            // A new tap has not been searched yet, even if it is the same episode
+                            // that was just tried and failed.
+                            episodeSearchSeen = null
                             autoPlayEpisodeId = episode.id
                         },
                         onPlayClick = { source -> onPlay(state.movie, state.selectedEpisode, source) },
@@ -263,7 +297,8 @@ fun DetailsScreen(
                             viewModel.downloadSource(source)
                         },
                         onToggleSourceSelector = { showSourceSelector = true },
-                        onFocusTop = { runCatching { topFocus.requestFocus() } }
+                        onFocusTop = { runCatching { topFocus.requestFocus() } },
+                        playFocus = playFocus
                     )
                     if (waitOverlay) {
                         Box(
@@ -391,7 +426,9 @@ fun MovieDetailContent(
     onPlayClick: (StreamSource) -> Unit,
     onDownloadClick: (StreamSource) -> Unit,
     onToggleSourceSelector: () -> Unit,
-    onFocusTop: () -> Unit = {}
+    onFocusTop: () -> Unit = {},
+    /** Focused again when the finding overlay closes, so the remote is not left with nothing. */
+    playFocus: androidx.compose.ui.focus.FocusRequester? = null
 ) {
     var selectedSeasonIndex by remember(movie.id) {
         mutableIntStateOf(movie.seasons.indexOfFirst { it.seasonNumber == selectedEpisode?.seasonNumber }.coerceAtLeast(0))
@@ -616,6 +653,7 @@ fun MovieDetailContent(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(playHeight)
+                                .then(playFocus?.let { Modifier.focusRequester(it) } ?: Modifier)
                                 .tvFocusRing(playShape)
                                 .onPreviewKeyEvent { event ->
                                     if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
