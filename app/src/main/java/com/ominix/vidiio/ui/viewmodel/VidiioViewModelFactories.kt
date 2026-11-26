@@ -67,6 +67,11 @@ object VidiioViewModelFactories {
         initializer { FavoritesViewModel(app.favoriteRepository, app.watchProgressRepository) }
     }
 
+    /** The My List toggle behind a poster's long-press menu. */
+    fun posterActions(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
+        initializer { PosterActionsViewModel(app.favoriteRepository) }
+    }
+
     fun downloads(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
         initializer { DownloadsViewModel(app.downloadRepository, app.downloadManager, app) }
     }

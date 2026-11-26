@@ -63,6 +63,18 @@ interface TMDBService {
         @Query("append_to_response") appendToResponse: String = "external_ids,videos"
     ): TMDBMovie
 
+    @GET("movie/{movie_id}/similar")
+    suspend fun getSimilarMovies(
+        @Path("movie_id") movieId: Int,
+        @Query("page") page: Int = 1
+    ): TMDBResponse<TMDBMovie>
+
+    @GET("tv/{tv_id}/similar")
+    suspend fun getSimilarTVShows(
+        @Path("tv_id") tvId: Int,
+        @Query("page") page: Int = 1
+    ): TMDBResponse<TMDBMovie>
+
     @GET("tv/{tv_id}/season/{season_number}")
     suspend fun getTVSeasonDetails(
         @Path("tv_id") tvId: Int,

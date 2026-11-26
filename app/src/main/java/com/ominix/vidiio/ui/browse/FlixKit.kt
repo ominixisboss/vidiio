@@ -89,7 +89,14 @@ fun TileRow(content: LazyListScope.() -> Unit) {
 
 /** A poster with title text below and star score over a gradient fade. */
 @Composable
-fun FlixPoster(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier, width: Dp? = 118.dp, corner: Dp = 8.dp) {
+fun FlixPoster(
+    movie: Movie,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    width: Dp? = 118.dp,
+    corner: Dp = 8.dp,
+    onLongClick: (() -> Unit)? = null,
+) {
     val shape = RoundedCornerShape(corner)
     val context = LocalContext.current
     val request = remember(movie.posterUrl) {
@@ -102,7 +109,7 @@ fun FlixPoster(movie: Movie, onClick: () -> Unit, modifier: Modifier = Modifier,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .tvClickable(onClick = onClick, shape = shape)
+                .tvClickable(onClick = onClick, onLongClick = onLongClick, shape = shape)
                 .clip(shape)
                 .background(Color.White.copy(alpha = 0.08f))
         ) {

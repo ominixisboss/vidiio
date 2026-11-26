@@ -92,6 +92,8 @@ sealed interface VidiioRoute : NavKey {
         /** Set by the TV Guide: open straight into this episode and start the best stream. */
         val autoPlaySeason: Int? = null,
         val autoPlayEpisode: Int? = null,
+        /** Set by a long-press Play on a poster: start the best stream once it is found. */
+        val autoPlay: Boolean = false,
     ) : VidiioRoute
 
     @Serializable

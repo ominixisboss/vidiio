@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import java.util.Locale
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -138,6 +139,8 @@ private fun styleFor(kind: BrowseKind) = when (kind) {
 fun MediaBrowseScreen(
     viewModel: MediaBrowseViewModel,
     onOpenMovie: (Movie) -> Unit,
+    /** Long-press "Play": open the title and start its best stream. */
+    onPlay: (Movie) -> Unit = {},
     onTab: (Int) -> Unit = {},
     /** Flix gets the tile-and-grid page; every other Home style gets shelves, like its Home. */
     homeStyle: com.ominix.vidiio.data.repository.HomeStyle = com.ominix.vidiio.data.repository.HomeStyle.FLIX,
@@ -147,6 +150,7 @@ fun MediaBrowseScreen(
     val style = remember(viewModel.kind) { styleFor(viewModel.kind) }
     var showFilters by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(false) }
     var seeAllTitle by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var actionsFor by remember { mutableStateOf<Movie?>(null) }
 
     val currentResults: List<Movie>? = if (state.service != null) state.serviceResults else if (state.filter.isEmpty) {
         when (state.list) {
@@ -181,6 +185,7 @@ fun MediaBrowseScreen(
                         viewModel = viewModel,
                         homeStyle = homeStyle,
                         onOpen = onOpenMovie,
+                        onMovieLongClick = { actionsFor = it },
                         onTab = onTab,
                         onShowFilters = { showFilters = true },
                         isMovies = viewModel.kind == BrowseKind.MOVIES,
@@ -191,9 +196,18 @@ fun MediaBrowseScreen(
                         }
                     )
                 } else {
-                    BrowseContent(style, state, viewModel, onOpenMovie, onTab)
+                    BrowseContent(style, state, viewModel, onOpenMovie, onTab) { actionsFor = it }
                 }
             }
+        }
+
+        actionsFor?.let { movie ->
+            com.ominix.vidiio.ui.components.PosterActionsSheet(
+                movie = movie,
+                onDismiss = { actionsFor = null },
+                onPlay = onPlay,
+                onDetails = onOpenMovie
+            )
         }
     }
 }
@@ -206,6 +220,7 @@ private fun BrowseContent(
     viewModel: MediaBrowseViewModel,
     onOpen: (Movie) -> Unit,
     onTab: (Int) -> Unit,
+    onMovieLongClick: (Movie) -> Unit = {},
 ) {
     val filter = state.filter
     val results: List<Movie>? = if (state.service != null) state.serviceResults else if (filter.isEmpty) {
@@ -286,7 +301,8 @@ private fun BrowseContent(
             else -> items(results, key = { "r-${it.source}-${it.id}" }) { movie ->
                 FlixPoster(
                     movie = movie, onClick = { onOpen(movie) }, width = null,
-                    modifier = Modifier.padding(horizontal = 4.dp)
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    onLongClick = { onMovieLongClick(movie) }
                 )
             }
         }
@@ -388,6 +404,7 @@ private fun ShelfBrowseContent(
     viewModel: MediaBrowseViewModel,
     homeStyle: com.ominix.vidiio.data.repository.HomeStyle,
     onOpen: (Movie) -> Unit,
+    onMovieLongClick: (Movie) -> Unit,
     onTab: (Int) -> Unit,
     onShowFilters: () -> Unit,
     isMovies: Boolean,
@@ -435,6 +452,7 @@ private fun ShelfBrowseContent(
                     movies = movies,
                     spec = spec,
                     onMovieClick = onOpen,
+                    onMovieLongClick = onMovieLongClick,
                     onLoadMore = { onLoadMore(list) },
                     onSeeAll = { onSeeAllCategory(label, list) }
                 )
@@ -448,6 +466,7 @@ private fun ShelfBrowseContent(
                     movies = titles,
                     spec = spec,
                     onMovieClick = onOpen,
+                    onMovieLongClick = onMovieLongClick,
                     onSeeAll = {
                         viewModel.setService(svc)
                         onShowFilters()

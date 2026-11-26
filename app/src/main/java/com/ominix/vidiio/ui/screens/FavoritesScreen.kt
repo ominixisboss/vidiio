@@ -34,10 +34,13 @@ import com.ominix.vidiio.ui.viewmodel.FavoritesViewModel
 fun FavoritesScreen(
     viewModel: FavoritesViewModel,
     onMovieClick: (Movie) -> Unit,
+    /** Long-press "Play": open the title and start its best stream. */
+    onPlay: (Movie) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedFilter by remember { mutableStateOf("All") }
+    var actionsFor by remember { mutableStateOf<Movie?>(null) }
 
     Scaffold(
         modifier = modifier,
@@ -129,7 +132,8 @@ fun FavoritesScreen(
                                         MovieItem(
                                             movie = movie,
                                             onClick = { onMovieClick(movie) },
-                                            progress = state.progress[movie.id]
+                                            progress = state.progress[movie.id],
+                                            onLongClick = { actionsFor = movie }
                                         )
                                     }
                                 }
@@ -146,5 +150,14 @@ fun FavoritesScreen(
                 )
             }
         }
+    }
+
+    actionsFor?.let { movie ->
+        com.ominix.vidiio.ui.components.PosterActionsSheet(
+            movie = movie,
+            onDismiss = { actionsFor = null },
+            onPlay = onPlay,
+            onDetails = onMovieClick
+        )
     }
 }

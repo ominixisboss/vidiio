@@ -18,8 +18,12 @@ import com.ominix.vidiio.download.DownloadManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
@@ -58,7 +62,7 @@ sealed interface DetailsUiState {
  * The player used to borrow this whole ViewModel; it owns its own [MediaSession] now.
  */
 class DetailsViewModel(
-    movieRepository: MovieRepository,
+    private val movieRepository: MovieRepository,
     private val favoriteRepository: FavoriteRepository,
     downloadRepository: DownloadRepository,
     downloadManager: DownloadManager,
@@ -137,6 +141,27 @@ class DetailsViewModel(
             }
             .launchIn(viewModelScope)
     }
+
+    /**
+     * True once a long-press Play has started (or given up on) the best stream. It lives here
+     * because the player shares this ViewModel: coming Back would otherwise auto-play again.
+     */
+    var autoPlayStarted: Boolean = false
+
+    /**
+     * "More like this": TMDB's similar titles. Empty until they arrive, and empty when the lookup
+     * fails - the rail simply does not appear, rather than putting an error under the sources.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val similar: StateFlow<List<Movie>> = session.movie
+        .flatMapLatest { resolved ->
+            if (resolved == null) {
+                flowOf(emptyList<Movie>())
+            } else {
+                flow { emit(movieRepository.similar(resolved)) }.catch { emit(emptyList()) }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** Per-source results of the "does this actually work" check, keyed by URL. */
     val sourceHealth = session.sourceHealth
