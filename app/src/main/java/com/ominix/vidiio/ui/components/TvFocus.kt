@@ -9,6 +9,7 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -32,11 +33,15 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.ominix.vidiio.ui.tv.LocalTvDialogOpener
+import com.ominix.vidiio.ui.tv.LocalTvFocusReturn
 
 /**
  * Clickable that also works with a D-pad / TV remote: it's focusable, shows a bright ring
  * while focused (so you can see what the remote is on), and treats DPAD_CENTER / Enter as a
  * click. Use in place of `Modifier.clickable` on browseable cards and tiles.
+ *
+ * [returnKey] identifies a card that opens the player: leaving the player puts the remote back on
+ * it (see [com.ominix.vidiio.ui.tv.TvFocusReturn]) instead of on the page's first control.
  *
  * The focus state is shown only by drawing - a ring inset within the item's own bounds and a
  * faint lift in brightness. It never changes size, position or layout. It used to also scale
@@ -54,11 +59,20 @@ fun Modifier.tvClickable(
     shape: Shape = RoundedCornerShape(12.dp),
     focusScale: Float = 1f,
     enabled: Boolean = true,
+    returnKey: Any? = null,
 ): Modifier {
     val interaction = remember { MutableInteractionSource() }
     // Recorded when this control is used to open a dialog, so focus can come back to it afterwards.
     val opener = LocalTvDialogOpener.current
+    // Registered while on screen, so leaving the player can find this card again by its key.
+    val focusReturn = LocalTvFocusReturn.current
     val requester = remember { FocusRequester() }
+    if (returnKey != null && focusReturn != null) {
+        DisposableEffect(focusReturn, returnKey, requester) {
+            focusReturn.register(returnKey, requester)
+            onDispose { focusReturn.unregister(returnKey, requester) }
+        }
+    }
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
     // Holding OK on a remote repeats the key down; combinedClickable only knows pointer long
@@ -117,6 +131,7 @@ fun Modifier.tvClickable(
             enabled = enabled,
             onClick = {
                 opener?.record(requester)
+                if (returnKey != null) focusReturn?.rememberOpener(returnKey)
                 onClick()
             },
             onLongClick = openMenu?.let { open ->

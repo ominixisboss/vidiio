@@ -47,6 +47,8 @@ import com.ominix.vidiio.ui.screens.*
 import com.ominix.vidiio.ui.viewmodel.VidiioViewModelFactories
 import com.ominix.vidiio.ui.pointer.VirtualPointerOverlay
 import com.ominix.vidiio.ui.tv.LocalIsTv
+import com.ominix.vidiio.ui.tv.LocalTvFocusReturn
+import com.ominix.vidiio.ui.tv.TvFocusReturn
 import com.ominix.vidiio.ui.browse.BrowseShortcuts
 import com.ominix.vidiio.ui.browse.LocalBrowseShortcuts
 import androidx.compose.material.icons.rounded.Movie
@@ -88,6 +90,8 @@ fun VidiioApp() {
         .collectAsState(initial = com.ominix.vidiio.data.repository.HomeStyle.VIDIIO)
 
     val mouseToggle by settingsRepository.mouseToggleFlow.collectAsState(initial = false)
+    // Remembers the card that opened the player, across the player route (see TvFocusReturn).
+    val tvFocusReturn = remember { TvFocusReturn() }
 
     val themeAccent = MaterialTheme.colorScheme.primary
     val spec = remember(homeStyle, themeAccent) { homeStyle.spec(themeAccent) }
@@ -332,10 +336,13 @@ fun VidiioApp() {
                 key = "player_${key.movie.id}_${key.episodeId ?: ""}",
                 factory = VidiioViewModelFactories.player(application, key.movie, key.episodeId, key.source)
             )
+            // Both ways out of the player (Back, and Choose Another Source on an error) go through
+            // onBack, so this is where the page it came from is told to expect focus back.
+            val playerReturn = LocalTvFocusReturn.current
             PlayerScreen(
                 playerViewModel = playerViewModel,
                 initialSource = key.source,
-                onBack = { navigator.goBack() },
+                onBack = { playerReturn?.arm(); navigator.goBack() },
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -474,7 +481,12 @@ fun VidiioApp() {
         }
     }
 
-    CompositionLocalProvider(LocalIsTv provides isTv, LocalBrowseShortcuts provides shortcuts) {
+    CompositionLocalProvider(
+        LocalIsTv provides isTv,
+        LocalBrowseShortcuts provides shortcuts,
+        // Phones keep the focus behaviour they had: nothing reads this there.
+        LocalTvFocusReturn provides if (isTv) tvFocusReturn else null,
+    ) {
         ProvideTvScrolling(enabled = isTv) {
             if (isTv) {
                 // A remote-driven TV gets a side menu that hides itself while you browse.

@@ -931,7 +931,9 @@ fun ContinueWatchingRow(
                             .tvClickable(
                                 onClick = { onResume(entry) },
                                 onLongClick = { onRemove(entry.id) },
-                                shape = shape
+                                shape = shape,
+                                // Leaving the player comes back to this card.
+                                returnKey = "continue-${entry.id}"
                             )
                             .border(0.5.dp, Color.White.copy(alpha = 0.15f), shape)
                     ) {

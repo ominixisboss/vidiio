@@ -358,7 +358,8 @@ private fun ChannelCard(channel: Movie, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(168.dp)
-            .tvClickable(onClick = onClick, shape = shape)
+            // Leaving the player comes back to this channel.
+            .tvClickable(onClick = onClick, shape = shape, returnKey = "live-${channel.id}")
             .clip(shape)
             .background(Color.White.copy(alpha = 0.06f))
             .padding(10.dp),
@@ -449,7 +450,8 @@ private fun GameCard(game: Game, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(240.dp)
-            .tvClickable(onClick = onClick, shape = shape)
+            // Leaving the player comes back to this game.
+            .tvClickable(onClick = onClick, shape = shape, returnKey = "game-${game.id}")
             .clip(shape)
             .background(Color.White.copy(alpha = 0.06f))
             .padding(12.dp),
@@ -497,7 +499,8 @@ private fun LiveEventCard(item: Movie, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(230.dp)
-            .tvClickable(onClick = onClick, shape = shape)
+            // Leaving the player comes back to this event.
+            .tvClickable(onClick = onClick, shape = shape, returnKey = "live-${item.id}")
             .clip(shape)
             .background(Color.White.copy(alpha = 0.08f))
             .padding(12.dp),

@@ -128,6 +128,8 @@ fun TvNavScaffold(
 
     val view = LocalView.current
     val scope = rememberCoroutineScope()
+    // Where the card that opened the player is remembered, so leaving the player comes back to it.
+    val focusReturn = LocalTvFocusReturn.current
     // Stable identity, like openRail: a new lambda on every recomposition would invalidate every
     // page reading it.
     val focusPage: () -> Unit = remember(view, scope) {
@@ -176,6 +178,12 @@ fun TvNavScaffold(
     LaunchedEffect(pageKey, autoFocus) {
         if (!autoFocus) return@LaunchedEffect
         delay(350)
+        // Coming back from the player: land on the card that opened it, when that card is still on
+        // the page. The page focus below would only reach the page's first control.
+        if (focusReturn != null && focusReturn.restoreOpenerFocus(view)) {
+            leaveRail = false
+            return@LaunchedEffect
+        }
         var attempts = 0
         while (attempts < 20 && !contentHasFocus && (leaveRail || !railHasFocus)) {
             runCatching { contentFocus.requestFocus() }

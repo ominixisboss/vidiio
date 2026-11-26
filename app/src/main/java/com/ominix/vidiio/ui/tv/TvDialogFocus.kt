@@ -2,6 +2,7 @@ package com.ominix.vidiio.ui.tv
 
 import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -16,6 +17,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalView
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -152,6 +154,92 @@ fun rememberDialogReturnFocus(): () -> Unit {
             }
         }
     }
+}
+
+/**
+ * Remembers the card or row that opened the player, so leaving the player puts the remote back on
+ * it rather than on the page's first control.
+ *
+ * The player is a route of its own, and visiting it takes the page it was opened from out of
+ * composition - the focus requesters of that page go with it, so the page cannot simply be asked to
+ * focus that control again. What does survive is a key: each control that can open the player
+ * registers one while it is on screen, and the last one the viewer used is what [arm] keeps when
+ * the player closes. The page then asks for that key instead of its own first control.
+ */
+class TvFocusReturn {
+    private var opener: Any? = null
+    private var armed = false
+    private val controls = HashMap<Any, FocusRequester>()
+
+    /** The control with [key] was used; this is where focus goes if the player opens from here. */
+    internal fun rememberOpener(key: Any) {
+        opener = key
+    }
+
+    internal fun register(key: Any, requester: FocusRequester) {
+        controls[key] = requester
+    }
+
+    internal fun unregister(key: Any, requester: FocusRequester) {
+        if (controls[key] === requester) controls.remove(key)
+    }
+
+    /** The player is closing over the page it was opened from. */
+    internal fun arm() {
+        if (opener != null) armed = true
+    }
+
+    /**
+     * Puts focus back on the control that opened the player. Waits for the page to be laid out (a
+     * page whose rows load late composes that control a moment after the route changes), and gives
+     * up when it never appears - the row was removed, or the player was opened some other way.
+     * True when focus landed on it.
+     */
+    suspend fun restoreOpenerFocus(view: View): Boolean {
+        if (!armed) return false
+        var rounds = 0
+        while (rounds < 12) {
+            val key = opener
+            val target = if (armed && key != null) controls[key] else null
+            if (target != null && view.hasWindowFocus()) {
+                var attempts = 0
+                while (attempts < 6) {
+                    if (view.isInTouchMode) runCatching { view.requestFocusFromTouch() }
+                    // A detached requester means the control is not on screen (yet); try again.
+                    val result = runCatching { target.requestFocus() }
+                    if (result.isFailure) break
+                    attempts++
+                    withFrameNanos { }
+                    if (result.getOrDefault(false) && view.hasWindowFocus()) {
+                        armed = false
+                        opener = null
+                        return true
+                    }
+                }
+            }
+            rounds++
+            delay(150)
+        }
+        armed = false
+        opener = null
+        return false
+    }
+}
+
+val LocalTvFocusReturn = compositionLocalOf<TvFocusReturn?> { null }
+
+/**
+ * Registers a control that is not [Modifier.tvClickable] (a Material button) as the one that opened
+ * the player under [key], and returns what to call from its click handler.
+ */
+@Composable
+fun rememberTvReturnKey(key: Any, requester: FocusRequester): () -> Unit {
+    val focusReturn = LocalTvFocusReturn.current
+    DisposableEffect(focusReturn, key, requester) {
+        focusReturn?.register(key, requester)
+        onDispose { focusReturn?.unregister(key, requester) }
+    }
+    return remember(focusReturn, key) { { focusReturn?.rememberOpener(key) } }
 }
 
 /**

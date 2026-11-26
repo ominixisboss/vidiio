@@ -270,6 +270,11 @@ fun DetailsScreen(
                         }
                     }
 
+                    // Leaving the player comes back to Play, not to whatever this page focuses first.
+                    val playOpenedPlayer = com.ominix.vidiio.ui.tv.rememberTvReturnKey(
+                        "details-play-${state.movie.id}",
+                        playFocus
+                    )
                     MovieDetailContent(
                         movie = state.movie,
                         streamSources = state.streamSources,
@@ -289,7 +294,10 @@ fun DetailsScreen(
                             episodeSearchSeen = null
                             autoPlayEpisodeId = episode.id
                         },
-                        onPlayClick = { source -> onPlay(state.movie, state.selectedEpisode, source) },
+                        onPlayClick = { source ->
+                            playOpenedPlayer()
+                            onPlay(state.movie, state.selectedEpisode, source)
+                        },
                         onDownloadClick = { source ->
                             if (!permissionsState.allPermissionsGranted) {
                                 permissionsState.launchMultiplePermissionRequest()
