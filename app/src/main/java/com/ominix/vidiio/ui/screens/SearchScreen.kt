@@ -118,7 +118,12 @@ fun SearchScreen(
                         },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { viewModel.search() }),
+                        keyboardActions = KeyboardActions(onSearch = {
+                            viewModel.search()
+                            // On a TV the keyboard takes the D-pad, so it must go away on submit
+                            // or the results below stay unreachable.
+                            if (isTv) keyboard?.hide()
+                        }),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
