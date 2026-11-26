@@ -49,6 +49,8 @@ import com.ominix.vidiio.data.repository.MediaPlayerChoice
 import com.ominix.vidiio.data.repository.SubtitleEdge
 import com.ominix.vidiio.data.repository.SubtitleStyle
 import com.ominix.vidiio.ui.components.tvClickable
+import com.ominix.vidiio.ui.tv.LocalTvPageFocus
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.theme.*
 import com.ominix.vidiio.ui.viewmodel.SettingsViewModel
 
@@ -172,6 +174,9 @@ fun SettingsScreen(
     val isAddonStoreLoading by viewModel.isAddonStoreLoading.collectAsState()
     var showAddonStoreSheet by rememberSaveable { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Hands focus back to the page when a dialog closes, including when it was closed by a tap.
+    val focusPage = LocalTvPageFocus.current
 
     // One section open at a time keeps the page short, so the remote never has far to scroll.
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
@@ -1047,13 +1052,8 @@ fun SettingsScreen(
 
     // Dialogs preserved
     addonToRemove?.let { url ->
-        val removeFocus = remember { FocusRequester() }
-        androidx.compose.runtime.LaunchedEffect(Unit) {
-            delay(150)
-            runCatching { removeFocus.requestFocus() }
-        }
         AlertDialog(
-            onDismissRequest = { addonToRemove = null },
+            onDismissRequest = { addonToRemove = null; focusPage?.invoke() },
             title = { Text("Remove this addon?") },
             text = { Text(addonLabel(url)) },
             confirmButton = {
@@ -1062,11 +1062,14 @@ fun SettingsScreen(
                         viewModel.removeStremioAddon(url)
                         addonToRemove = null
                         focusAddAfterRemoval = true
+                        focusPage?.invoke()
                     },
-                    modifier = Modifier.focusRequester(removeFocus)
+                    modifier = Modifier.tvDialogFocus()
                 ) { Text("Remove") }
             },
-            dismissButton = { TextButton(onClick = { addonToRemove = null }) { Text("Keep") } }
+            dismissButton = {
+                TextButton(onClick = { addonToRemove = null; focusPage?.invoke() }) { Text("Keep") }
+            }
         )
     }
 
@@ -1125,7 +1128,7 @@ fun SettingsScreen(
                 viewModel.addLiveLinks(live)
                 viewModel.addLiveAddons(liveAddonUrls)
             },
-            onDismiss = { showAddFromPcDialog = false }
+            onDismiss = { showAddFromPcDialog = false; focusPage?.invoke() }
         )
     }
 
@@ -1346,11 +1349,6 @@ private fun AddFromComputerDialog(onLinks: suspend (List<String>, List<com.omini
             }
         })
     }
-    val closeFocus = remember { FocusRequester() }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        delay(150)
-        runCatching { closeFocus.requestFocus() }
-    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add from your computer") },
@@ -1371,7 +1369,7 @@ private fun AddFromComputerDialog(onLinks: suspend (List<String>, List<com.omini
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss, modifier = Modifier.focusRequester(closeFocus)) { Text("Done") }
+            TextButton(onClick = onDismiss, modifier = Modifier.tvDialogFocus()) { Text("Done") }
         }
     )
 }

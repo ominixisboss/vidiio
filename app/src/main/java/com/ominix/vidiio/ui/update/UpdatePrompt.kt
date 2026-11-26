@@ -20,12 +20,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ominix.vidiio.data.update.AppUpdater
-import kotlinx.coroutines.delay
+import com.ominix.vidiio.ui.tv.LocalTvPageFocus
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import kotlinx.coroutines.launch
 
 /**
@@ -42,14 +41,16 @@ fun UpdatePrompt(updater: AppUpdater, checkOnStart: Boolean) {
     val scope = rememberCoroutineScope()
     var progress by remember(current) { mutableStateOf<Float?>(null) }
     var error by remember(current) { mutableStateOf<String?>(null) }
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(current) {
-        delay(150)
-        runCatching { focus.requestFocus() }
+    val focusPage = LocalTvPageFocus.current
+    // A tap on a dialog button leaves the page with nothing highlighted until the next key press;
+    // hand focus back to it, the way the VPN reminder does.
+    fun dismiss() {
+        updater.offered.value = null
+        focusPage?.invoke()
     }
 
     AlertDialog(
-        onDismissRequest = { if (progress == null) updater.offered.value = null },
+        onDismissRequest = { if (progress == null) dismiss() },
         title = { Text("Update to ${current.version}") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -76,7 +77,7 @@ fun UpdatePrompt(updater: AppUpdater, checkOnStart: Boolean) {
         confirmButton = {
             TextButton(
                 enabled = progress == null,
-                modifier = Modifier.focusRequester(focus),
+                modifier = Modifier.tvDialogFocus(),
                 onClick = {
                     // Android asks once for permission to install apps from Vidiio; take the viewer there first.
                     if (!updater.canInstall()) {
@@ -104,13 +105,16 @@ fun UpdatePrompt(updater: AppUpdater, checkOnStart: Boolean) {
             androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(
                     enabled = progress == null,
-                    onClick = { updater.ignoreVersion(current.version) }
+                    onClick = {
+                        updater.ignoreVersion(current.version)
+                        focusPage?.invoke()
+                    }
                 ) {
                     Text("Don't show again")
                 }
                 TextButton(
                     enabled = progress == null,
-                    onClick = { updater.offered.value = null }
+                    onClick = { dismiss() }
                 ) {
                     Text("Later")
                 }

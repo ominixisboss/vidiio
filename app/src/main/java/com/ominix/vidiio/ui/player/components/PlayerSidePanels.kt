@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,8 +27,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -39,6 +43,7 @@ import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.StreamSource
 import com.ominix.vidiio.data.repository.SourceHealth
 import com.ominix.vidiio.ui.components.SourceHealthBadge
+import com.ominix.vidiio.ui.tv.TvDialogFocusEffect
 import kotlin.math.roundToInt
 
 /**
@@ -61,14 +66,15 @@ fun EpisodeSidebar(
                 ?: seasons.firstOrNull()?.seasonNumber ?: 0
         )
     }
-    val playingFocus = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
     val episodes = seasons.firstOrNull { it.seasonNumber == selectedSeason }?.episodes.orEmpty()
         .sortedBy { it.episodeNumber }
-    // Put the remote on the episode that is playing as soon as the panel opens, so it is never left on nothing.
-    androidx.compose.runtime.LaunchedEffect(selectedSeason, episodes.size) {
-        kotlinx.coroutines.delay(150)
-        runCatching { playingFocus.requestFocus() }
-    }
+    // Put the remote on the episode that is playing as soon as the panel opens, so it is never left
+    // on nothing. Once per season and driven by the row being laid out: a row that is scrolled out
+    // and back in is composed again, and must not pull focus away from what the viewer is browsing.
+    val playingFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    var playingPlaced by remember(selectedSeason) { mutableStateOf(false) }
+    var playingFocused by remember(selectedSeason) { mutableStateOf(false) }
+    TvDialogFocusEffect(playingPlaced, playingFocus) { playingFocused }
 
     // Arrives the same way the picker panels do, so every player menu reads as one kind of thing.
     val slide = androidx.compose.runtime.remember { Animatable(0f) }
@@ -138,7 +144,12 @@ fun EpisodeSidebar(
                         episode = episode,
                         isSelected = episode.id == currentEpisode?.id,
                         onClick = { onEpisodeSelect(episode) },
-                        modifier = if (episode.id == currentEpisode?.id) Modifier.focusRequester(playingFocus) else Modifier
+                        modifier = if (episode.id == currentEpisode?.id) {
+                            Modifier
+                                .focusRequester(playingFocus)
+                                .onPlaced { playingPlaced = true }
+                                .onFocusChanged { playingFocused = it.isFocused }
+                        } else Modifier
                     )
                 }
             }

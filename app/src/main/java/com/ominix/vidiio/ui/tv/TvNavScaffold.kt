@@ -26,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -129,22 +128,7 @@ fun TvNavScaffold(
     // Stable identity, like openRail: a new lambda on every recomposition would invalidate every
     // page reading it.
     val focusPage: () -> Unit = remember(view, scope) {
-        {
-            scope.launch {
-                var attempts = 0
-                while (attempts < 60) {
-                    // Leave touch mode first. The request is dropped while the window is in it, so
-                    // a tap left the page with nothing focused.
-                    if (view.isInTouchMode) runCatching { view.requestFocusFromTouch() }
-                    runCatching { contentFocus.requestFocus() }
-                    attempts++
-                    withFrameNanos { }
-                    // The window that just closed only hands focus back once it is gone, so keep
-                    // asking until the page really holds focus in a focused window.
-                    if (contentHasFocus && view.hasWindowFocus()) break
-                }
-            }
-        }
+        { scope.launch { restorePageFocus(view, contentFocus) { contentHasFocus } } }
     }
 
     // Hand focus back to the page and tuck the menu away. Asking the focus system to move Right is not
