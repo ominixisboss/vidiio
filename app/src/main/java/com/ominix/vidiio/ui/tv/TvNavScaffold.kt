@@ -118,8 +118,16 @@ fun TvNavScaffold(
     // Bring focus onto the rail once it has actually been composed.
     LaunchedEffect(railOpen, focusRailOnOpen) {
         if (railOpen && focusRailOnOpen) {
-            delay(60)
-            runCatching { selectedItemFocus.requestFocus() }
+            // The rail is composed and placed a frame or two after it opens, and the first
+            // open after launch is slower than later ones. A single early request could miss
+            // it: focus stayed in the page, the menu lost focus and closed itself again, and
+            // Left looked like it did nothing. Keep trying until the rail really has focus.
+            var attempts = 0
+            while (attempts < 12 && !railHasFocus) {
+                delay(50)
+                runCatching { selectedItemFocus.requestFocus() }
+                attempts++
+            }
             focusRailOnOpen = false
         }
     }
