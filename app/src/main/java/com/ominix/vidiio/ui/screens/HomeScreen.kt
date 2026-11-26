@@ -55,6 +55,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,6 +72,7 @@ import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.tv.LocalIsTv
+import com.ominix.vidiio.ui.tv.LocalTvPageFocus
 import com.ominix.vidiio.ui.browse.LocalBrowseShortcuts
 import com.ominix.vidiio.ui.browse.ShortcutButtons
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -98,6 +101,7 @@ fun HomeScreen(
     val homeStyle by viewModel.homeStyle.collectAsState()
     val showVpnReminder by viewModel.showVpnReminder.collectAsState()
     var vpnDialogDismissed by rememberSaveable { mutableStateOf(false) }
+    val focusPage = LocalTvPageFocus.current
     var actionsFor by remember { mutableStateOf<Movie?>(null) }
 
     val scrollState = rememberLazyListState()
@@ -272,6 +276,9 @@ fun HomeScreen(
                 onDismiss = { dontShowAgain ->
                     vpnDialogDismissed = true
                     viewModel.dismissVpnReminder(dontShowAgain)
+                    // Hand focus back to the page: a tap would otherwise leave it with nothing
+                    // highlighted until the next key press.
+                    focusPage?.invoke()
                 }
             )
         }
@@ -294,13 +301,29 @@ fun VpnReminderDialog(
     var dontShowAgain by remember { mutableStateOf(false) }
     val isTv = LocalIsTv.current
     val confirmFocus = remember { FocusRequester() }
+    // True while the confirmation button itself holds focus.
+    var confirmFocused by remember { mutableStateOf(false) }
+    var laidOut by remember { mutableStateOf(false) }
+    val view = LocalView.current
     // On a TV nothing was focused when the reminder appeared: the remote looked dead until a key
     // was pressed, and after dismissing it the page had no highlighted control either. Start on
     // the confirmation button so the remote always has somewhere to act.
-    LaunchedEffect(Unit) {
-        if (isTv) {
-            delay(150)
-            runCatching { confirmFocus.requestFocus() }
+    //
+    // The reminder has a dialog window of its own: a request made before that window can take
+    // focus is dropped, and the instant it takes focus it picks the first control in it (the
+    // checkbox). Wait for the window instead of guessing a delay, then ask until the button really
+    // holds focus - and stop as soon as it does, so a viewer who moves on is not pulled back.
+    LaunchedEffect(isTv, laidOut) {
+        if (!isTv || !laidOut) return@LaunchedEffect
+        var frames = 0
+        var asked = 0
+        while (frames < 300 && asked < 60 && !confirmFocused) {
+            if (view.hasWindowFocus()) {
+                runCatching { confirmFocus.requestFocus() }
+                asked++
+            }
+            frames++
+            withFrameNanos { }
         }
     }
 
@@ -323,7 +346,8 @@ fun VpnReminderDialog(
                 .padding(horizontal = 20.dp)
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
-                .heightIn(max = dialogHeight),
+                .heightIn(max = dialogHeight)
+                .onPlaced { laidOut = true },
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -383,7 +407,11 @@ fun VpnReminderDialog(
                     }
                     Button(
                         onClick = { onDismiss(dontShowAgain) },
-                        modifier = if (isTv) Modifier.focusRequester(confirmFocus) else Modifier,
+                        modifier = if (isTv) {
+                            Modifier
+                                .focusRequester(confirmFocus)
+                                .onFocusChanged { confirmFocused = it.isFocused }
+                        } else Modifier,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("I Understand", fontWeight = FontWeight.Bold)

@@ -24,7 +24,9 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -40,10 +42,12 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Opens the side menu on request, for controls that would otherwise consume Left - a text
@@ -51,6 +55,15 @@ import kotlinx.coroutines.delay
  * Null when the menu is not available on this route (the player).
  */
 val LocalTvRailOpener = compositionLocalOf<(() -> Unit)?> { null }
+
+/**
+ * Puts focus back on the page for a window that closed over it (the VPN reminder).
+ *
+ * A dismissal by tap leaves the window in touch mode, where a focus request is dropped until the
+ * next key press - which is why tapping the reminder left the page with no highlighted control.
+ * Null when there is no page to focus (the player).
+ */
+val LocalTvPageFocus = compositionLocalOf<(() -> Unit)?> { null }
 
 data class TvNavItem(
     val selected: Boolean,
@@ -108,6 +121,29 @@ fun TvNavScaffold(
         {
             railOpen = true
             focusRailOnOpen = true
+        }
+    }
+
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    // Stable identity, like openRail: a new lambda on every recomposition would invalidate every
+    // page reading it.
+    val focusPage: () -> Unit = remember(view, scope) {
+        {
+            scope.launch {
+                var attempts = 0
+                while (attempts < 60) {
+                    // Leave touch mode first. The request is dropped while the window is in it, so
+                    // a tap left the page with nothing focused.
+                    if (view.isInTouchMode) runCatching { view.requestFocusFromTouch() }
+                    runCatching { contentFocus.requestFocus() }
+                    attempts++
+                    withFrameNanos { }
+                    // The window that just closed only hands focus back once it is gone, so keep
+                    // asking until the page really holds focus in a focused window.
+                    if (contentHasFocus && view.hasWindowFocus()) break
+                }
+            }
         }
     }
 
@@ -216,7 +252,10 @@ fun TvNavScaffold(
                 }
             }
     ) {
-        CompositionLocalProvider(LocalTvRailOpener provides if (railEnabled) openRail else null) {
+        CompositionLocalProvider(
+            LocalTvRailOpener provides if (railEnabled) openRail else null,
+            LocalTvPageFocus provides if (railEnabled) focusPage else null,
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
