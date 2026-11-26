@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyRow
@@ -290,6 +292,17 @@ fun VpnReminderDialog(
     onDismiss: (dontShowAgain: Boolean) -> Unit
 ) {
     var dontShowAgain by remember { mutableStateOf(false) }
+    val isTv = LocalIsTv.current
+    val confirmFocus = remember { FocusRequester() }
+    // On a TV nothing was focused when the reminder appeared: the remote looked dead until a key
+    // was pressed, and after dismissing it the page had no highlighted control either. Start on
+    // the confirmation button so the remote always has somewhere to act.
+    LaunchedEffect(Unit) {
+        if (isTv) {
+            delay(150)
+            runCatching { confirmFocus.requestFocus() }
+        }
+    }
 
     // A landscape phone only leaves a dialog about 250dp before the system bars, and the stock
     // AlertDialog gave the body a single line at 1.5x fonts. Size this one explicitly and keep the
@@ -370,6 +383,7 @@ fun VpnReminderDialog(
                     }
                     Button(
                         onClick = { onDismiss(dontShowAgain) },
+                        modifier = if (isTv) Modifier.focusRequester(confirmFocus) else Modifier,
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("I Understand", fontWeight = FontWeight.Bold)

@@ -18,7 +18,9 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.NavigationRailItemColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +44,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+
+/**
+ * Opens the side menu on request, for controls that would otherwise consume Left - a text
+ * field uses it for the cursor, which left a remote without a Menu key with no way in.
+ * Null when the menu is not available on this route (the player).
+ */
+val LocalTvRailOpener = compositionLocalOf<(() -> Unit)?> { null }
 
 data class TvNavItem(
     val selected: Boolean,
@@ -94,6 +103,13 @@ fun TvNavScaffold(
 
     val selectedItemFocus = remember { FocusRequester() }
     val contentFocus = remember { FocusRequester() }
+    // Stable identity: a new lambda on every recomposition would invalidate every page reading it.
+    val openRail: () -> Unit = remember {
+        {
+            railOpen = true
+            focusRailOnOpen = true
+        }
+    }
 
     // Hand focus back to the page and tuck the menu away. Asking the focus system to move Right is not
     // enough: from a menu item it finds nothing to land on whenever the page is not laid out to the
@@ -200,13 +216,15 @@ fun TvNavScaffold(
                 }
             }
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .onFocusChanged { contentHasFocus = it.hasFocus }
-                .focusRequester(contentFocus)
-                .focusGroup()
-        ) { content() }
+        CompositionLocalProvider(LocalTvRailOpener provides if (railEnabled) openRail else null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .onFocusChanged { contentHasFocus = it.hasFocus }
+                    .focusRequester(contentFocus)
+                    .focusGroup()
+            ) { content() }
+        }
 
         AnimatedVisibility(
             visible = railEnabled && railOpen,
