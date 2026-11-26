@@ -115,6 +115,9 @@ fun TvNavScaffold(
 
     val selectedItemFocus = remember { FocusRequester() }
     val contentFocus = remember { FocusRequester() }
+    // Shared by every page under this scaffold: rows record the control that opened a dialog, so
+    // focus can go back to it when the dialog closes.
+    val dialogOpener = remember { TvDialogOpener() }
     // Stable identity: a new lambda on every recomposition would invalidate every page reading it.
     val openRail: () -> Unit = remember {
         {
@@ -239,6 +242,7 @@ fun TvNavScaffold(
         CompositionLocalProvider(
             LocalTvRailOpener provides if (railEnabled) openRail else null,
             LocalTvPageFocus provides if (railEnabled) focusPage else null,
+            LocalTvDialogOpener provides dialogOpener,
         ) {
             Box(
                 modifier = Modifier

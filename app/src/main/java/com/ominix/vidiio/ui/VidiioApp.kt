@@ -55,6 +55,7 @@ import androidx.compose.material.icons.rounded.VideoLibrary
 import com.ominix.vidiio.data.repository.BrowseKind
 import com.ominix.vidiio.ui.tv.ProvideTvScrolling
 import com.ominix.vidiio.ui.tv.TvNavItem
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.tv.TvNavScaffold
 import com.ominix.vidiio.ui.tv.isTvDevice
 import androidx.compose.foundation.background
@@ -356,8 +357,6 @@ fun VidiioApp() {
         else navigator.navigate(VidiioRoute.Home)
     }
     if (confirmExit) {
-        val stayFocus = remember { androidx.compose.ui.focus.FocusRequester() }
-        LaunchedEffect(Unit) { runCatching { stayFocus.requestFocus() } }
         AlertDialog(
             onDismissRequest = { confirmExit = false },
             title = { Text("Leave Vidiio?") },
@@ -368,7 +367,7 @@ fun VidiioApp() {
             dismissButton = {
                 TextButton(
                     onClick = { confirmExit = false },
-                    modifier = Modifier.focusRequester(stayFocus)
+                    modifier = Modifier.tvDialogFocus()
                 ) { Text("Stay") }
             }
         )

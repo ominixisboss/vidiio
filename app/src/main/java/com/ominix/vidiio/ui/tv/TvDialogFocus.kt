@@ -3,9 +3,11 @@ package com.ominix.vidiio.ui.tv
 import android.view.View
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
@@ -14,6 +16,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalView
+import kotlinx.coroutines.launch
 
 /**
  * Asks for focus on [requester] as soon as [placed] says its control has been laid out, and keeps
@@ -59,6 +62,58 @@ fun Modifier.tvDialogFocus(): Modifier {
         .focusRequester(requester)
         .onPlaced { placed = true }
         .onFocusChanged { focused = it.isFocused }
+}
+
+/**
+ * Remembers the control a dialog was opened from, so focus can go back there instead of to the
+ * page's first focusable.
+ *
+ * Compose clears the page's focus while a dialog window holds it, and the control that opened the
+ * dialog is normally still on screen behind it. Every clickable control reports itself when it is
+ * used (see `tvClickable`), so the last one recorded is the control that opened the dialog - the
+ * same for a remote press and for a tap.
+ */
+class TvDialogOpener {
+    internal var requester: FocusRequester? = null
+}
+
+val LocalTvDialogOpener = compositionLocalOf<TvDialogOpener?> { null }
+
+/**
+ * Hands focus back to whatever opened the dialog that is closing, and to the page when that
+ * control is gone (it was the row that was just removed, or its section was closed) or when the
+ * dialog was never opened from one.
+ */
+@Composable
+fun rememberDialogReturnFocus(): () -> Unit {
+    val view = LocalView.current
+    val scope = rememberCoroutineScope()
+    val pageFocus = LocalTvPageFocus.current
+    val opener = LocalTvDialogOpener.current
+    return remember(view, scope, pageFocus, opener) {
+        {
+            scope.launch {
+                val target = opener?.requester
+                opener?.requester = null
+                var settled = false
+                if (target != null) {
+                    var frames = 0
+                    while (frames < 30 && !settled) {
+                        if (view.hasWindowFocus()) {
+                            if (view.isInTouchMode) runCatching { view.requestFocusFromTouch() }
+                            // A detached requester means the control is gone; the page takes over.
+                            val result = runCatching { target.requestFocus() }
+                            if (result.isFailure) break
+                            settled = result.getOrDefault(false)
+                        }
+                        frames++
+                        withFrameNanos { }
+                    }
+                }
+                if (!settled) pageFocus?.invoke()
+            }
+        }
+    }
 }
 
 /**
