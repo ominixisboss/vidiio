@@ -21,10 +21,14 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +64,13 @@ fun PosterActionsSheet(
     )
     val favoriteIds by viewModel.favoriteIds.collectAsState()
     val inMyList = movie.id in favoriteIds
+    val firstAction = remember { FocusRequester() }
+    // The sheet leaves focus on its drag handle as it opens, which on a TV means the first
+    // OK press does nothing. Hand focus to Play once the sheet has settled.
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(350)
+        runCatching { firstAction.requestFocus() }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -81,7 +92,11 @@ fun PosterActionsSheet(
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
             Spacer(Modifier.height(10.dp))
-            PosterActionRow(Icons.Rounded.PlayArrow, "Play") {
+            PosterActionRow(
+                icon = Icons.Rounded.PlayArrow,
+                label = "Play",
+                modifier = Modifier.focusRequester(firstAction)
+            ) {
                 onDismiss()
                 onPlay(movie)
             }
@@ -107,8 +122,13 @@ fun PosterActionsSheet(
 }
 
 @Composable
-private fun PosterActionRow(icon: ImageVector, label: String, onClick: () -> Unit) {
-    GlassCard(onClick = onClick, alpha = 0.06f, modifier = Modifier.padding(vertical = 2.dp)) {
+private fun PosterActionRow(
+    icon: ImageVector,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    GlassCard(onClick = onClick, alpha = 0.06f, modifier = modifier.padding(vertical = 2.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
