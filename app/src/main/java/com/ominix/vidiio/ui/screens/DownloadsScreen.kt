@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -188,6 +189,9 @@ fun DownloadItem(
     onExport: () -> Unit,
     onPlay: () -> Unit
 ) {
+    // Play is the control that opens the player here, so leaving it comes back to this button.
+    val playFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val playOpenedPlayer = com.ominix.vidiio.ui.tv.rememberTvReturnKey("download-${task.id}", playFocus)
     GlassCard(
         modifier = Modifier.fillMaxWidth(),
         alpha = 0.1f,
@@ -233,7 +237,13 @@ fun DownloadItem(
                 
                 if (task.status == DownloadStatus.COMPLETED) {
                     Row {
-                        IconButton(onClick = onPlay) {
+                        IconButton(
+                            onClick = {
+                                playOpenedPlayer()
+                                onPlay()
+                            },
+                            modifier = Modifier.focusRequester(playFocus)
+                        ) {
                             Icon(Icons.Rounded.PlayArrow, contentDescription = "Play", tint = MaterialTheme.colorScheme.onSurface)
                         }
                         IconButton(onClick = onExport) {

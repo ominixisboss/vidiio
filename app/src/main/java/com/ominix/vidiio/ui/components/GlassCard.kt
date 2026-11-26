@@ -22,6 +22,7 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     alpha: Float = 0.05f,
     borderAlpha: Float = 0.12f,
+    returnKey: Any? = null,
     content: @Composable () -> Unit
 ) {
     val shape = RoundedCornerShape(24.dp)
@@ -30,7 +31,7 @@ fun GlassCard(
         .padding(horizontal = 16.dp, vertical = 4.dp)
         .then(
             if (onClick != null) {
-                Modifier.tvClickable(onClick = onClick, shape = shape, focusScale = 1.02f)
+                Modifier.tvClickable(onClick = onClick, shape = shape, focusScale = 1.02f, returnKey = returnKey)
             } else Modifier
         )
 

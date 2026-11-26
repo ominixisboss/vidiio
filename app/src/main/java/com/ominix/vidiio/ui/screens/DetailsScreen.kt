@@ -91,6 +91,13 @@ fun DetailsScreen(
     val topFocus = remember { androidx.compose.ui.focus.FocusRequester() }
     // Where the remote lands again once the finding overlay closes.
     val playFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    // Leaving the player comes back to Play, not to whatever this page focuses first. Play is what
+    // started playback here, so a title played from a poster (which opens this page already playing)
+    // returns to it too - declaring this above the auto-play waits makes that possible.
+    val playOpenedPlayer = com.ominix.vidiio.ui.tv.rememberTvReturnKey(
+        "details-play-${initialMovie?.id}",
+        playFocus
+    )
     var showSourceSelector by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -190,6 +197,9 @@ fun DetailsScreen(
                         if (target != null) {
                             viewModel.selectEpisode(target)
                             episodeSearchSeen = null
+                            // Opened from the guide with an episode in mind: there is no row to come
+                            // back to, so the return lands on Play.
+                            playOpenedPlayer()
                             autoPlayEpisodeId = target.id
                         } else {
                             android.widget.Toast.makeText(toastContext, "That episode is not listed yet", android.widget.Toast.LENGTH_LONG).show()
@@ -222,6 +232,7 @@ fun DetailsScreen(
                         )
                         if (best != null) {
                             waitStartedPlayback = true
+                            playOpenedPlayer()
                             onPlay(state.movie, state.selectedEpisode, best)
                         } else {
                             // Settled with nothing playable: say so, and leave the sources on screen.
@@ -270,11 +281,6 @@ fun DetailsScreen(
                         }
                     }
 
-                    // Leaving the player comes back to Play, not to whatever this page focuses first.
-                    val playOpenedPlayer = com.ominix.vidiio.ui.tv.rememberTvReturnKey(
-                        "details-play-${state.movie.id}",
-                        playFocus
-                    )
                     MovieDetailContent(
                         movie = state.movie,
                         streamSources = state.streamSources,
@@ -757,7 +763,9 @@ fun MovieDetailContent(
                     EpisodeListItem(
                         episode = episode,
                         isSelected = episode.id == selectedEpisode?.id,
-                        onClick = { onEpisodeSelected(episode) }
+                        onClick = { onEpisodeSelected(episode) },
+                        // Tapping a row plays that episode, so leaving the player comes back to it.
+                        returnKey = "episode-${episode.id}"
                     )
                 }
             }
@@ -1147,10 +1155,12 @@ fun SourceItem(
 fun EpisodeListItem(
     episode: Episode,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    returnKey: Any? = null
 ) {
     GlassCard(
         onClick = onClick,
+        returnKey = returnKey,
         alpha = if (isSelected) 0.15f else 0.05f,
         borderAlpha = if (isSelected) 0.3f else 0.1f,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
