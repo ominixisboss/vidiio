@@ -250,10 +250,19 @@ private fun DetailsLoadingPlaceholder(movie: Movie?, modifier: Modifier = Modifi
                     )
                 )
         )
-        Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
+        // In landscape the bottom of this box is behind the navigation bar, so the title goes to
+        // the top there instead of disappearing under it while the details load.
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val compactLandscape = configuration.screenWidthDp > configuration.screenHeightDp &&
+            configuration.screenHeightDp < 420
+        Column(
+            modifier = Modifier
+                .align(if (compactLandscape) Alignment.TopStart else Alignment.BottomStart)
+                .padding(16.dp)
+        ) {
             Text(
                 text = movie.title,
-                style = MaterialTheme.typography.headlineLarge,
+                style = if (compactLandscape) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Black,
                 color = Color.White,
                 maxLines = 2,
@@ -309,6 +318,12 @@ fun MovieDetailContent(
     var trailerFailed by remember(movie.id) { mutableStateOf(lowRamDevice) }
     var trailerFullscreen by remember(movie.id) { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    // A phone in landscape is about 360dp tall. The 400dp hero then filled the whole first screen
+    // by itself, so the title and Play sat below the fold: the compact layout replaces it with a
+    // poster-and-title strip that leaves the Play button on the first screen.
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val compactLandscape = configuration.screenWidthDp > configuration.screenHeightDp &&
+        configuration.screenHeightDp < 420
     val listState = rememberLazyListState()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val trailerFocus = remember { androidx.compose.ui.focus.FocusRequester() }
@@ -357,6 +372,29 @@ fun MovieDetailContent(
         modifier = Modifier.fillMaxSize()
     ) {
         item {
+            if (compactLandscape) {
+                CompactDetailsHeader(
+                    movie = movie,
+                    hasTrailer = trailerKey != null,
+                    onOpenTrailer = {
+                        // The embedded player is the nicer option; when this device cannot run it,
+                        // fall back to the same external trailer the full hero offers.
+                        if (trailerFailed) {
+                            runCatching {
+                                context.startActivity(
+                                    android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://www.youtube.com/watch?v=$trailerKey")
+                                    )
+                                )
+                            }
+                        } else {
+                            trailerFullscreen = true
+                        }
+                    }
+                )
+                return@item
+            }
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -476,13 +514,15 @@ fun MovieDetailContent(
             }
         }
         item {
-            Column(modifier = Modifier.padding(16.dp)) {
+            // The compact layout has about 168dp between the top bar and the bottom bar, so the
+            // Play button gets a tighter frame there to keep it on the first screen.
+            Column(modifier = Modifier.padding(if (compactLandscape) 8.dp else 16.dp)) {
                 if (streamSources.isNotEmpty()) {
                     Button(
                         onClick = { onPlayClick(streamSources.first()) },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp)
+                            .height(if (compactLandscape) 48.dp else 56.dp)
                             .tvFocusRing(RoundedCornerShape(24.dp))
                             .onPreviewKeyEvent { event ->
                                 if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
@@ -623,6 +663,99 @@ fun MovieDetailContent(
                     onClick = { onPlayClick(source) },
                     onDownload = { onDownloadClick(source) }
                 )
+            }
+        }
+
+        if (compactLandscape) {
+            // The bottom bar is drawn over this screen, so the last source needs room to scroll
+            // clear of it instead of sitting underneath.
+            item { Spacer(Modifier.height(104.dp)) }
+        }
+    }
+}
+
+/**
+ * The landscape-phone header. There is only about 168dp between the top bar and the bottom bar,
+ * which the full-bleed hero filled by itself, so the artwork, title and meta share one strip and
+ * leave the Play button on the first screen. The trailer moves to a button on the artwork that
+ * opens the existing fullscreen player.
+ */
+@Composable
+private fun CompactDetailsHeader(
+    movie: Movie,
+    hasTrailer: Boolean,
+    onOpenTrailer: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(120.dp)
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.DarkGray)
+        ) {
+            AsyncImage(
+                model = movie.backdropUrl ?: movie.posterUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            if (hasTrailer) {
+                IconButton(
+                    onClick = onOpenTrailer,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(40.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(50))
+                ) {
+                    Icon(
+                        Icons.Rounded.PlayCircle,
+                        contentDescription = "Play trailer",
+                        tint = Color.White,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = movie.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.onBackground,
+                // One line, so a long title can never grow the strip and push Play off screen.
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                movie.year?.let {
+                    Text(
+                        text = it.toString(),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
+                Surface(
+                    color = Color.DarkGray.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text(
+                        text = "HD",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 1.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
             }
         }
     }
