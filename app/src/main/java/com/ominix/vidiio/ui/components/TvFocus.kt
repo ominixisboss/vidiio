@@ -23,6 +23,11 @@ import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.inset
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 
 /**
@@ -50,6 +55,11 @@ fun Modifier.tvClickable(
     val interaction = remember { MutableInteractionSource() }
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
+    // Holding OK on a remote repeats the key down; combinedClickable only knows pointer long
+    // presses and never sees that. This remembers a hold that has already opened the menu, so
+    // its release is swallowed instead of also opening the title underneath.
+    var longPressFired by remember { mutableStateOf(false) }
+    val openMenu = onLongClick
     val ring by animateFloatAsState(
         targetValue = if (focused) 1f else 0f,
         animationSpec = tween(120),
@@ -62,6 +72,38 @@ fun Modifier.tvClickable(
     )
     return this
         .clip(shape)
+        .onPreviewKeyEvent { event ->
+            if (!enabled || openMenu == null) return@onPreviewKeyEvent false
+            val confirm = event.key == Key.DirectionCenter || event.key == Key.Enter
+            val menuKey = event.key == Key.Menu
+            if (!confirm && !menuKey) return@onPreviewKeyEvent false
+            when {
+                // Remotes with a menu button open the sheet without the hold, which is the
+                // reliable path when a remote does not repeat the OK key at all.
+                menuKey -> {
+                    if (event.type == KeyEventType.KeyDown) openMenu()
+                    true
+                }
+                // The first repeat of a held OK is the long press. Consume it and the release
+                // so the same hold cannot also fire the ordinary click.
+                event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount > 0 -> {
+                    if (!longPressFired) {
+                        longPressFired = true
+                        openMenu()
+                    }
+                    true
+                }
+                event.type == KeyEventType.KeyUp && longPressFired -> {
+                    longPressFired = false
+                    true
+                }
+                else -> {
+                    // A fresh press begins a new hold.
+                    if (event.type == KeyEventType.KeyDown) longPressFired = false
+                    false
+                }
+            }
+        }
         .combinedClickable(
             interactionSource = interaction,
             indication = null,

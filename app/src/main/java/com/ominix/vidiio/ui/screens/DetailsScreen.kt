@@ -171,19 +171,27 @@ fun DetailsScreen(
                     }
                     // A long-press Play on a poster lands here with autoPlay set: go straight to the
                     // best stream instead of showing a second Play button to press.
-                    LaunchedEffect(autoPlay) {
-                        if (!autoPlay || viewModel.autoPlayStarted) return@LaunchedEffect
-                        // Nothing usable after 20s: stay here, where the sources and Play are.
-                        kotlinx.coroutines.delay(20_000)
-                        viewModel.autoPlayStarted = true
-                    }
                     LaunchedEffect(state.streamSources, state.isSearchingSources, sourceHealth) {
                         if (!autoPlay || viewModel.autoPlayStarted) return@LaunchedEffect
-                        val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
-                            state.streamSources, sourceHealth, state.isSearchingSources, false
-                        ) ?: return@LaunchedEffect
+                        // The first source to pass its check is usually not the best one - the rest
+                        // of the scrape is still adding and checking others - so only choose once
+                        // the search has settled. Waiting on a timer instead gave up at 20s while
+                        // the scrape still had up to 45s to run, and then did nothing at all.
+                        if (state.isSearchingSources) return@LaunchedEffect
                         viewModel.autoPlayStarted = true
-                        onPlay(state.movie, state.selectedEpisode, best)
+                        val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
+                            state.streamSources, sourceHealth, searching = false, giveUp = false
+                        )
+                        if (best != null) {
+                            onPlay(state.movie, state.selectedEpisode, best)
+                        } else {
+                            // Settled with nothing playable: say so, and leave the sources on screen.
+                            android.widget.Toast.makeText(
+                                toastContext,
+                                "No working stream found",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
 
                     androidx.activity.compose.BackHandler(enabled = autoPlayEpisodeId != null) { autoPlayEpisodeId = null }
