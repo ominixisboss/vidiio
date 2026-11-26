@@ -73,6 +73,7 @@ import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.tv.LocalIsTv
 import com.ominix.vidiio.ui.tv.LocalTvPageFocus
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.browse.LocalBrowseShortcuts
 import com.ominix.vidiio.ui.browse.ShortcutButtons
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -299,33 +300,6 @@ fun VpnReminderDialog(
     onDismiss: (dontShowAgain: Boolean) -> Unit
 ) {
     var dontShowAgain by remember { mutableStateOf(false) }
-    val isTv = LocalIsTv.current
-    val confirmFocus = remember { FocusRequester() }
-    // True while the confirmation button itself holds focus.
-    var confirmFocused by remember { mutableStateOf(false) }
-    var laidOut by remember { mutableStateOf(false) }
-    val view = LocalView.current
-    // On a TV nothing was focused when the reminder appeared: the remote looked dead until a key
-    // was pressed, and after dismissing it the page had no highlighted control either. Start on
-    // the confirmation button so the remote always has somewhere to act.
-    //
-    // The reminder has a dialog window of its own: a request made before that window can take
-    // focus is dropped, and the instant it takes focus it picks the first control in it (the
-    // checkbox). Wait for the window instead of guessing a delay, then ask until the button really
-    // holds focus - and stop as soon as it does, so a viewer who moves on is not pulled back.
-    LaunchedEffect(isTv, laidOut) {
-        if (!isTv || !laidOut) return@LaunchedEffect
-        var frames = 0
-        var asked = 0
-        while (frames < 300 && asked < 60 && !confirmFocused) {
-            if (view.hasWindowFocus()) {
-                runCatching { confirmFocus.requestFocus() }
-                asked++
-            }
-            frames++
-            withFrameNanos { }
-        }
-    }
 
     // A landscape phone only leaves a dialog about 250dp before the system bars, and the stock
     // AlertDialog gave the body a single line at 1.5x fonts. Size this one explicitly and keep the
@@ -346,8 +320,7 @@ fun VpnReminderDialog(
                 .padding(horizontal = 20.dp)
                 .widthIn(max = 560.dp)
                 .fillMaxWidth()
-                .heightIn(max = dialogHeight)
-                .onPlaced { laidOut = true },
+                .heightIn(max = dialogHeight),
             shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
@@ -405,13 +378,10 @@ fun VpnReminderDialog(
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+                    // Take focus as soon as the dialog's window can hold it (see tvDialogFocus).
                     Button(
                         onClick = { onDismiss(dontShowAgain) },
-                        modifier = if (isTv) {
-                            Modifier
-                                .focusRequester(confirmFocus)
-                                .onFocusChanged { confirmFocused = it.isFocused }
-                        } else Modifier,
+                        modifier = Modifier.tvDialogFocus(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Text("I Understand", fontWeight = FontWeight.Bold)

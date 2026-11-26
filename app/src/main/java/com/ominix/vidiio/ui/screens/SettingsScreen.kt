@@ -50,6 +50,7 @@ import com.ominix.vidiio.data.repository.SubtitleEdge
 import com.ominix.vidiio.data.repository.SubtitleStyle
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalTvPageFocus
+import com.ominix.vidiio.ui.tv.rememberDialogReturnFocus
 import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.theme.*
 import com.ominix.vidiio.ui.viewmodel.SettingsViewModel
@@ -175,7 +176,8 @@ fun SettingsScreen(
     var showAddonStoreSheet by rememberSaveable { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Hands focus back to the page when a dialog closes, including when it was closed by a tap.
+    // Hands focus back to the row a dialog was opened from, or to the page when that row is gone.
+    val returnFocus = rememberDialogReturnFocus()
     val focusPage = LocalTvPageFocus.current
 
     // One section open at a time keeps the page short, so the remote never has far to scroll.
@@ -713,7 +715,7 @@ fun SettingsScreen(
     if (showProfileDialog) {
         val shape = RoundedCornerShape(20.dp)
         androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showProfileDialog = false }
+            onDismissRequest = { showProfileDialog = false; returnFocus() }
         ) {
             Surface(
                 modifier = Modifier
@@ -749,11 +751,13 @@ fun SettingsScreen(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .then(if (isChosen) Modifier.tvDialogFocus() else Modifier)
                                 .onFocusChanged { itemFocused = it.isFocused }
                                 .tvClickable(
                                     onClick = {
                                         viewModel.switchProfile(profile.id)
                                         showProfileDialog = false
+                                        returnFocus()
                                         android.widget.Toast.makeText(context, "Switched to ${profile.name}", android.widget.Toast.LENGTH_SHORT).show()
                                     },
                                     shape = itemShape
@@ -844,7 +848,7 @@ fun SettingsScreen(
         val avatarColors = listOf(0xFFE50914, 0xFF0063E5, 0xFF1CE783, 0xFF9C27B0, 0xFFFF9800, 0xFF00BCD4)
 
         AlertDialog(
-            onDismissRequest = { showCreateProfileDialog = false },
+            onDismissRequest = { showCreateProfileDialog = false; returnFocus() },
             containerColor = MaterialTheme.colorScheme.surface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -857,7 +861,7 @@ fun SettingsScreen(
                         label = { Text("Profile Name") },
                         placeholder = { Text("e.g. Alex, Mom, Kids") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().tvDialogFocus()
                     )
 
                     Text("Avatar Color", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
@@ -905,13 +909,14 @@ fun SettingsScreen(
                         if (input.isNotBlank()) {
                             viewModel.createProfile(input, selectedColorHex, createIsKids)
                             showCreateProfileDialog = false
+                            returnFocus()
                             android.widget.Toast.makeText(context, "Profile '$input' created", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) { Text("Create") }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateProfileDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showCreateProfileDialog = false; returnFocus() }) { Text("Cancel") }
             }
         )
     }
@@ -919,7 +924,7 @@ fun SettingsScreen(
     if (showMetadataProviderDialog) {
         val shape = RoundedCornerShape(20.dp)
         androidx.compose.ui.window.Dialog(
-            onDismissRequest = { showMetadataProviderDialog = false }
+            onDismissRequest = { showMetadataProviderDialog = false; returnFocus() }
         ) {
             Surface(
                 modifier = Modifier
@@ -951,11 +956,13 @@ fun SettingsScreen(
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .then(if (isChosen) Modifier.tvDialogFocus() else Modifier)
                                 .onFocusChanged { itemFocused = it.isFocused }
                                 .tvClickable(
                                     onClick = {
                                         viewModel.setMetadataProvider(option)
                                         showMetadataProviderDialog = false
+                                        returnFocus()
                                     },
                                     shape = itemShape
                                 ),
@@ -1015,7 +1022,7 @@ fun SettingsScreen(
 
     if (showAddMetadataDialog) {
         AlertDialog(
-            onDismissRequest = { showAddMetadataDialog = false },
+            onDismissRequest = { showAddMetadataDialog = false; returnFocus() },
             containerColor = MaterialTheme.colorScheme.surface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -1026,7 +1033,7 @@ fun SettingsScreen(
                     onValueChange = { metadataUrlToAdd = it },
                     label = { Text("Manifest URL (e.g. Cinemeta / Kitsu)") },
                     placeholder = { Text("https://anime-kitsu.strem.fun/manifest.json") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(),
                     singleLine = true
                 )
             },
@@ -1039,13 +1046,14 @@ fun SettingsScreen(
                             viewModel.setMetadataProvider(com.ominix.vidiio.data.repository.MetadataProvider.ADDONS)
                             metadataUrlToAdd = ""
                             showAddMetadataDialog = false
+                            returnFocus()
                             android.widget.Toast.makeText(context, "Metadata addon added", android.widget.Toast.LENGTH_SHORT).show()
                         }
                     }
                 ) { Text("Add & Set Active") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddMetadataDialog = false }) { Text("Cancel") }
+                TextButton(onClick = { showAddMetadataDialog = false; returnFocus() }) { Text("Cancel") }
             }
         )
     }
@@ -1053,7 +1061,7 @@ fun SettingsScreen(
     // Dialogs preserved
     addonToRemove?.let { url ->
         AlertDialog(
-            onDismissRequest = { addonToRemove = null; focusPage?.invoke() },
+            onDismissRequest = { addonToRemove = null; returnFocus() },
             title = { Text("Remove this addon?") },
             text = { Text(addonLabel(url)) },
             confirmButton = {
@@ -1062,20 +1070,21 @@ fun SettingsScreen(
                         viewModel.removeStremioAddon(url)
                         addonToRemove = null
                         focusAddAfterRemoval = true
+                        // The row this came from is gone, so there is no control to go back to.
                         focusPage?.invoke()
                     },
                     modifier = Modifier.tvDialogFocus()
                 ) { Text("Remove") }
             },
             dismissButton = {
-                TextButton(onClick = { addonToRemove = null; focusPage?.invoke() }) { Text("Keep") }
+                TextButton(onClick = { addonToRemove = null; returnFocus() }) { Text("Keep") }
             }
         )
     }
 
     if (showAddAddonDialog) {
         AlertDialog(
-            onDismissRequest = { showAddAddonDialog = false },
+            onDismissRequest = { showAddAddonDialog = false; returnFocus() },
             containerColor = MaterialTheme.colorScheme.surface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -1085,7 +1094,7 @@ fun SettingsScreen(
                     value = addonUrlToAdd,
                     onValueChange = { addonUrlToAdd = it },
                     label = { Text("Manifest URL") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1105,6 +1114,7 @@ fun SettingsScreen(
                                 showAddonStoreSheet = true
                             } else {
                                 viewModel.addStremioAddon(input)
+                                returnFocus()
                             }
                             addonUrlToAdd = ""
                             showAddAddonDialog = false
@@ -1114,7 +1124,7 @@ fun SettingsScreen(
                 ) { Text("Add") }
             },
             dismissButton = {
-                TextButton(onClick = { showAddAddonDialog = false }) {
+                TextButton(onClick = { showAddAddonDialog = false; returnFocus() }) {
                     Text("Cancel", color = Color.Gray)
                 }
             }
@@ -1128,37 +1138,49 @@ fun SettingsScreen(
                 viewModel.addLiveLinks(live)
                 viewModel.addLiveAddons(liveAddonUrls)
             },
-            onDismiss = { showAddFromPcDialog = false; focusPage?.invoke() }
+            onDismiss = { showAddFromPcDialog = false; returnFocus() }
         )
     }
 
     liveLinkToRemove?.let { link ->
         AlertDialog(
-            onDismissRequest = { liveLinkToRemove = null },
+            onDismissRequest = { liveLinkToRemove = null; returnFocus() },
             title = { Text("Remove this link?") },
             text = { Text("${link.name}\n${link.url}") },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.removeLiveLink(link.url)
-                    liveLinkToRemove = null
-                }) { Text("Remove") }
+                TextButton(
+                    onClick = {
+                        viewModel.removeLiveLink(link.url)
+                        liveLinkToRemove = null
+                        focusPage?.invoke()
+                    },
+                    modifier = Modifier.tvDialogFocus()
+                ) { Text("Remove") }
             },
-            dismissButton = { TextButton(onClick = { liveLinkToRemove = null }) { Text("Keep") } }
+            dismissButton = {
+                TextButton(onClick = { liveLinkToRemove = null; returnFocus() }) { Text("Keep") }
+            }
         )
     }
 
     liveAddonToRemove?.let { url ->
         AlertDialog(
-            onDismissRequest = { liveAddonToRemove = null },
+            onDismissRequest = { liveAddonToRemove = null; returnFocus() },
             title = { Text("Remove this Live TV addon?") },
             text = { Text(addonLabel(url)) },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.removeLiveAddon(url)
-                    liveAddonToRemove = null
-                }) { Text("Remove") }
+                TextButton(
+                    onClick = {
+                        viewModel.removeLiveAddon(url)
+                        liveAddonToRemove = null
+                        focusPage?.invoke()
+                    },
+                    modifier = Modifier.tvDialogFocus()
+                ) { Text("Remove") }
             },
-            dismissButton = { TextButton(onClick = { liveAddonToRemove = null }) { Text("Keep") } }
+            dismissButton = {
+                TextButton(onClick = { liveAddonToRemove = null; returnFocus() }) { Text("Keep") }
+            }
         )
     }
 
@@ -1175,7 +1197,7 @@ fun SettingsScreen(
                 viewModel.uninstallAddonFromStore(url)
                 android.widget.Toast.makeText(context, "Addon removed", android.widget.Toast.LENGTH_SHORT).show()
             },
-            onDismiss = { showAddonStoreSheet = false }
+            onDismiss = { showAddonStoreSheet = false; returnFocus() }
         )
     }
 
@@ -1187,13 +1209,13 @@ fun SettingsScreen(
                 if (normalized.substringBefore('?').endsWith("manifest.json")) viewModel.addLiveAddons(listOf(normalized))
                 else viewModel.addLiveLinks(listOf(com.ominix.vidiio.data.repository.LiveLink(name.ifBlank { url }, url)))
             },
-            onDismiss = { showAddLiveLinkDialog = false }
+            onDismiss = { showAddLiveLinkDialog = false; returnFocus() }
         )
     }
 
     if (showSubtitleLanguagesDialog) {
         AlertDialog(
-            onDismissRequest = { showSubtitleLanguagesDialog = false },
+            onDismissRequest = { showSubtitleLanguagesDialog = false; returnFocus() },
             containerColor = MaterialTheme.colorScheme.surface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -1211,7 +1233,7 @@ fun SettingsScreen(
                         value = subtitleLanguagesToSet,
                         onValueChange = { subtitleLanguagesToSet = it },
                         label = { Text("e.g. en, es, fr") },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().tvDialogFocus(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1227,12 +1249,13 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.setSubtitleLanguages(subtitleLanguagesToSet)
                         showSubtitleLanguagesDialog = false
+                        returnFocus()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) { Text("Save") }
             },
             dismissButton = {
-                TextButton(onClick = { showSubtitleLanguagesDialog = false }) {
+                TextButton(onClick = { showSubtitleLanguagesDialog = false; returnFocus() }) {
                     Text("Cancel", color = Color.Gray)
                 }
             }
@@ -1241,7 +1264,7 @@ fun SettingsScreen(
 
     if (showApiKeyDialog) {
         AlertDialog(
-            onDismissRequest = { showApiKeyDialog = false },
+            onDismissRequest = { showApiKeyDialog = false; returnFocus() },
             containerColor = MaterialTheme.colorScheme.surface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -1251,7 +1274,7 @@ fun SettingsScreen(
                     value = apiKeyToSet,
                     onValueChange = { apiKeyToSet = it },
                     label = { Text("API Key") },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1266,12 +1289,13 @@ fun SettingsScreen(
                     onClick = {
                         viewModel.setSubdlApiKey(apiKeyToSet)
                         showApiKeyDialog = false
+                        returnFocus()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) { Text("Save") }
             },
             dismissButton = {
-                TextButton(onClick = { showApiKeyDialog = false }) {
+                TextButton(onClick = { showApiKeyDialog = false; returnFocus() }) {
                     Text("Cancel", color = Color.Gray)
                 }
             }
@@ -1291,8 +1315,9 @@ fun SettingsScreen(
                 viewModel.saveProxy(true, t, h, p.toIntOrNull() ?: 0, u, pw)
                 viewModel.clearProxyTestResult()
                 showProxyDialog = false
+                returnFocus()
             },
-            onDismiss = { viewModel.clearProxyTestResult(); showProxyDialog = false }
+            onDismiss = { viewModel.clearProxyTestResult(); showProxyDialog = false; returnFocus() }
         )
     }
 }
@@ -1310,7 +1335,7 @@ private fun AddLiveLinkDialog(onAdd: suspend (String, String) -> Unit, onDismiss
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogFocus())
                 Text(
                     "Addon links end in manifest.json. Playlists (M3U) and stream links (.m3u8, .mpd) also work. Web page links won't play.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1519,7 +1544,7 @@ private fun ProxySettingsDialog(
                     }
                 }
                 OutlinedTextField(host, { host = it }, label = { Text("Host") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(), colors = fieldColors)
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(), colors = fieldColors)
                 OutlinedTextField(port, { port = it.filter(Char::isDigit).take(5) }, label = { Text("Port") },
                     singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
                 OutlinedTextField(user, { user = it }, label = { Text("Username (optional)") }, singleLine = true,
@@ -2044,6 +2069,7 @@ fun AddonStoreSheet(
     var selectedCategory by remember { mutableStateOf("All") }
     var webPromptUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val returnFocus = rememberDialogReturnFocus()
 
     val categories = listOf("All", "Movies & Series", "Sports & Live", "Anime", "Subtitles", "Scrapers")
 
@@ -2091,7 +2117,7 @@ fun AddonStoreSheet(
                             Text("stremio-addons.net", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                         }
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(onClick = onDismiss, modifier = Modifier.tvDialogFocus()) {
                         Icon(Icons.Rounded.Close, contentDescription = "Close")
                     }
                 }
@@ -2154,7 +2180,7 @@ fun AddonStoreSheet(
 
     webPromptUrl?.let { (name, webUrl) ->
         AlertDialog(
-            onDismissRequest = { webPromptUrl = null },
+            onDismissRequest = { webPromptUrl = null; returnFocus() },
             title = { Text("Configure $name") },
             text = {
                 Text("This addon offers custom options on its website. Would you like to open $webUrl in your browser or install directly?")
@@ -2165,13 +2191,16 @@ fun AddonStoreSheet(
                         val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(webUrl))
                         context.startActivity(intent)
                         webPromptUrl = null
-                    }
+                        returnFocus()
+                    },
+                    modifier = Modifier.tvDialogFocus()
                 ) { Text("Open Website") }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
                         webPromptUrl = null
+                        returnFocus()
                     }
                 ) { Text("Cancel") }
             }

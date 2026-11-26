@@ -15,6 +15,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.ominix.vidiio.torrent.TorrentStatus
@@ -89,7 +90,7 @@ fun PlaybackErrorDialog(
         title = { Text("Playback Error") },
         text = { Text(message) },
         confirmButton = {
-            TextButton(onClick = onRetry) { Text("Retry") }
+            TextButton(onClick = onRetry, modifier = Modifier.tvDialogFocus()) { Text("Retry") }
         },
         dismissButton = {
             TextButton(onClick = onChooseAnotherSource) { Text("Choose Another Source") }

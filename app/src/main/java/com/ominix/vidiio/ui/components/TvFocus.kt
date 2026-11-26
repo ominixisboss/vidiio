@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -29,6 +31,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import com.ominix.vidiio.ui.tv.LocalTvDialogOpener
 
 /**
  * Clickable that also works with a D-pad / TV remote: it's focusable, shows a bright ring
@@ -53,6 +56,9 @@ fun Modifier.tvClickable(
     enabled: Boolean = true,
 ): Modifier {
     val interaction = remember { MutableInteractionSource() }
+    // Recorded when this control is used to open a dialog, so focus can come back to it afterwards.
+    val opener = LocalTvDialogOpener.current
+    val requester = remember { FocusRequester() }
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
     // Holding OK on a remote repeats the key down; combinedClickable only knows pointer long
@@ -72,6 +78,7 @@ fun Modifier.tvClickable(
     )
     return this
         .clip(shape)
+        .focusRequester(requester)
         .onPreviewKeyEvent { event ->
             if (!enabled || openMenu == null) return@onPreviewKeyEvent false
             val confirm = event.key == Key.DirectionCenter || event.key == Key.Enter
@@ -108,8 +115,16 @@ fun Modifier.tvClickable(
             interactionSource = interaction,
             indication = null,
             enabled = enabled,
-            onClick = onClick,
-            onLongClick = onLongClick,
+            onClick = {
+                opener?.requester = requester
+                onClick()
+            },
+            onLongClick = openMenu?.let { open ->
+                {
+                    opener?.requester = requester
+                    open()
+                }
+            },
         )
         .drawWithContent {
             drawContent()
