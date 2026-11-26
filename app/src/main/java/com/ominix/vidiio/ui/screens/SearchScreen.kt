@@ -7,7 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -23,6 +23,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -56,6 +62,9 @@ fun SearchScreen(
     var actionsFor by remember { mutableStateOf<Movie?>(null) }
     val isTv = LocalIsTv.current
     val searchFocus = remember { FocusRequester() }
+    val firstResultFocus = remember { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    val hasResults = (uiState as? SearchUiState.Success)?.results?.isNotEmpty() == true
     // Opening Search from the bar should put the cursor in the field, not make you tap it first.
     // On a TV the remote stays on the menu, and a query carried in from Home already has results.
     LaunchedEffect(Unit) {
@@ -82,6 +91,17 @@ fun SearchScreen(
                             .padding(end = 16.dp)
                             .focusRequester(searchFocus)
                             .onFocusChanged { isSearchFocused = it.isFocused }
+                            // A remote has no way past the field: the text field takes Down for
+                            // cursor movement, so the results below are unreachable. Down leaves
+                            // the field and lands on the first poster instead.
+                            .onPreviewKeyEvent { event ->
+                                if (isTv && hasResults && event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                                    keyboard?.hide()
+                                    runCatching { firstResultFocus.requestFocus() }.isSuccess
+                                } else {
+                                    false
+                                }
+                            }
                             .border(
                                 width = if (isSearchFocused) 2.dp else 0.5.dp,
                                 color = if (isSearchFocused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f),
@@ -176,10 +196,11 @@ fun SearchScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                     modifier = Modifier.fillMaxSize()
                                 ) {
-                                    items(filteredResults) { movie ->
+                                    itemsIndexed(filteredResults) { index, movie ->
                                         MovieItem(
                                             movie = movie,
                                             onClick = { onNavigateToDetails(movie) },
+                                            modifier = if (index == 0) Modifier.focusRequester(firstResultFocus) else Modifier,
                                             progress = progressById[movie.id],
                                             onLongClick = { actionsFor = movie }
                                         )
