@@ -35,8 +35,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.util.UnstableApi
@@ -58,6 +60,8 @@ import com.ominix.vidiio.ui.player.components.*
 import com.ominix.vidiio.ui.player.playerRemoteControls
 import com.ominix.vidiio.ui.player.playerTouchGestures
 import com.ominix.vidiio.ui.player.rememberPlayerDeviceControls
+import com.ominix.vidiio.ui.tv.restorePageFocus
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.utils.PermissionUtils
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
@@ -265,6 +269,13 @@ fun PlayerScreen(
 
     val playerFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { playerFocus.requestFocus() } }
+    val view = LocalView.current
+    var playerFocused by remember { mutableStateOf(false) }
+    // Hands focus back to the player after a prompt or panel opened over it closes, including when
+    // it was closed by a tap - which leaves the window in touch mode with nothing focused.
+    val restorePlayerFocus: () -> Unit = remember(view, scope) {
+        { scope.launch { restorePageFocus(view, playerFocus) { playerFocused } } }
+    }
     // Nothing else on screen holds focus once the chrome hides, so take it back for the remote.
     LaunchedEffect(showControls, anyMenuOpen) {
         if (!showControls && !anyMenuOpen) runCatching { playerFocus.requestFocus() }
@@ -276,6 +287,7 @@ fun PlayerScreen(
             .background(Color.Black)
             .focusRequester(playerFocus)
             .focusable()
+            .onFocusChanged { playerFocused = it.isFocused }
             .playerRemoteControls(
                 viewModel = playerViewModel,
                 controlsVisible = showControls || anyMenuOpen || state.upNext != null,
@@ -436,26 +448,23 @@ fun PlayerScreen(
         }
 
         state.resumePromptMs?.let { at ->
-            val resumeFocus = remember { FocusRequester() }
-            androidx.compose.runtime.LaunchedEffect(Unit) {
-                delay(150)
-                runCatching { resumeFocus.requestFocus() }
-            }
             val total = (at / 1000).toInt()
             val label = if (total >= 3600) "%d:%02d:%02d".format(total / 3600, total % 3600 / 60, total % 60)
             else "%d:%02d".format(total / 60, total % 60)
             androidx.compose.material3.AlertDialog(
-                onDismissRequest = playerViewModel::resumeFromSaved,
+                onDismissRequest = { playerViewModel.resumeFromSaved(); restorePlayerFocus() },
                 title = { androidx.compose.material3.Text("Continue watching?") },
                 text = { androidx.compose.material3.Text("You stopped at $label. Pick up from there, or start from the beginning?") },
                 confirmButton = {
                     androidx.compose.material3.TextButton(
-                        onClick = playerViewModel::resumeFromSaved,
-                        modifier = Modifier.focusRequester(resumeFocus)
+                        onClick = { playerViewModel.resumeFromSaved(); restorePlayerFocus() },
+                        modifier = Modifier.tvDialogFocus()
                     ) { androidx.compose.material3.Text("Resume $label") }
                 },
                 dismissButton = {
-                    androidx.compose.material3.TextButton(onClick = playerViewModel::startOver) {
+                    androidx.compose.material3.TextButton(
+                        onClick = { playerViewModel.startOver(); restorePlayerFocus() }
+                    ) {
                         androidx.compose.material3.Text("Start over")
                     }
                 }
@@ -513,8 +522,9 @@ fun PlayerScreen(
                     onEpisodeSelect = {
                         playerViewModel.selectEpisode(it)
                         showEpisodesSidebar = false
+                        restorePlayerFocus()
                     },
-                    onClose = { showEpisodesSidebar = false },
+                    onClose = { showEpisodesSidebar = false; restorePlayerFocus() },
                     modifier = Modifier.align(Alignment.CenterEnd)
                 )
             }

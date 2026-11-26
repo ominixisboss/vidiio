@@ -489,6 +489,11 @@ fun VidiioApp() {
                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                         pageContent()
                     }
+                    // Inside the scaffold, so a dismissal can hand focus back to the page.
+                    com.ominix.vidiio.ui.update.UpdatePrompt(
+                        application.appUpdater,
+                        checkOnStart = !isSplashScreen && !isPlayerScreen
+                    )
                 }
             } else {
                 NavigationSuiteScaffold(
@@ -519,7 +524,11 @@ fun VidiioApp() {
             }
         }
         // After the splash, so the first frame isn't held up and the dialog lands on a real page.
-        com.ominix.vidiio.ui.update.UpdatePrompt(application.appUpdater, checkOnStart = !isSplashScreen && !isPlayerScreen)
+        // On TV it is composed inside the scaffold instead, where it can hand focus back to the page.
+        if (!isTv) com.ominix.vidiio.ui.update.UpdatePrompt(
+            application.appUpdater,
+            checkOnStart = !isSplashScreen && !isPlayerScreen
+        )
     }
 }
 
