@@ -2,6 +2,7 @@ package com.ominix.vidiio.ui.screens
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -53,6 +54,16 @@ import com.ominix.vidiio.ui.components.GlassCard
 import com.ominix.vidiio.ui.components.RiveLoader
 import com.ominix.vidiio.ui.viewmodel.DetailsUiState
 import com.ominix.vidiio.ui.viewmodel.DetailsViewModel
+
+/**
+ * Sources whose check has not come back yet. A scrape can finish while its last sources are
+ * still being probed, so "not searching" alone is not enough to say nothing works.
+ */
+private fun List<StreamSource>.anyStillChecking(health: Map<String, SourceHealth>): Boolean =
+    any { source ->
+        val status = health[source.url]?.status
+        status == null || status == SourceStatus.CHECKING
+    }
 
 @OptIn(ExperimentalMaterial3Api::class, com.google.accompanist.permissions.ExperimentalPermissionsApi::class)
 @Composable
@@ -125,35 +136,35 @@ fun DetailsScreen(
                     // Picking an episode starts the best stream that works and is in English, rather than just
                     // listing links: the episode that was tapped, once its sources are found and checked.
                     var autoPlayEpisodeId by remember { mutableStateOf<String?>(null) }
-                    var giveUp by remember { mutableStateOf(false) }
-                    var sawSearching by remember { mutableStateOf(false) }
+                    // The episode whose search has actually been seen running. Until then, "not
+                    // searching" only means the tap has not reached the scraper yet.
+                    var episodeSearchSeen by remember { mutableStateOf<String?>(null) }
                     val toastContext = androidx.compose.ui.platform.LocalContext.current
-                    LaunchedEffect(autoPlayEpisodeId) {
-                        giveUp = false
-                        sawSearching = false
-                        if (autoPlayEpisodeId != null) {
-                            kotlinx.coroutines.delay(15_000)
-                            giveUp = true
-                        }
-                    }
-                    LaunchedEffect(autoPlayEpisodeId, state.selectedEpisode?.id, state.streamSources, sourceHealth, state.isSearchingSources, giveUp) {
+                    LaunchedEffect(autoPlayEpisodeId, state.selectedEpisode?.id, state.streamSources, sourceHealth, state.isSearchingSources) {
                         val pending = autoPlayEpisodeId ?: return@LaunchedEffect
                         // Wait until the tap has taken effect, and the new search has actually begun - before
                         // that the list is empty and "not searching" only because it is between episodes.
                         if (state.selectedEpisode?.id != pending) return@LaunchedEffect
-                        if (state.isSearchingSources) sawSearching = true
+                        if (state.isSearchingSources) {
+                            episodeSearchSeen = pending
+                            return@LaunchedEffect
+                        }
+                        if (episodeSearchSeen != pending) return@LaunchedEffect
+                        // Same wait as a long-press Play: the scrape can end while its last sources
+                        // are still being probed, and the one that works can be seconds behind.
+                        if (state.streamSources.anyStillChecking(sourceHealth)) return@LaunchedEffect
+                        autoPlayEpisodeId = null
                         val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
-                            state.streamSources, sourceHealth, state.isSearchingSources, giveUp
+                            state.streamSources, sourceHealth, searching = false, giveUp = false
                         )
-                        when {
-                            best != null -> {
-                                autoPlayEpisodeId = null
-                                onPlay(state.movie, state.selectedEpisode, best)
-                            }
-                            (sawSearching && !state.isSearchingSources) || giveUp -> {
-                                autoPlayEpisodeId = null
-                                android.widget.Toast.makeText(toastContext, "No working stream found for this episode", android.widget.Toast.LENGTH_LONG).show()
-                            }
+                        if (best != null) {
+                            onPlay(state.movie, state.selectedEpisode, best)
+                        } else {
+                            android.widget.Toast.makeText(
+                                toastContext,
+                                "No working stream found for this episode",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
                         }
                     }
                     // Opened from the TV Guide with an episode in mind: pick it and play the best stream.
@@ -189,11 +200,7 @@ fun DetailsScreen(
                         // The scrape ending is not the search ending: its last sources are probed in
                         // the background, and the one that works can land seconds later. Saying
                         // "no stream" now would be wrong just before one starts working.
-                        val stillChecking = state.streamSources.any { source ->
-                            val status = sourceHealth[source.url]?.status
-                            status == null || status == SourceStatus.CHECKING
-                        }
-                        if (stillChecking) return@LaunchedEffect
+                        if (state.streamSources.anyStillChecking(sourceHealth)) return@LaunchedEffect
                         autoPlayWaiting = false
                         viewModel.autoPlayStarted = true
                         val best = com.ominix.vidiio.data.repository.pickStreamToPlay(
@@ -211,7 +218,18 @@ fun DetailsScreen(
                         }
                     }
 
-                    androidx.activity.compose.BackHandler(enabled = autoPlayEpisodeId != null || autoPlayWaiting) {
+                    val waitOverlay = autoPlayEpisodeId != null || autoPlayWaiting
+                    val waitFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+                    LaunchedEffect(waitOverlay) {
+                        if (!waitOverlay) return@LaunchedEffect
+                        // Focus has to be on the overlay, or the remote keeps driving the controls
+                        // hidden underneath it. It is attached by now; retry once if it is not.
+                        if (runCatching { waitFocus.requestFocus() }.isFailure) {
+                            kotlinx.coroutines.delay(80)
+                            runCatching { waitFocus.requestFocus() }
+                        }
+                    }
+                    androidx.activity.compose.BackHandler(enabled = waitOverlay) {
                         if (autoPlayEpisodeId != null) {
                             autoPlayEpisodeId = null
                         } else {
@@ -247,12 +265,20 @@ fun DetailsScreen(
                         onToggleSourceSelector = { showSourceSelector = true },
                         onFocusTop = { runCatching { topFocus.requestFocus() } }
                     )
-                    if (autoPlayEpisodeId != null || autoPlayWaiting) {
+                    if (waitOverlay) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color.Black.copy(alpha = 0.7f))
-                                .pointerInput(Unit) { },
+                                .pointerInput(Unit) { }
+                                .focusRequester(waitFocus)
+                                .focusable()
+                                .onPreviewKeyEvent { event ->
+                                    // Nothing hidden under the overlay may fire while it waits:
+                                    // swallow the remote, including the directions that would
+                                    // move focus back into the page. Back stays with BackHandler.
+                                    event.key != Key.Back
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
