@@ -2165,6 +2165,8 @@ fun AddonStoreSheet(
     var webPromptUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val returnFocus = rememberDialogReturnFocus()
+    // This prompt sits above the store; closing the store with it leaves the rail over the page.
+    val handOffDialogFocus = rememberDialogMenuHandoff()
 
     val categories = listOf("All", "Movies & Series", "Sports & Live", "Anime", "Subtitles", "Scrapers")
 
@@ -2280,6 +2282,10 @@ fun AddonStoreSheet(
     webPromptUrl?.let { (name, webUrl) ->
         AlertDialog(
             onDismissRequest = { webPromptUrl = null; returnFocus() },
+            modifier = Modifier.tvDialogMenuToRail(
+                fromAnyControl = true,
+                onCloseDialog = { handOffDialogFocus(); webPromptUrl = null; onMenuClose() }
+            ),
             title = { Text("Configure $name") },
             text = {
                 Text("This addon offers custom options on its website. Would you like to open $webUrl in your browser or install directly?")
