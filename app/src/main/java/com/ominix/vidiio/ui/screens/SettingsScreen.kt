@@ -754,7 +754,8 @@ fun SettingsScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = { handOffDialogFocus(); showProfileDialog = false }),
                 shape = shape,
                 color = Color(0xFF1E222A),
                 border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
@@ -967,7 +968,8 @@ fun SettingsScreen(
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = { handOffDialogFocus(); showMetadataProviderDialog = false }),
                 shape = shape,
                 color = Color(0xFF1E222A),
                 border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.15f))
@@ -1102,6 +1104,7 @@ fun SettingsScreen(
     addonToRemove?.let { url ->
         AlertDialog(
             onDismissRequest = { addonToRemove = null; returnFocus() },
+            modifier = Modifier.tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = { addonToRemove = null }),
             title = { Text("Remove this addon?") },
             text = { Text(addonLabel(url)) },
             confirmButton = {
@@ -1180,13 +1183,15 @@ fun SettingsScreen(
                 viewModel.addLiveLinks(live)
                 viewModel.addLiveAddons(liveAddonUrls)
             },
-            onDismiss = { showAddFromPcDialog = false; returnFocus() }
+            onDismiss = { showAddFromPcDialog = false; returnFocus() },
+            onMenuClose = { showAddFromPcDialog = false }
         )
     }
 
     liveLinkToRemove?.let { link ->
         AlertDialog(
             onDismissRequest = { liveLinkToRemove = null; returnFocus() },
+            modifier = Modifier.tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = { liveLinkToRemove = null }),
             title = { Text("Remove this link?") },
             text = { Text("${link.name}\n${link.url}") },
             confirmButton = {
@@ -1208,6 +1213,7 @@ fun SettingsScreen(
     liveAddonToRemove?.let { url ->
         AlertDialog(
             onDismissRequest = { liveAddonToRemove = null; returnFocus() },
+            modifier = Modifier.tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = { liveAddonToRemove = null }),
             title = { Text("Remove this Live TV addon?") },
             text = { Text(addonLabel(url)) },
             confirmButton = {
@@ -1436,7 +1442,11 @@ private fun AddLiveLinkDialog(
  * little web page running only while this dialog is open.
  */
 @Composable
-private fun AddFromComputerDialog(onLinks: suspend (List<String>, List<com.ominix.vidiio.data.repository.LiveLink>, List<String>) -> Unit, onDismiss: () -> Unit) {
+private fun AddFromComputerDialog(
+    onLinks: suspend (List<String>, List<com.ominix.vidiio.data.repository.LiveLink>, List<String>) -> Unit,
+    onDismiss: () -> Unit,
+    onMenuClose: () -> Unit
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val server = remember { com.ominix.vidiio.data.remote.AddonLinkServer(com.ominix.vidiio.data.remote.AddonLinkServer.newPin()) }
     val address = remember { server.address() }
@@ -1453,6 +1463,7 @@ private fun AddFromComputerDialog(onLinks: suspend (List<String>, List<com.omini
     }
     AlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = onMenuClose),
         title = { Text("Add from your computer") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
