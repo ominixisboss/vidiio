@@ -544,17 +544,31 @@ fun SettingsScreen(
                 }
 
                 if (openSection == "sources") {
-                    item(key = "hdr-src") { SectionHeader("SCRAPERS & PROVIDERS") }
-                    val sources = listOf(
-                        "knaben" to "Knaben",
-                        "tg" to "TorrentGalaxy"
+                    item(key = "hdr-src-builtin") { SectionHeader("BUILT-IN TORRENT SCRAPERS") }
+                    val builtinSources = listOf(
+                        "knaben" to "Knaben (Torrent Scraper)",
+                        "tg" to "TorrentGalaxy (Torrent Scraper)",
+                        "1337x" to "1337x (Torrent Scraper)",
+                        "yts" to "YTS (Movies Scraper)"
                     )
-                    items(sources) { (id, name) ->
+                    items(builtinSources, key = { "src-${it.first}" }) { (id, name) ->
                         SourceToggleItem(
                             name = name,
                             enabled = selectedSources.contains(id),
                             onToggle = { viewModel.toggleSource(id) }
                         )
+                    }
+
+                    if (stremioAddons.isNotEmpty()) {
+                        item(key = "hdr-addon-src") { SectionHeader("INSTALLED STREMIO ADDON SOURCES") }
+                        items(stremioAddons.toList(), key = { "add-src-$it" }) { url ->
+                            val label = addonLabel(url)
+                            SourceToggleItem(
+                                name = "$label (Stream Addon)",
+                                enabled = !selectedSources.contains("disabled_$url"),
+                                onToggle = { viewModel.toggleSource("disabled_$url") }
+                            )
+                        }
                     }
                 }
 

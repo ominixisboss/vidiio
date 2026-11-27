@@ -67,7 +67,10 @@ class AddonManager(
     }
 
     suspend fun getStreams(type: String, id: String): List<StremioStream> = coroutineScope {
-        val streamAddons = getInstalledAddons().filter { it.manifest.hasResource("stream") }
+        val disabledSources = settingsRepository.sourcesFlow.first()
+        val streamAddons = getInstalledAddons().filter { addon ->
+            addon.manifest.hasResource("stream") && !disabledSources.contains("disabled_${addon.url}")
+        }
         streamAddons.map { addon ->
             async {
                 try {
