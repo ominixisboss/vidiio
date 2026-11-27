@@ -435,7 +435,7 @@ private fun ShelfBrowseContent(
                         listState.scrollToItem(0)
                     }
                 }
-            ) { HeroCarousel(hero, spec, onOpen) }
+            ) { HeroCarousel(hero, spec, onOpen, returnKeyPrefix = "browse-hero") }
         }
         item(key = "tabs") {
             FlixTabs(selected = if (isMovies) 1 else 2, labels = listOf("Featured", "Movies", "TV Shows", "TV Guide"), onSelect = onTab)

@@ -73,6 +73,7 @@ import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.tv.LocalIsTv
 import com.ominix.vidiio.ui.tv.LocalTvPageFocus
+import com.ominix.vidiio.ui.tv.rememberTvReturnKey
 import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.browse.LocalBrowseShortcuts
 import com.ominix.vidiio.ui.browse.ShortcutButtons
@@ -494,7 +495,18 @@ private fun HeroTagBadge(spec: HomeStyleSpec) {
 /* ----------------------------- Hero variants ----------------------------- */
 
 @Composable
-private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onClick: (Movie) -> Unit) {
+private fun HeroButtons(
+    movie: Movie,
+    spec: HomeStyleSpec,
+    center: Boolean,
+    returnKey: String?,
+    onClick: (Movie) -> Unit
+) {
+    // Both buttons open the title's details page; each returns to itself.
+    val playFocus = remember { FocusRequester() }
+    val infoFocus = remember { FocusRequester() }
+    val playOpenedDetails = rememberTvReturnKey(returnKey, playFocus)
+    val infoOpenedDetails = rememberTvReturnKey(returnKey?.let { "$it-info" }, infoFocus)
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
         horizontalArrangement = if (center) Arrangement.Center else Arrangement.Start,
@@ -504,11 +516,12 @@ private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onCl
         val playText = Color.White
 
         Button(
-            onClick = { onClick(movie) },
+            onClick = { playOpenedDetails(); onClick(movie) },
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(containerColor = playBg, contentColor = playText),
             modifier = (if (center) Modifier.weight(1f).height(48.dp) else Modifier.height(48.dp))
                 .tvFocusRing(RoundedCornerShape(24.dp))
+                .focusRequester(playFocus)
         ) {
             Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(6.dp))
@@ -518,7 +531,7 @@ private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onCl
         Spacer(Modifier.width(12.dp))
 
         Button(
-            onClick = { onClick(movie) },
+            onClick = { infoOpenedDetails(); onClick(movie) },
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.DarkGray.copy(alpha = 0.75f),
@@ -528,6 +541,7 @@ private fun HeroButtons(movie: Movie, spec: HomeStyleSpec, center: Boolean, onCl
                 .height(48.dp)
                 .border(0.5.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(24.dp))
                 .tvFocusRing(RoundedCornerShape(24.dp))
+                .focusRequester(infoFocus)
         ) {
             Icon(Icons.Rounded.Info, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
@@ -572,7 +586,13 @@ private fun heroScrim(bottom: Color) = Brush.verticalGradient(
 )
 
 @Composable
-fun HeroCarousel(movies: List<Movie>, spec: HomeStyleSpec, onMovieClick: (Movie) -> Unit) {
+fun HeroCarousel(
+    movies: List<Movie>,
+    spec: HomeStyleSpec,
+    onMovieClick: (Movie) -> Unit,
+    /** Prefix for each slide's return key, so Back lands on the hero that opened the page. */
+    returnKeyPrefix: String = "home-hero",
+) {
     val isTv = LocalIsTv.current
     val pagerState = rememberPagerState(pageCount = { movies.size })
     val scrim = spec.background ?: Color.Black
@@ -624,7 +644,10 @@ fun HeroCarousel(movies: List<Movie>, spec: HomeStyleSpec, onMovieClick: (Movie)
                         modifier = Modifier.padding(horizontal = 24.dp)
                     )
                     Spacer(Modifier.height(16.dp))
-                    HeroButtons(movie, spec, center = true, onClick = onMovieClick)
+                    HeroButtons(
+                        movie, spec, center = true,
+                        returnKey = "$returnKeyPrefix-${movie.id}", onClick = onMovieClick
+                    )
                 }
             }
         }
@@ -646,7 +669,13 @@ fun HeroCarousel(movies: List<Movie>, spec: HomeStyleSpec, onMovieClick: (Movie)
 }
 
 @Composable
-fun HeroStatic(movie: Movie, spec: HomeStyleSpec, onMovieClick: (Movie) -> Unit) {
+fun HeroStatic(
+    movie: Movie,
+    spec: HomeStyleSpec,
+    onMovieClick: (Movie) -> Unit,
+    /** Prefix for the slide's return key, as in [HeroCarousel]. */
+    returnKeyPrefix: String = "home-hero",
+) {
     val isTv = LocalIsTv.current
     val scrim = spec.background ?: Color.Black
     val inset = spec.heroKind == HeroKind.SPOTLIGHT
@@ -705,21 +734,27 @@ fun HeroStatic(movie: Movie, spec: HomeStyleSpec, onMovieClick: (Movie) -> Unit)
             }
             Spacer(Modifier.height(14.dp))
             if (spec.heroKind == HeroKind.COMPACT) {
+                // The hero's Play opens the title; leaving it comes back here.
+                val playFocus = remember { FocusRequester() }
+                val playOpenedDetails = rememberTvReturnKey("$returnKeyPrefix-${movie.id}", playFocus)
                 Button(
-                    onClick = { onMovieClick(movie) },
+                    onClick = { playOpenedDetails(); onMovieClick(movie) },
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = spec.accent,
                         contentColor = Color.White
                     ),
-                    modifier = Modifier.padding(horizontal = 24.dp).height(46.dp)
+                    modifier = Modifier.padding(horizontal = 24.dp).height(46.dp).focusRequester(playFocus)
                 ) {
                     Icon(Icons.Rounded.PlayArrow, contentDescription = null)
                     Spacer(Modifier.width(6.dp))
                     Text("Play", fontWeight = FontWeight.Bold)
                 }
             } else {
-                HeroButtons(movie, spec, center = spec.heroCenterText, onClick = onMovieClick)
+                HeroButtons(
+                    movie, spec, center = spec.heroCenterText,
+                    returnKey = "$returnKeyPrefix-${movie.id}", onClick = onMovieClick
+                )
             }
         }
     }

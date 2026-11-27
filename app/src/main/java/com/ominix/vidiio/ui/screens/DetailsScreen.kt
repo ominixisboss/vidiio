@@ -789,7 +789,9 @@ fun MovieDetailContent(
                             MovieItem(
                                 movie = other,
                                 onClick = { onSimilarClick(other) },
-                                modifier = Modifier.width(110.dp)
+                                modifier = Modifier.width(110.dp),
+                                // Back from a title opened here comes back to this card.
+                                returnKey = "similar-${other.id}"
                             )
                         }
                     }

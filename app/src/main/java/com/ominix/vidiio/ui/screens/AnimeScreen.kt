@@ -141,6 +141,7 @@ private fun AnimeContent(
                 items = specs,
                 loadingKey = resolving,
                 onOpen = { index -> open(hero[index]) },
+                returnKey = { index -> "anime-hero-${hero[index].id}" },
                 onFocused = {
                     // Wait out the focus scroll (which would leave the hero half off the top), then
                     // snap to the very top.
@@ -170,7 +171,8 @@ private fun AnimeContent(
                                 topChip = relativeAgo(nowSeconds - entry.airingAt),
                                 topChipColor = Palette.tertiary,
                                 loading = resolving == entry.media.id,
-                                onClick = { open(entry.media) }
+                                onClick = { open(entry.media) },
+                                returnKey = "anime-new-${entry.media.id}"
                             )
                         }
                     }
@@ -199,11 +201,15 @@ private fun AnimeContent(
                                 palette = Palette, title = movie.title, imageUrl = movie.posterUrl,
                                 subtitle = "Every arc, in order", score = movie.rating, strip = null,
                                 stripColor = Palette.tertiary, cornerChip = null, loading = false,
-                                onClick = { onOpenMovie(movie) }
+                                onClick = { onOpenMovie(movie) },
+                                returnKey = "anime-addon-${movie.id}"
                             )
                         }
                         items(state.popularSeason.orEmpty(), key = { "popular-${it.id}" }) { item ->
-                            AnimeCard(item, nowSeconds, loading = resolving == item.id, onClick = { open(item) })
+                            AnimeCard(
+                                item, nowSeconds, loading = resolving == item.id,
+                                onClick = { open(item) }, returnKey = "anime-popular-${item.id}"
+                            )
                         }
                     }
                 }
@@ -239,7 +245,10 @@ private fun LazyListScope.shelf(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(media, key = { "$key-${it.id}" }) { item ->
-                    AnimeCard(item, nowSeconds, loading = resolving == item.id, onClick = { open(item) })
+                    AnimeCard(
+                        item, nowSeconds, loading = resolving == item.id,
+                        onClick = { open(item) }, returnKey = "anime-$key-${item.id}"
+                    )
                 }
             }
         }
@@ -247,7 +256,13 @@ private fun LazyListScope.shelf(
 }
 
 @Composable
-private fun AnimeCard(media: AniMedia, nowSeconds: Long, loading: Boolean, onClick: () -> Unit) {
+private fun AnimeCard(
+    media: AniMedia,
+    nowSeconds: Long,
+    loading: Boolean,
+    onClick: () -> Unit,
+    returnKey: String? = null,
+) {
     PosterCard(
         palette = Palette,
         title = media.displayTitle,
@@ -258,7 +273,8 @@ private fun AnimeCard(media: AniMedia, nowSeconds: Long, loading: Boolean, onCli
         stripColor = Palette.tertiary,
         cornerChip = if (media.isMovie) "MOVIE" else null,
         loading = loading,
-        onClick = onClick
+        onClick = onClick,
+        returnKey = returnKey
     )
 }
 
@@ -327,7 +343,8 @@ private fun ScheduleSection(
                             topChip = timeLabel(entry.airingAt),
                             topChipColor = if (entry.airingAt <= nowSeconds) Color.White.copy(alpha = 0.85f) else Palette.tertiary,
                             loading = resolving == entry.media.id,
-                            onClick = { open(entry.media) }
+                            onClick = { open(entry.media) },
+                            returnKey = "anime-cal-${entry.media.id}-${entry.episode}"
                         )
                     }
                 }
@@ -374,7 +391,10 @@ private fun GenreBrowse(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(results, key = { "genre-${it.id}" }) { item ->
-                                AnimeCard(item, nowSeconds, loading = resolving == item.id, onClick = { open(item) })
+                                AnimeCard(
+                                    item, nowSeconds, loading = resolving == item.id,
+                                    onClick = { open(item) }, returnKey = "anime-genre-${item.id}"
+                                )
                             }
                         }
                     }

@@ -227,16 +227,19 @@ val LocalTvFocusReturn = compositionLocalOf<TvFocusReturn?> { null }
 
 /**
  * Registers a control that is not [Modifier.tvClickable] (a Material button) as the one that opened
- * the player under [key], and returns what to call from its click handler.
+ * the page under [key] - the player, or a details page - and returns what to call from its click
+ * handler. A null [key] registers nothing, for controls that only sometimes open a page.
  */
 @Composable
-fun rememberTvReturnKey(key: String, requester: FocusRequester): () -> Unit {
+fun rememberTvReturnKey(key: String?, requester: FocusRequester): () -> Unit {
     val focusReturn = LocalTvFocusReturn.current
-    DisposableEffect(focusReturn, key, requester) {
-        focusReturn?.register(key, requester)
-        onDispose { focusReturn?.unregister(key, requester) }
+    if (key != null) {
+        DisposableEffect(focusReturn, key, requester) {
+            focusReturn?.register(key, requester)
+            onDispose { focusReturn?.unregister(key, requester) }
+        }
     }
-    return remember(focusReturn, key) { { focusReturn?.rememberOpener(key) } }
+    return remember(focusReturn, key) { { key?.let { focusReturn?.rememberOpener(it) } } }
 }
 
 /**

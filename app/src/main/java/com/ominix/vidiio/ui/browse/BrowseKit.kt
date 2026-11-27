@@ -38,10 +38,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -57,6 +60,7 @@ import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.tv.LocalIsTv
+import com.ominix.vidiio.ui.tv.rememberTvReturnKey
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -177,6 +181,8 @@ fun BrowseHero(
     loadingKey: Any?,
     onOpen: (Int) -> Unit,
     onFocused: () -> Unit,
+    /** A slide's return key; its Details button uses "$key-details". */
+    returnKey: (Int) -> String? = { null },
 ) {
     val isTv = LocalIsTv.current
     val shortcuts = LocalBrowseShortcuts.current
@@ -209,7 +215,10 @@ fun BrowseHero(
             .onFocusChanged { if (it.hasFocus) onFocused() }
     ) {
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            HeroPage(palette, items[page], rank = page + 1, loading = loadingKey == items[page].key, compact = compact, onOpen = { onOpen(page) })
+            HeroPage(
+                palette, items[page], rank = page + 1, loading = loadingKey == items[page].key,
+                compact = compact, returnKey = returnKey(page), onOpen = { onOpen(page) }
+            )
         }
 
         if (items.size > 1) {
@@ -288,8 +297,14 @@ private fun HeroPage(
     rank: Int,
     loading: Boolean,
     compact: Boolean,
+    returnKey: String?,
     onOpen: () -> Unit,
 ) {
+    // Both buttons open the slide's page, each under its own key.
+    val watchFocus = remember { FocusRequester() }
+    val detailsFocus = remember { FocusRequester() }
+    val watchOpenedDetails = rememberTvReturnKey(returnKey, watchFocus)
+    val detailsOpenedDetails = rememberTvReturnKey(returnKey?.let { "$it-details" }, detailsFocus)
     Box(Modifier.fillMaxSize()) {
         AsyncImage(
             model = spec.imageUrl,
@@ -363,10 +378,10 @@ private fun HeroPage(
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Button(
-                    onClick = onOpen,
+                    onClick = { watchOpenedDetails(); onOpen() },
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = palette.primary, contentColor = Color.White),
-                    modifier = Modifier.height(46.dp).tvFocusRing(RoundedCornerShape(24.dp))
+                    modifier = Modifier.height(46.dp).tvFocusRing(RoundedCornerShape(24.dp)).focusRequester(watchFocus)
                 ) {
                     if (loading) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Color.White)
@@ -378,10 +393,10 @@ private fun HeroPage(
                 }
                 Spacer(Modifier.width(10.dp))
                 OutlinedButton(
-                    onClick = onOpen,
+                    onClick = { detailsOpenedDetails(); onOpen() },
                     shape = RoundedCornerShape(24.dp),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                    modifier = Modifier.height(46.dp).tvFocusRing(RoundedCornerShape(24.dp))
+                    modifier = Modifier.height(46.dp).tvFocusRing(RoundedCornerShape(24.dp)).focusRequester(detailsFocus)
                 ) {
                     Text("Details", fontWeight = FontWeight.Bold)
                 }
@@ -405,6 +420,7 @@ fun PosterCard(
     cornerChip: String?,
     loading: Boolean,
     onClick: () -> Unit,
+    returnKey: String? = null,
     width: Dp = 140.dp,
 ) {
     val shape = RoundedCornerShape(12.dp)
@@ -413,7 +429,7 @@ fun PosterCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .tvClickable(onClick = onClick, shape = shape)
+                .tvClickable(onClick = onClick, shape = shape, returnKey = returnKey)
                 .background(Color.White.copy(alpha = 0.06f))
         ) {
             AsyncImage(
@@ -493,6 +509,7 @@ fun WideCard(
     topChipColor: Color,
     loading: Boolean,
     onClick: () -> Unit,
+    returnKey: String? = null,
 ) {
     val shape = RoundedCornerShape(12.dp)
     Column(Modifier.width(240.dp)) {
@@ -500,7 +517,7 @@ fun WideCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .tvClickable(onClick = onClick, shape = shape)
+                .tvClickable(onClick = onClick, shape = shape, returnKey = returnKey)
                 .background(Color.White.copy(alpha = 0.06f))
         ) {
             AsyncImage(
