@@ -235,6 +235,9 @@ class MovieRepository(
                     sortBy = sort,
                     voteCountGte = minVotes
                 ).results.map { it.toMovie(MovieType.MOVIE) }.filter { it.posterUrl.isNotBlank() }
+                    // Discover's certification filter uses whichever release is listed; the
+                    // strictest-cert rule still has to run per title, exactly as on Details.
+                    .forActiveProfile()
             }
         }
 

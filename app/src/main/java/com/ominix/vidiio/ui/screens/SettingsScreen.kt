@@ -409,17 +409,22 @@ fun SettingsScreen(
                             }
                         )
                     }
-                    item(key = "app-parent-pin") {
-                        PreferenceItem(
-                            title = "Parent PIN",
-                            summary = when {
-                                !pinStateKnown -> "Reading…"
-                                pinConfigured -> "On · required to leave a Kids profile"
-                                else -> "Off · set a PIN to lock Kids profiles"
-                            },
-                            icon = Icons.Rounded.Lock,
-                            onClick = { if (pinStateKnown) showParentPinDialog = true }
-                        )
+                    // A PIN-less Kids profile must not be able to create the first PIN: that
+                    // would hand the child the lock and shut the parent out. Only an adult
+                    // profile gets this row until a PIN exists.
+                    if (!activeProfileIsKids || pinConfigured) {
+                        item(key = "app-parent-pin") {
+                            PreferenceItem(
+                                title = "Parent PIN",
+                                summary = when {
+                                    !pinStateKnown -> "Reading…"
+                                    pinConfigured -> "On · required to leave a Kids profile"
+                                    else -> "Off · set a PIN to lock Kids profiles"
+                                },
+                                icon = Icons.Rounded.Lock,
+                                onClick = { if (pinStateKnown) showParentPinDialog = true }
+                            )
+                        }
                     }
                     item(key = "hdr-app-theme") { SectionHeader("PROFILES & APPEARANCE") }
                     item(key = "app-color") {
@@ -875,19 +880,31 @@ fun SettingsScreen(
                         pinError = problem
                         if (problem == null) {
                             if (pinConfigured) {
-                                viewModel.verifyParentPin(currentPin) { ok ->
+                                // Verifying the current PIN also unlocks profile management,
+                                // which is what lets the repository change the PIN.
+                                viewModel.unlockProfileManagement(currentPin) { ok ->
                                     if (ok) {
-                                        viewModel.setParentPin(newPin)
-                                        showParentPinDialog = false
-                                        returnFocus()
+                                        viewModel.setParentPin(newPin) { changed ->
+                                            if (changed) {
+                                                showParentPinDialog = false
+                                                returnFocus()
+                                            } else {
+                                                pinError = "Could not change the PIN."
+                                            }
+                                        }
                                     } else {
                                         pinError = "The current PIN is not correct."
                                     }
                                 }
                             } else {
-                                viewModel.setParentPin(newPin)
-                                showParentPinDialog = false
-                                returnFocus()
+                                viewModel.setParentPin(newPin) { saved ->
+                                    if (saved) {
+                                        showParentPinDialog = false
+                                        returnFocus()
+                                    } else {
+                                        pinError = "Set the parent PIN from an adult profile."
+                                    }
+                                }
                             }
                         }
                     },
@@ -898,11 +915,16 @@ fun SettingsScreen(
                 Row {
                     if (pinConfigured) {
                         TextButton(onClick = {
-                            viewModel.verifyParentPin(currentPin) { ok ->
+                            viewModel.unlockProfileManagement(currentPin) { ok ->
                                 if (ok) {
-                                    viewModel.setParentPin(null)
-                                    showParentPinDialog = false
-                                    returnFocus()
+                                    viewModel.setParentPin(null) { removed ->
+                                        if (removed) {
+                                            showParentPinDialog = false
+                                            returnFocus()
+                                        } else {
+                                            pinError = "Could not remove the PIN."
+                                        }
+                                    }
                                 } else {
                                     pinError = "Enter the current PIN to remove it."
                                 }
@@ -1182,7 +1204,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    if (createIsKids && pinStateKnown && !pinConfigured) {
+                    if (createIsKids && pinStateKnown && !pinConfigured && !activeProfileIsKids) {
                         Text("Set a parent PIN", fontWeight = FontWeight.Bold)
                         Text(
                             "A new Kids profile is locked from the first tap: this PIN is needed to leave it.",
@@ -1202,7 +1224,7 @@ fun SettingsScreen(
                     onClick = {
                         val input = createName.trim()
                         if (input.isNotBlank()) {
-                            val pinProblem = if (createIsKids && pinStateKnown && !pinConfigured) {
+                            val pinProblem = if (createIsKids && pinStateKnown && !pinConfigured && !activeProfileIsKids) {
                                 when {
                                     createPin.length != 4 -> "The PIN must be 4 digits."
                                     createPin != createPinConfirm -> "The PINs don't match."
@@ -1211,10 +1233,10 @@ fun SettingsScreen(
                             } else null
                             createPinError = pinProblem
                             if (pinProblem == null) {
-                                if (createIsKids && pinStateKnown && !pinConfigured) {
-                                    viewModel.setParentPin(createPin)
-                                }
-                                viewModel.createProfile(input, selectedColorHex, createIsKids) { created ->
+                                val newParentPin = if (createIsKids && pinStateKnown && !pinConfigured && !activeProfileIsKids) {
+                                    createPin
+                                } else null
+                                viewModel.createProfile(input, selectedColorHex, createIsKids, newParentPin) { created ->
                                     if (created) {
                                         createProfileNameDraft = ""
                                         showCreateProfileDialog = false

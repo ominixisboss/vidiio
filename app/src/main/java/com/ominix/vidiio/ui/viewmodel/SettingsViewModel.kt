@@ -49,12 +49,10 @@ class SettingsViewModel(
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun setParentPin(pin: String?) {
-        viewModelScope.launch { settingsRepository.setParentPin(pin) }
-    }
-
-    fun verifyParentPin(pin: String, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch { onResult(settingsRepository.verifyParentPin(pin)) }
+    fun setParentPin(pin: String?, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(profileRepository?.configureParentPin(pin) == true)
+        }
     }
 
     fun unlockProfileManagement(pin: String, onResult: (Boolean) -> Unit) {
@@ -69,9 +67,15 @@ class SettingsViewModel(
         }
     }
 
-    fun createProfile(name: String, colorHex: Long, isKids: Boolean, onResult: (Boolean) -> Unit = {}) {
+    fun createProfile(
+        name: String,
+        colorHex: Long,
+        isKids: Boolean,
+        parentPin: String? = null,
+        onResult: (Boolean) -> Unit = {},
+    ) {
         viewModelScope.launch {
-            onResult(profileRepository?.createProfile(name, colorHex, isKids) != null)
+            onResult(profileRepository?.createProfile(name, colorHex, isKids, parentPin) != null)
         }
     }
 
