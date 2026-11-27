@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreInterceptKeyBeforeSoftKeyboard
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -99,6 +100,20 @@ fun SearchScreen(
                             .onFocusChanged {
                                 isSearchFocused = it.isFocused
                                 if (it.isFocused) focusMemory?.record(searchFocus)
+                            }
+                            // The TV keyboard consumes the D-pad before onPreviewKeyEvent sees it,
+                            // so Left never reached the rail trigger while the keyboard was up.
+                            // Take Left here, before the keyboard, so the rail is reachable with
+                            // the keyboard showing as well as without it.
+                            .onPreInterceptKeyBeforeSoftKeyboard { event ->
+                                if (!isTv || openRail == null || event.key != Key.DirectionLeft) {
+                                    return@onPreInterceptKeyBeforeSoftKeyboard false
+                                }
+                                if (event.type == KeyEventType.KeyDown) {
+                                    keyboard?.hide()
+                                    openRail()
+                                }
+                                true
                             }
                             // A remote has no way past the field: the text field takes Down for
                             // cursor movement, so the results below are unreachable. Down leaves
