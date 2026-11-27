@@ -28,4 +28,9 @@ class TorrentTuningTest {
     fun `cache is smaller on low memory devices`() {
         assertTrue(TorrentTuning.cacheBytes(true) < TorrentTuning.cacheBytes(false))
     }
+
+    @Test
+    fun `ipv6 is off so engine startup cannot stall`() {
+        assertEquals(false, TorrentTuning.settings(isLowMemory = false)["EnableIPv6"])
+    }
 }

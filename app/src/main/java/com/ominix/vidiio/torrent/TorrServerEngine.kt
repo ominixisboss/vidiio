@@ -146,11 +146,11 @@ class TorrServerEngine(private val context: Context) {
     }
 
     /**
-     * Turns Bonjour and DLNA off in the engine's settings file before it starts. Inside an app's sandbox the
-     * Bonjour announcement blocks on network access Android denies, so the engine never opens its web port
-     * and every torrent failed with "failed to fetch torrent metadata". These can't wait for [TorrentTuning]:
-     * it only runs once the engine answers. A fresh install gets the engine's full defaults (a partial
-     * file would zero the cache and connection limits).
+     * Turns Bonjour, DLNA and IPv6 off in the engine's settings file before it starts. Inside an app's sandbox
+     * the Bonjour announcement blocks on network access Android denies, and the IPv6 client can stall before
+     * the engine opens its web port; either leaves every torrent failing to start. These can't wait for
+     * [TorrentTuning]: it only runs once the engine answers. A fresh install gets the engine's full defaults
+     * (a partial file would zero the cache and connection limits).
      */
     private fun prepareSettings(dir: File) {
         val file = File(dir, "settings.json")
@@ -159,12 +159,14 @@ class TorrServerEngine(private val context: Context) {
             else context.assets.open("torrserver/settings.json").bufferedReader().use { it.readText() }
             val json = org.json.JSONObject(text)
             val bt = json.optJSONObject("BitTorr") ?: org.json.JSONObject().also { json.put("BitTorr", it) }
-            val needsWrite = !file.exists() || bt.optBoolean("EnableBonjour", true) || bt.optBoolean("EnableDLNA", false)
+            val needsWrite = !file.exists() || bt.optBoolean("EnableBonjour", true) ||
+                bt.optBoolean("EnableDLNA", false) || bt.optBoolean("EnableIPv6", false)
             if (needsWrite) {
                 bt.put("EnableBonjour", false)
                 bt.put("EnableDLNA", false)
+                bt.put("EnableIPv6", false)
                 file.writeText(json.toString(2))
-                Log.i(TAG, "TorrServer settings prepared (Bonjour and DLNA off)")
+                Log.i(TAG, "TorrServer settings prepared (Bonjour, DLNA and IPv6 off)")
             }
         }.onFailure { Log.w(TAG, "Couldn't prepare TorrServer settings", it) }
     }

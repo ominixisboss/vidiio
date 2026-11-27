@@ -27,8 +27,8 @@ object TorrentTuning {
         // Add our trackers to the ones the torrent already lists.
         "RetrackersMode" to 1,
         "TorrentDisconnectTimeout" to 20,
-        // Peers over IPv6 and uTP widen the pool, and every extra peer shortens the wait for the first pieces.
-        "EnableIPv6" to true,
+        // IPv6 can stall the engine on Android, so keep the engine IPv4-only.
+        "EnableIPv6" to false,
         "DisableUTP" to false,
         "DisableUPNP" to false,
         "ForceEncrypt" to false,
