@@ -202,7 +202,7 @@ fun TvGuideScreen(
 }
 
 @Composable
-private fun GuideRow(entry: GuideEntry, timeFormat: DateTimeFormatter, onClick: () -> Unit, returnKey: Any? = null) {
+private fun GuideRow(entry: GuideEntry, timeFormat: DateTimeFormatter, onClick: () -> Unit, returnKey: String? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

@@ -314,11 +314,11 @@ fun VidiioApp() {
             // the page afterwards (playing, picking an episode) records openers of its own, and
             // Back still has to land on that card.
             val detailsReturn = LocalTvFocusReturn.current
-            var openedFrom by androidx.compose.runtime.saveable.rememberSaveable {
-                mutableStateOf(detailsReturn?.openerKey() as? String)
+            val openedFrom by androidx.compose.runtime.saveable.rememberSaveable {
+                mutableStateOf(detailsReturn?.openerKey())
             }
             val closeDetails: () -> Unit = {
-                detailsReturn?.armAt(openedFrom)
+                detailsReturn?.arm(openedFrom)
                 navigator.goBack()
             }
             // A remote's Back pops the route without going through the top bar's arrow, so it has

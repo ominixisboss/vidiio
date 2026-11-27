@@ -45,7 +45,7 @@ fun MovieItem(
     modifier: Modifier = Modifier,
     progress: Float? = null,
     onLongClick: (() -> Unit)? = null,
-    returnKey: Any? = null,
+    returnKey: String? = null,
 ) {
     val shape = RoundedCornerShape(20.dp)
     val context = LocalContext.current

@@ -96,7 +96,7 @@ fun FlixPoster(
     width: Dp? = 118.dp,
     corner: Dp = 8.dp,
     onLongClick: (() -> Unit)? = null,
-    returnKey: Any? = null,
+    returnKey: String? = null,
 ) {
     val shape = RoundedCornerShape(corner)
     val context = LocalContext.current

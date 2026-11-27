@@ -1156,7 +1156,7 @@ fun EpisodeListItem(
     episode: Episode,
     isSelected: Boolean,
     onClick: () -> Unit,
-    returnKey: Any? = null
+    returnKey: String? = null
 ) {
     GlassCard(
         onClick = onClick,

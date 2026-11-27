@@ -780,7 +780,7 @@ fun HomeCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
-    returnKey: Any? = null
+    returnKey: String? = null
 ) {
     // No entrance animation with a remote: cards fading and sliding in as you scroll is motion
     // on top of the scroll itself, and reads as the page shaking.

@@ -157,89 +157,68 @@ fun rememberDialogReturnFocus(): () -> Unit {
 }
 
 /**
- * Remembers the card or row that opened the player, so leaving the player puts the remote back on
- * it rather than on the page's first control.
+ * Remembers the control that opened the page now on top, so the page under it takes the remote back
+ * there rather than to its own first control.
  *
- * The player is a route of its own, and visiting it takes the page it was opened from out of
- * composition - the focus requesters of that page go with it, so the page cannot simply be asked to
- * focus that control again. What does survive is a key: each control that can open the player
- * registers one while it is on screen, and the last one the viewer used is what [arm] keeps when
- * the player closes. The page then asks for that key instead of its own first control.
+ * A route visit takes the page it was opened from out of composition - the focus requesters of that
+ * page go with it, so the page cannot simply be asked to focus that control again. What does
+ * survive is a key: each control that can open a page registers one while it is on screen. Whatever
+ * closes arms the key that opened it, and the page appearing next asks for that key.
  */
 class TvFocusReturn {
-    private var opener: Any? = null
-    private var armedKey: Any? = null
-    private var armed = false
-    private val controls = HashMap<Any, FocusRequester>()
+    /** The control used last - the one that opened whatever is on screen now. */
+    private var opener: String? = null
+    /** The control the page appearing next should take focus back to, while a return is pending. */
+    private var armedKey: String? = null
+    private val controls = HashMap<String, FocusRequester>()
 
-    /** The control with [key] was used; this is where focus goes if the player opens from here. */
-    internal fun rememberOpener(key: Any) {
+    /** The control with [key] was used; this is where focus goes if it opens a page. */
+    internal fun rememberOpener(key: String) {
         opener = key
     }
 
-    /** The control used last - the one that opened whatever is on screen now. */
-    internal fun openerKey(): Any? = opener
+    internal fun openerKey(): String? = opener
 
-    internal fun register(key: Any, requester: FocusRequester) {
+    internal fun register(key: String, requester: FocusRequester) {
         controls[key] = requester
     }
 
-    internal fun unregister(key: Any, requester: FocusRequester) {
+    internal fun unregister(key: String, requester: FocusRequester) {
         if (controls[key] === requester) controls.remove(key)
     }
 
-    /** The player is closing over the page it was opened from. */
-    internal fun arm() {
-        armAt(opener)
-    }
-
     /**
-     * The page opened from [key] is closing: focus goes back to that control when the page under
-     * it appears. Details uses this for the card it was opened from - by the time it closes, the
-     * page itself has recorded other openers (playing a source), so it has to say which one to use.
+     * Arms the return for the page that appears next: the control that opened whatever is closing,
+     * or the one the closing page says to use instead (Details closes over the card that opened it
+     * long before the page itself already recorded other openers, such as Play).
      */
-    internal fun armAt(key: Any?) {
-        if (key != null) {
-            armedKey = key
-            armed = true
-        }
+    internal fun arm(key: String? = opener) {
+        armedKey = key
     }
 
     /**
-     * Puts focus back on the control that opened the player. Waits for the page to be laid out (a
-     * page whose rows load late composes that control a moment after the route changes), and gives
-     * up when it never appears - the row was removed, or the player was opened some other way.
-     * True when focus landed on it.
+     * Puts focus back on the armed control. Waits for the page to be laid out (a page whose rows
+     * load late composes that control a moment after the route changes), and gives up when it never
+     * appears - the row was removed, or the player was opened some other way. True when it landed.
      */
     suspend fun restoreOpenerFocus(view: View): Boolean {
-        if (!armed) return false
-        var rounds = 0
-        while (rounds < 12) {
-            val key = armedKey
-            val target = if (armed && key != null) controls[key] else null
+        val key = armedKey ?: return false
+        var waited = 0
+        while (waited < 2000) {
+            val target = controls[key]
             if (target != null && view.hasWindowFocus()) {
-                var attempts = 0
-                while (attempts < 6) {
-                    if (view.isInTouchMode) runCatching { view.requestFocusFromTouch() }
-                    // A detached requester means the control is not on screen (yet); try again.
-                    val result = runCatching { target.requestFocus() }
-                    if (result.isFailure) break
-                    attempts++
-                    withFrameNanos { }
-                    if (result.getOrDefault(false) && view.hasWindowFocus()) {
-                        armed = false
-                        armedKey = null
-                        opener = null
-                        return true
-                    }
+                if (view.isInTouchMode) runCatching { view.requestFocusFromTouch() }
+                // A detached requester means the control is not on screen (yet); try again.
+                val landed = runCatching { target.requestFocus() }.getOrDefault(false)
+                if (landed && view.hasWindowFocus()) {
+                    armedKey = null
+                    return true
                 }
             }
-            rounds++
-            delay(150)
+            waited += 100
+            delay(100)
         }
-        armed = false
         armedKey = null
-        opener = null
         return false
     }
 }
@@ -251,7 +230,7 @@ val LocalTvFocusReturn = compositionLocalOf<TvFocusReturn?> { null }
  * the player under [key], and returns what to call from its click handler.
  */
 @Composable
-fun rememberTvReturnKey(key: Any, requester: FocusRequester): () -> Unit {
+fun rememberTvReturnKey(key: String, requester: FocusRequester): () -> Unit {
     val focusReturn = LocalTvFocusReturn.current
     DisposableEffect(focusReturn, key, requester) {
         focusReturn?.register(key, requester)

@@ -22,7 +22,7 @@ fun GlassCard(
     onClick: (() -> Unit)? = null,
     alpha: Float = 0.05f,
     borderAlpha: Float = 0.12f,
-    returnKey: Any? = null,
+    returnKey: String? = null,
     content: @Composable () -> Unit
 ) {
     val shape = RoundedCornerShape(24.dp)

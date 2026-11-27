@@ -181,7 +181,7 @@ fun TvNavScaffold(
         // card is still on the page. The page focus below would only reach the page's first control,
         // and a page that leaves focus alone on arrival (the search field) still has to take the
         // viewer back to where they were - this only runs when something armed the return.
-        if (focusReturn != null && focusReturn.restoreOpenerFocus(view)) {
+        if (focusReturn?.restoreOpenerFocus(view) == true) {
             leaveRail = false
             return@LaunchedEffect
         }

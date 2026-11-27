@@ -40,8 +40,9 @@ import com.ominix.vidiio.ui.tv.LocalTvFocusReturn
  * while focused (so you can see what the remote is on), and treats DPAD_CENTER / Enter as a
  * click. Use in place of `Modifier.clickable` on browseable cards and tiles.
  *
- * [returnKey] identifies a card that opens the player: leaving the player puts the remote back on
- * it (see [com.ominix.vidiio.ui.tv.TvFocusReturn]) instead of on the page's first control.
+ * [returnKey] identifies a control that opens the player or a details page: leaving it puts the
+ * remote back on that control (see [com.ominix.vidiio.ui.tv.TvFocusReturn]) instead of on the
+ * page's first control.
  *
  * The focus state is shown only by drawing - a ring inset within the item's own bounds and a
  * faint lift in brightness. It never changes size, position or layout. It used to also scale
@@ -59,7 +60,7 @@ fun Modifier.tvClickable(
     shape: Shape = RoundedCornerShape(12.dp),
     focusScale: Float = 1f,
     enabled: Boolean = true,
-    returnKey: Any? = null,
+    returnKey: String? = null,
 ): Modifier {
     val interaction = remember { MutableInteractionSource() }
     // Recorded when this control is used to open a dialog, so focus can come back to it afterwards.
@@ -72,6 +73,12 @@ fun Modifier.tvClickable(
             focusReturn.register(returnKey, requester)
             onDispose { focusReturn.unregister(returnKey, requester) }
         }
+    }
+    // Both the click and the long press count as using this control: a poster's long press opens
+    // the sheet whose Play lands on a details page that is already playing.
+    val use: () -> Unit = {
+        opener?.record(requester)
+        returnKey?.let { focusReturn?.rememberOpener(it) }
     }
     val focused by interaction.collectIsFocusedAsState()
     val pressed by interaction.collectIsPressedAsState()
@@ -130,15 +137,12 @@ fun Modifier.tvClickable(
             indication = null,
             enabled = enabled,
             onClick = {
-                opener?.record(requester)
-                if (returnKey != null) focusReturn?.rememberOpener(returnKey)
+                use()
                 onClick()
             },
             onLongClick = openMenu?.let { open ->
                 {
-                    opener?.record(requester)
-                    // Details picked from the sheet still belongs to this card when it closes.
-                    if (returnKey != null) focusReturn?.rememberOpener(returnKey)
+                    use()
                     open()
                 }
             },
