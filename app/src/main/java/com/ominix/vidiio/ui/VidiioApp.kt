@@ -126,6 +126,7 @@ fun VidiioApp() {
                 onOpenTv = { navigator.navigate(VidiioRoute.TvShows) },
                 onOpenAnime = { navigator.navigate(VidiioRoute.Anime) },
                 onOpenGuide = { navigator.navigate(VidiioRoute.TvGuide) },
+                isKidsProfile = activeIsKids,
                 onOpenCollection = { title, studio -> navigator.navigate(VidiioRoute.Collection(title, studio)) },
                 onPlay = { movie -> navigator.navigate(VidiioRoute.Details(movie, autoPlay = true)) },
                 modifier = Modifier.fillMaxSize()

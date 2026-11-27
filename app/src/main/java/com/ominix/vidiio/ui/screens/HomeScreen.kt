@@ -93,6 +93,8 @@ fun HomeScreen(
     onOpenTv: () -> Unit = {},
     onOpenAnime: () -> Unit = {},
     onOpenGuide: () -> Unit = {},
+    /** Kids profiles have no TV Guide: unrated live TV is not filtered by TMDB ratings. */
+    isKidsProfile: Boolean = false,
     onOpenCollection: (String, Int) -> Unit = { _, _ -> },
     /** Long-press "Play": open the title and start its best stream. */
     onPlay: (Movie) -> Unit = {},
@@ -203,6 +205,7 @@ fun HomeScreen(
                             onOpenMovies = onOpenMovies,
                             onOpenTv = onOpenTv,
                             onOpenGuide = onOpenGuide,
+                            showGuideTab = !isKidsProfile,
                             onOpenCollection = onOpenCollection,
                         )
                     } else LazyColumn(
@@ -233,7 +236,7 @@ fun HomeScreen(
                         }
 
                         item(key = "categories") {
-                            CategoryLinks(spec = spec, onOpenMovies = onOpenMovies, onOpenTv = onOpenTv, onOpenAnime = onOpenAnime, onOpenGuide = onOpenGuide)
+                            CategoryLinks(spec = spec, onOpenMovies = onOpenMovies, onOpenTv = onOpenTv, onOpenAnime = onOpenAnime, onOpenGuide = onOpenGuide, showGuide = !isKidsProfile)
                         }
                         if (continueWatching.isNotEmpty()) {
                             item {
@@ -1058,11 +1061,18 @@ private fun CategoryLinks(
     onOpenTv: () -> Unit,
     onOpenAnime: () -> Unit,
     onOpenGuide: () -> Unit,
+    showGuide: Boolean,
 ) {
     // The same strip the Flix layout uses, so every Home style shares one main menu.
+    val labels = buildList {
+        add("Featured")
+        add("Movies")
+        add("TV Shows")
+        if (showGuide) add("TV Guide")
+    }
     com.ominix.vidiio.ui.browse.FlixTabs(
         selected = 0,
-        labels = listOf("Featured", "Movies", "TV Shows", "TV Guide"),
+        labels = labels,
         onSelect = { index ->
             when (index) {
                 1 -> onOpenMovies()

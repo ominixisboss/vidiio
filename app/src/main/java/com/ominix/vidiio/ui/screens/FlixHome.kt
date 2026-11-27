@@ -79,6 +79,7 @@ fun FlixHomeContent(
     onOpenMovies: () -> Unit,
     onOpenTv: () -> Unit,
     onOpenGuide: () -> Unit,
+    showGuideTab: Boolean = true,
     onOpenCollection: (String, Int) -> Unit,
 ) {
     val heroScope = androidx.compose.runtime.rememberCoroutineScope()
@@ -114,9 +115,15 @@ fun FlixHomeContent(
                 Column {
                     // Phones overlay search / library shortcuts on the top right; leave them room.
 
+                    val labels = buildList {
+                        add("Featured")
+                        add("Movies")
+                        add("TV Shows")
+                        if (showGuideTab) add("TV Guide")
+                    }
                     FlixTabs(
                         selected = 0,
-                        labels = listOf("Featured", "Movies", "TV Shows", "TV Guide"),
+                        labels = labels,
                         onSelect = { index ->
                             when (index) {
                                 1 -> onOpenMovies()
