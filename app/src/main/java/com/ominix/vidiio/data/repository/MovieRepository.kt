@@ -513,14 +513,20 @@ class MovieRepository(
                         movie.type == MovieType.TV_SHOW && episode != null -> episode.id
                         else -> movie.id
                     }
-                    // IMDb-keyed id for the big torrent addons (Torrentio etc).
+                    // IMDb-keyed id for the big torrent addons (Torrentio, KnightCrawler, etc).
                     val imdbStremioId: String? = imdbId?.takeIf { it.startsWith("tt") }?.let { tt ->
                         if (movie.type == MovieType.TV_SHOW && episode != null)
                             "$tt:${episode.seasonNumber}:${episode.episodeNumber}"
                         else tt
                     }
+                    // TMDb-keyed id for TMDB/CyberFlix/MediaFusion addons.
+                    val tmdbStremioId: String? = movie.id.toIntOrNull()?.let { tid ->
+                        if (movie.type == MovieType.TV_SHOW && episode != null)
+                            "tmdb:$tid:${episode.seasonNumber}:${episode.episodeNumber}"
+                        else "tmdb:$tid"
+                    }
 
-                    listOfNotNull(nativeId, imdbStremioId).distinct().forEach { sid ->
+                    listOfNotNull(nativeId, imdbStremioId, tmdbStremioId).distinct().forEach { sid ->
                         withTimeoutOrNull(SCRAPER_TIMEOUT_MS) {
                             addonManager.getStreams(stremioType, sid).forEach { stremioStream ->
                                 stremioStream.toStreamSource()?.let { send(it) }

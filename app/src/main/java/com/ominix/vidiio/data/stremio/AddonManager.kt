@@ -477,32 +477,15 @@ class AddonManager(
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(
+            "https://torrentio.strem.fun/manifest.json",
+            "https://knightcrawler.elfhosted.com/manifest.json",
+            "https://cyberflix.elfhosted.com/manifest.json",
+            "https://comet.elfhosted.com/manifest.json",
+            "https://mediafusion.elfhosted.com/manifest.json",
             "https://fedew04.github.io/OnePaceStremio/manifest.json",
-            "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxwbXAscGNwLGhsdTo6VVM6MTc5NDc4ODc1MzUzMjowOjA6VVM%3D/manifest.json",
             "https://addon.notorrent2.workers.dev/manifest.json",
-            // Subtitles, working out of the box. Verified: declares the subtitles
-            // resource, needs no configuration, and serves both movie and series ids
-            // (tt0133093 -> 27 results, tt0903747:1:1 -> 89).
-            //
-            // Deliberately not dexter21767's opensubtitles addon, which sets
-            // behaviorHints.configurationRequired and returns an empty list for every
-            // query until it is configured through its own web page.
             "https://opensubtitles-v3.strem.io/manifest.json",
-            // opensubtitles PRO, pre-configured for English. Its config segment holds
-            // only preferences ({"langs":["english"],"source":"all",...}) and no
-            // credential, so it is safe to ship. Verified: 56 results for tt0133093,
-            // 11 for tt26657236, 15 for a series episode. It 302s to another host,
-            // which OkHttp follows.
             "https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6ImFsbCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
-            // SubSource, pre-configured for English. Verified: 134 results for
-            // tt0133093, 7 for tt26657236.
-            //
-            // NOTE: unlike the two above, this URL's config segment carries an account
-            // key, not just preferences. Bundled at the owner's explicit request. It is
-            // therefore public - in this repo's history and in every APK - so rotating it
-            // means editing this line and shipping a new build, and anyone with the APK
-            // can use it. If that stops being acceptable, drop this entry and add the
-            // addon per-device in Settings instead, where it lives only in DataStore.
             "https://subsource.strem.top/c2tfMGE1MWViZmRmNjA0MzVmZWEwNDdlYWQzYTQ3ZmFmYTZjNGRjY2E3NWE3OTMyZTQ0NDVlMWJlZTIwMGQ2NTcyYy9lbmdsaXNoL2hpSW5jbHVkZS90eXBlOjAv/manifest.json"
         )
     }
