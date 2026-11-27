@@ -50,7 +50,9 @@ import com.ominix.vidiio.data.repository.AppTheme
 import com.ominix.vidiio.data.repository.ColorTheme
 import com.ominix.vidiio.data.repository.HomeStyle
 import com.ominix.vidiio.data.repository.MediaPlayerChoice
+import com.ominix.vidiio.data.repository.PARENT_RECOVERY_CODE_LENGTH
 import com.ominix.vidiio.data.repository.SubtitleEdge
+import com.ominix.vidiio.data.repository.formatParentRecoveryCode
 import com.ominix.vidiio.data.repository.SubtitleStyle
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalTvPageFocus
@@ -194,6 +196,7 @@ fun SettingsScreen(
     val allProfiles by viewModel.allProfiles.collectAsState()
     val activeProfileId by viewModel.activeProfileId.collectAsState()
     val hasParentPin by viewModel.hasParentPin.collectAsState()
+    val hasParentRecoveryCode by viewModel.hasParentRecoveryCode.collectAsState()
     val pinConfigured = hasParentPin == true
     val pinStateKnown = hasParentPin != null
     val activeProfileIsKids = allProfiles.firstOrNull { it.id == activeProfileId }?.isKids == true
@@ -217,6 +220,13 @@ fun SettingsScreen(
     var showCreateProfileDialog by rememberSaveable { mutableStateOf(false) }
     var showUnlockDialog by rememberSaveable { mutableStateOf(false) }
     var showParentPinDialog by rememberSaveable { mutableStateOf(false) }
+    var showRecoveryResetDialog by rememberSaveable { mutableStateOf(false) }
+    /** True when recovery was opened to leave Kids, so success should open profile management. */
+    var recoveryOpensProfiles by rememberSaveable { mutableStateOf(false) }
+    /** Plaintext recovery code, held only long enough to show it once. */
+    var recoveryCodeToShow by rememberSaveable { mutableStateOf<String?>(null) }
+    /** A recovery reset that should open profile management once the new code is acknowledged. */
+    var openProfilesAfterRecoveryCode by rememberSaveable { mutableStateOf(false) }
     /** Profile whose kids level is being edited, by id: a saved id survives configuration changes. */
     var kidsLevelProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var newProfileName by rememberSaveable { mutableStateOf("") }
@@ -838,7 +848,15 @@ fun SettingsScreen(
                 ) { Text("Unlock") }
             },
             dismissButton = {
-                TextButton(onClick = { showUnlockDialog = false; returnFocus() }) { Text("Cancel") }
+                Row {
+                    TextButton(onClick = {
+                        showUnlockDialog = false
+                        recoveryOpensProfiles = true
+                        showRecoveryResetDialog = true
+                        returnFocus()
+                    }) { Text("Forgot PIN?") }
+                    TextButton(onClick = { showUnlockDialog = false; returnFocus() }) { Text("Cancel") }
+                }
             }
         )
     }
@@ -853,14 +871,49 @@ fun SettingsScreen(
             containerColor = MaterialTheme.colorScheme.surface,
             title = { Text(if (pinConfigured) "Change Parent PIN" else "Set Parent PIN") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     Text(
                         "Kids profiles stay locked until this PIN is entered.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 13.sp
                     )
                     if (pinConfigured) {
+                        // Near the top so it is visible without scrolling on a short TV/phone dialog.
+                        TextButton(onClick = {
+                            showParentPinDialog = false
+                            recoveryOpensProfiles = false
+                            showRecoveryResetDialog = true
+                            returnFocus()
+                        }) { Text("Forgot PIN?") }
                         PinField("Current PIN", currentPin) { currentPin = it; pinError = null }
+                        if (hasParentRecoveryCode == false) {
+                            Text(
+                                "This PIN has no recovery code. Add one now so a forgotten PIN can still be reset.",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 12.sp
+                            )
+                            TextButton(
+                                onClick = {
+                                    if (currentPin.length != 4) {
+                                        pinError = "Enter the current PIN first."
+                                    } else {
+                                        viewModel.createParentRecoveryCode(currentPin) { created ->
+                                            if (created.success) {
+                                                showParentPinDialog = false
+                                                recoveryCodeToShow = created.recoveryCode
+                                                returnFocus()
+                                            } else {
+                                                pinError = "The current PIN is not correct."
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.tvDialogFocus()
+                            ) { Text("Create recovery code") }
+                        }
                     }
                     PinField(if (pinConfigured) "New PIN" else "PIN", newPin) { newPin = it; pinError = null }
                     PinField("Confirm PIN", confirmPin) { confirmPin = it; pinError = null }
@@ -885,8 +938,9 @@ fun SettingsScreen(
                                 viewModel.unlockProfileManagement(currentPin) { ok ->
                                     if (ok) {
                                         viewModel.setParentPin(newPin) { changed ->
-                                            if (changed) {
+                                            if (changed.success) {
                                                 showParentPinDialog = false
+                                                recoveryCodeToShow = changed.recoveryCode
                                                 returnFocus()
                                             } else {
                                                 pinError = "Could not change the PIN."
@@ -898,8 +952,9 @@ fun SettingsScreen(
                                 }
                             } else {
                                 viewModel.setParentPin(newPin) { saved ->
-                                    if (saved) {
+                                    if (saved.success) {
                                         showParentPinDialog = false
+                                        recoveryCodeToShow = saved.recoveryCode
                                         returnFocus()
                                     } else {
                                         pinError = "Set the parent PIN from an adult profile."
@@ -918,7 +973,7 @@ fun SettingsScreen(
                             viewModel.unlockProfileManagement(currentPin) { ok ->
                                 if (ok) {
                                     viewModel.setParentPin(null) { removed ->
-                                        if (removed) {
+                                        if (removed.success) {
                                             showParentPinDialog = false
                                             returnFocus()
                                         } else {
@@ -933,6 +988,137 @@ fun SettingsScreen(
                     }
                     TextButton(onClick = { showParentPinDialog = false; returnFocus() }) { Text("Cancel") }
                 }
+            }
+        )
+    }
+
+    if (showRecoveryResetDialog) {
+        var recoveryCode by remember { mutableStateOf("") }
+        var newPin by remember { mutableStateOf("") }
+        var confirmPin by remember { mutableStateOf("") }
+        var resetError by remember { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = {
+                showRecoveryResetDialog = false
+                recoveryOpensProfiles = false
+                returnFocus()
+            },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Reset Parent PIN") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        "Enter the recovery code you saved when you set the PIN, then choose a new PIN.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    OutlinedTextField(
+                        value = recoveryCode,
+                        onValueChange = { raw ->
+                            recoveryCode = raw.uppercase()
+                                .filter(Char::isLetterOrDigit)
+                                .take(PARENT_RECOVERY_CODE_LENGTH)
+                            resetError = null
+                        },
+                        label = { Text("Recovery code") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Ascii,
+                            imeAction = ImeAction.Done
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .tvDialogFocus(opensKeyboard = true)
+                    )
+                    PinField("New PIN", newPin) { newPin = it; resetError = null }
+                    PinField("Confirm new PIN", confirmPin) { confirmPin = it; resetError = null }
+                    resetError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val problem = when {
+                            recoveryCode.length != PARENT_RECOVERY_CODE_LENGTH ->
+                                "Enter the $PARENT_RECOVERY_CODE_LENGTH-character recovery code."
+                            newPin.length != 4 -> "The new PIN must be 4 digits."
+                            newPin != confirmPin -> "The PINs don't match."
+                            else -> null
+                        }
+                        resetError = problem
+                        if (problem == null) {
+                            viewModel.recoverParentPin(recoveryCode, newPin) { result ->
+                                if (result.success) {
+                                    showRecoveryResetDialog = false
+                                    recoveryCodeToShow = result.recoveryCode
+                                    openProfilesAfterRecoveryCode = recoveryOpensProfiles
+                                    recoveryOpensProfiles = false
+                                    returnFocus()
+                                } else {
+                                    resetError = "That recovery code is not correct."
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.tvDialogFocus()
+                ) { Text("Reset PIN") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRecoveryResetDialog = false
+                    recoveryOpensProfiles = false
+                    returnFocus()
+                }) { Text("Cancel") }
+            }
+        )
+    }
+
+    recoveryCodeToShow?.let { code ->
+        AlertDialog(
+            onDismissRequest = { /* Shown once; the parent must acknowledge it. */ },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Save your recovery code") },
+            text = {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "If you forget the parent PIN, this code is the only way back in. It is shown once, so write it down and keep it away from kids.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        formatParentRecoveryCode(code),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp
+                    )
+                    Text(
+                        "Vidiio stores only a hash of this code; it cannot look it up for you.",
+                        color = Color.Gray,
+                        fontSize = 11.sp
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        recoveryCodeToShow = null
+                        if (openProfilesAfterRecoveryCode) {
+                            showProfileDialog = true
+                            openProfilesAfterRecoveryCode = false
+                        }
+                        returnFocus()
+                    },
+                    modifier = Modifier.tvDialogFocus()
+                ) { Text("I saved it") }
             }
         )
     }
@@ -1236,10 +1422,11 @@ fun SettingsScreen(
                                 val newParentPin = if (createIsKids && pinStateKnown && !pinConfigured && !activeProfileIsKids) {
                                     createPin
                                 } else null
-                                viewModel.createProfile(input, selectedColorHex, createIsKids, newParentPin) { created ->
+                                viewModel.createProfile(input, selectedColorHex, createIsKids, newParentPin) { created, recoveryCode ->
                                     if (created) {
                                         createProfileNameDraft = ""
                                         showCreateProfileDialog = false
+                                        recoveryCodeToShow = recoveryCode
                                         returnFocus()
                                         android.widget.Toast.makeText(context, "Profile '$input' created", android.widget.Toast.LENGTH_SHORT).show()
                                     } else {

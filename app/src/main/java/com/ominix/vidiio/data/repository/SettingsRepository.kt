@@ -124,6 +124,8 @@ class SettingsRepository(private val context: Context) {
         val ACTIVE_PROFILE_ID = stringPreferencesKey("active_profile_id")
         /** SHA-256 of the parent PIN; the PIN itself is never stored. */
         val PARENT_PIN_HASH = stringPreferencesKey("parent_pin_hash")
+        /** SHA-256 of the one-time recovery code; shown to the parent once, never stored plainly. */
+        val PARENT_RECOVERY_HASH = stringPreferencesKey("parent_recovery_hash")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -275,12 +277,27 @@ class SettingsRepository(private val context: Context) {
         preferences[PreferencesKeys.PARENT_PIN_HASH]
     }
 
-    suspend fun setParentPin(pin: String?) {
+    /** Null until the current PIN has a recovery code; older PINs may not have one yet. */
+    val parentRecoveryHashFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.PARENT_RECOVERY_HASH]
+    }
+
+    /**
+     * Writes the PIN and its recovery hash together. Passing a null PIN removes both, so a
+     * profile with no PIN can never leave a stale recovery code behind.
+     */
+    suspend fun setParentPin(pin: String?, recoveryHash: String? = null) {
         context.dataStore.edit { preferences ->
             if (pin == null) {
                 preferences.remove(PreferencesKeys.PARENT_PIN_HASH)
+                preferences.remove(PreferencesKeys.PARENT_RECOVERY_HASH)
             } else {
                 preferences[PreferencesKeys.PARENT_PIN_HASH] = hashParentPin(pin)
+                if (recoveryHash == null) {
+                    preferences.remove(PreferencesKeys.PARENT_RECOVERY_HASH)
+                } else {
+                    preferences[PreferencesKeys.PARENT_RECOVERY_HASH] = recoveryHash
+                }
             }
         }
     }
@@ -288,6 +305,21 @@ class SettingsRepository(private val context: Context) {
     suspend fun verifyParentPin(pin: String): Boolean {
         val stored = context.dataStore.data.first()[PreferencesKeys.PARENT_PIN_HASH] ?: return false
         return stored.equals(hashParentPin(pin), ignoreCase = true)
+    }
+
+    suspend fun verifyParentRecoveryCode(code: String): Boolean {
+        val stored = context.dataStore.data.first()[PreferencesKeys.PARENT_RECOVERY_HASH] ?: return false
+        return stored.equals(hashParentRecoveryCode(code), ignoreCase = true)
+    }
+
+    suspend fun hasParentRecoveryCode(): Boolean =
+        context.dataStore.data.first()[PreferencesKeys.PARENT_RECOVERY_HASH] != null
+
+    /** Adds a recovery hash to an existing PIN without touching the PIN itself. */
+    suspend fun setParentRecoveryHash(recoveryHash: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PARENT_RECOVERY_HASH] = recoveryHash
+        }
     }
 
     val metadataAddonsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->

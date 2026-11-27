@@ -10,6 +10,7 @@ import com.ominix.vidiio.data.repository.ColorTheme
 import com.ominix.vidiio.data.repository.HomeStyle
 import com.ominix.vidiio.data.repository.MediaPlayerChoice
 import com.ominix.vidiio.data.repository.ProxyConfig
+import com.ominix.vidiio.data.repository.ProfileRepository
 import com.ominix.vidiio.data.repository.ProxyType
 import com.ominix.vidiio.data.model.KidsMaturity
 import com.ominix.vidiio.data.model.UserProfile
@@ -49,9 +50,30 @@ class SettingsViewModel(
         .map { it != null }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    fun setParentPin(pin: String?, onResult: (Boolean) -> Unit = {}) {
+    /** Null until the stored value has been read, so the setup action does not flicker in. */
+    val hasParentRecoveryCode: StateFlow<Boolean?> = settingsRepository.parentRecoveryHashFlow
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setParentPin(pin: String?, onResult: (ProfileRepository.ParentPinResult) -> Unit = {}) {
         viewModelScope.launch {
-            onResult(profileRepository?.configureParentPin(pin) == true)
+            onResult(profileRepository?.configureParentPin(pin) ?: ProfileRepository.ParentPinResult(false))
+        }
+    }
+
+    fun createParentRecoveryCode(currentPin: String, onResult: (ProfileRepository.ParentPinResult) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(profileRepository?.createParentRecoveryCode(currentPin) ?: ProfileRepository.ParentPinResult(false))
+        }
+    }
+
+    fun recoverParentPin(
+        recoveryCode: String,
+        newPin: String,
+        onResult: (ProfileRepository.ParentPinResult) -> Unit = {},
+    ) {
+        viewModelScope.launch {
+            onResult(profileRepository?.recoverParentPin(recoveryCode, newPin) ?: ProfileRepository.ParentPinResult(false))
         }
     }
 
@@ -72,10 +94,11 @@ class SettingsViewModel(
         colorHex: Long,
         isKids: Boolean,
         parentPin: String? = null,
-        onResult: (Boolean) -> Unit = {},
+        onResult: (created: Boolean, recoveryCode: String?) -> Unit = { _, _ -> },
     ) {
         viewModelScope.launch {
-            onResult(profileRepository?.createProfile(name, colorHex, isKids, parentPin) != null)
+            val created = profileRepository?.createProfile(name, colorHex, isKids, parentPin)
+            onResult(created != null, created?.recoveryCode)
         }
     }
 

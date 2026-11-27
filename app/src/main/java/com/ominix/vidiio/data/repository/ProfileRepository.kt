@@ -76,18 +76,63 @@ class ProfileRepository(
         return valid
     }
 
+    /** A PIN change and the one-time recovery code the parent must write down. */
+    data class ParentPinResult(val success: Boolean, val recoveryCode: String? = null)
+
+    /** A created profile and, for a Kids profile created with a PIN, its recovery code. */
+    data class CreatedProfile(val profile: UserProfile, val recoveryCode: String? = null)
+
     /**
      * Creates, changes or removes the parent PIN. Adults may do this freely. A Kids profile may
      * never create the first PIN itself, and may only change or remove an existing PIN after
      * entering it, so a child cannot lock a parent out of a PIN-less profile.
+     *
+     * Setting or changing a PIN always rotates the recovery code; the plaintext code is only
+     * returned here, at the moment it is shown to the parent.
      */
-    suspend fun configureParentPin(pin: String?): Boolean {
+    suspend fun configureParentPin(pin: String?): ParentPinResult {
         if (!canConfigureParentPin(getActiveProfile().isKids, hasParentPin(), unlockedRecently())) {
-            return false
+            return ParentPinResult(false)
         }
-        settingsRepository.setParentPin(pin)
-        return true
+        if (pin == null) {
+            settingsRepository.setParentPin(null)
+            return ParentPinResult(true)
+        }
+        if (!isValidPin(pin)) return ParentPinResult(false)
+        val recoveryCode = generateParentRecoveryCode()
+        settingsRepository.setParentPin(pin, hashParentRecoveryCode(recoveryCode))
+        return ParentPinResult(true, recoveryCode)
     }
+
+    /**
+     * Adds a recovery code to an existing PIN without changing the PIN. The current PIN is the
+     * proof, so this repairs a pre-recovery PIN only while its parent still remembers it and can
+     * never bypass a forgotten PIN. A PIN that already has a recovery code is left alone.
+     */
+    suspend fun createParentRecoveryCode(currentPin: String): ParentPinResult {
+        if (!hasParentPin()) return ParentPinResult(false)
+        if (settingsRepository.hasParentRecoveryCode()) return ParentPinResult(false)
+        if (!settingsRepository.verifyParentPin(currentPin)) return ParentPinResult(false)
+        val recoveryCode = generateParentRecoveryCode()
+        settingsRepository.setParentRecoveryHash(hashParentRecoveryCode(recoveryCode))
+        return ParentPinResult(true, recoveryCode)
+    }
+
+    /**
+     * Resets a forgotten PIN with the recovery code issued when it was last set. The code is the
+     * proof here, so this deliberately bypasses [canManageProfiles]; a correct code also opens
+     * profile management for the rest of the unlock window. The new PIN gets a fresh code.
+     */
+    suspend fun recoverParentPin(recoveryCode: String, newPin: String): ParentPinResult {
+        if (!isValidPin(newPin)) return ParentPinResult(false)
+        if (!settingsRepository.verifyParentRecoveryCode(recoveryCode)) return ParentPinResult(false)
+        val nextRecoveryCode = generateParentRecoveryCode()
+        settingsRepository.setParentPin(newPin, hashParentRecoveryCode(nextRecoveryCode))
+        if (getActiveProfile().isKids) unlockedAt = System.currentTimeMillis()
+        return ParentPinResult(true, nextRecoveryCode)
+    }
+
+    private fun isValidPin(pin: String): Boolean = pin.length == 4 && pin.all(Char::isDigit)
 
     /** Switching out of a locked Kids profile needs [unlockProfileManagement] first. */
     suspend fun switchProfile(id: String): Boolean {
@@ -108,11 +153,14 @@ class ProfileRepository(
         avatarColorHex: Long,
         isKids: Boolean,
         newParentPin: String? = null,
-    ): UserProfile? {
+    ): CreatedProfile? {
         if (!canManageProfiles()) return null
+        var recoveryCode: String? = null
         if (newParentPin != null) {
             if (getActiveProfile().isKids) return null
-            settingsRepository.setParentPin(newParentPin)
+            if (!isValidPin(newParentPin)) return null
+            recoveryCode = generateParentRecoveryCode()
+            settingsRepository.setParentPin(newParentPin, hashParentRecoveryCode(recoveryCode))
         }
         val newProfile = UserProfile(
             id = UUID.randomUUID().toString(),
@@ -126,7 +174,7 @@ class ProfileRepository(
         userProfileDao.insertProfile(newProfile)
         // Already authorized above; calling switchProfile again would only re-check the gate.
         settingsRepository.setActiveProfileId(newProfile.id)
-        return newProfile
+        return CreatedProfile(newProfile, recoveryCode)
     }
 
     /** Changing a profile (including a Kids level) also needs the gate when Kids is active. */
