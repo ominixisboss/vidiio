@@ -88,7 +88,9 @@ data class TMDBReleaseDates(
 
 @JsonClass(generateAdapter = true)
 data class TMDBReleaseDate(
-    @Json(name = "certification") val certification: String? = null
+    @Json(name = "certification") val certification: String? = null,
+    /** 1 premiere, 2 limited theatrical, 3 theatrical, 4 digital, 5 physical, 6 TV. */
+    @Json(name = "type") val type: Int? = null,
 )
 
 /** TV content ratings by country, from tv/{id}/content_ratings. */

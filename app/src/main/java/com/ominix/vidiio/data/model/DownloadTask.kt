@@ -29,7 +29,9 @@ data class DownloadTask(
     val headersJson: String? = null,
     /** For multi-file torrents: the exact file to fetch (Stremio addon selection). */
     val torrentFileIndex: Int? = null,
-    val torrentFileName: String? = null
+    val torrentFileName: String? = null,
+    /** Which profile queued this download; Downloads only lists the active profile's rows. */
+    val profileId: String = "default",
 )
 
 class DownloadConverters {

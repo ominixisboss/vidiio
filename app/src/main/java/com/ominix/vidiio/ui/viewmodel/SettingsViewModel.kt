@@ -11,6 +11,8 @@ import com.ominix.vidiio.data.repository.HomeStyle
 import com.ominix.vidiio.data.repository.MediaPlayerChoice
 import com.ominix.vidiio.data.repository.ProxyConfig
 import com.ominix.vidiio.data.repository.ProxyType
+import com.ominix.vidiio.data.model.KidsMaturity
+import com.ominix.vidiio.data.model.UserProfile
 import com.ominix.vidiio.data.repository.SettingsRepository
 import com.ominix.vidiio.data.repository.SubtitleStyle
 import com.ominix.vidiio.ui.player.ExternalPlayer
@@ -20,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -38,15 +41,43 @@ class SettingsViewModel(
     val activeProfileId: StateFlow<String> =
         settingsRepository.activeProfileIdFlow.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "default")
 
-    fun switchProfile(id: String) {
+    /**
+     * Whether a parent PIN is configured. Null until the stored value has been read, so the UI
+     * can avoid offering to overwrite a PIN it has not seen yet.
+     */
+    val hasParentPin: StateFlow<Boolean?> = settingsRepository.parentPinHashFlow
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun setParentPin(pin: String?) {
+        viewModelScope.launch { settingsRepository.setParentPin(pin) }
+    }
+
+    fun verifyParentPin(pin: String, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch { onResult(settingsRepository.verifyParentPin(pin)) }
+    }
+
+    fun unlockProfileManagement(pin: String, onResult: (Boolean) -> Unit) {
         viewModelScope.launch {
-            profileRepository?.switchProfile(id)
+            onResult(profileRepository?.unlockProfileManagement(pin) ?: false)
         }
     }
 
-    fun createProfile(name: String, colorHex: Long, isKids: Boolean) {
+    fun switchProfile(id: String, onResult: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
-            profileRepository?.createProfile(name, colorHex, isKids)
+            onResult(profileRepository?.switchProfile(id) ?: false)
+        }
+    }
+
+    fun createProfile(name: String, colorHex: Long, isKids: Boolean, onResult: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            onResult(profileRepository?.createProfile(name, colorHex, isKids) != null)
+        }
+    }
+
+    fun setKidsMaturity(profile: UserProfile, maturity: KidsMaturity) {
+        viewModelScope.launch {
+            profileRepository?.updateProfile(profile.copy(kidsMaturity = maturity.dbValue))
         }
     }
 

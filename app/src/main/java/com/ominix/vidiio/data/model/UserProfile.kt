@@ -11,5 +11,7 @@ data class UserProfile(
     val avatarIconName: String = "face_1",
     val isKids: Boolean = false,
     val isDefault: Boolean = false,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    /** How strict this kids profile is; ignored for adult profiles. See [KidsMaturity]. */
+    val kidsMaturity: Int = KidsMaturity.OLDER.dbValue,
 )

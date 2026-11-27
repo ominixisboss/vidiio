@@ -142,6 +142,8 @@ fun MediaBrowseScreen(
     /** Long-press "Play": open the title and start its best stream. */
     onPlay: (Movie) -> Unit = {},
     onTab: (Int) -> Unit = {},
+    /** Kids profiles get no TV Guide tab: unrated live TV is not filtered by TMDB ratings. */
+    showGuideTab: Boolean = true,
     /** Flix gets the tile-and-grid page; every other Home style gets shelves, like its Home. */
     homeStyle: com.ominix.vidiio.data.repository.HomeStyle = com.ominix.vidiio.data.repository.HomeStyle.FLIX,
     modifier: Modifier = Modifier,
@@ -187,6 +189,7 @@ fun MediaBrowseScreen(
                         onOpen = onOpenMovie,
                         onMovieLongClick = { actionsFor = it },
                         onTab = onTab,
+                        showGuideTab = showGuideTab,
                         onShowFilters = { showFilters = true },
                         isMovies = viewModel.kind == BrowseKind.MOVIES,
                         onLoadMore = viewModel::loadMore,
@@ -196,7 +199,7 @@ fun MediaBrowseScreen(
                         }
                     )
                 } else {
-                    BrowseContent(style, state, viewModel, onOpenMovie, onTab) { actionsFor = it }
+                    BrowseContent(style, state, viewModel, onOpenMovie, onTab, showGuideTab) { actionsFor = it }
                 }
             }
         }
@@ -220,6 +223,7 @@ private fun BrowseContent(
     viewModel: MediaBrowseViewModel,
     onOpen: (Movie) -> Unit,
     onTab: (Int) -> Unit,
+    showGuideTab: Boolean = true,
     onMovieLongClick: (Movie) -> Unit = {},
 ) {
     val filter = state.filter
@@ -259,7 +263,8 @@ private fun BrowseContent(
         full("tabs") {
             FlixTabs(
                 selected = if (isMovies) 1 else 2,
-                labels = listOf("Featured", "Movies", "TV Shows", "TV Guide"),
+                labels = if (showGuideTab) listOf("Featured", "Movies", "TV Shows", "TV Guide")
+                         else listOf("Featured", "Movies", "TV Shows"),
                 onSelect = onTab
             )
         }
@@ -408,6 +413,7 @@ private fun ShelfBrowseContent(
     onOpen: (Movie) -> Unit,
     onMovieLongClick: (Movie) -> Unit,
     onTab: (Int) -> Unit,
+    showGuideTab: Boolean,
     onShowFilters: () -> Unit,
     isMovies: Boolean,
     onLoadMore: (BrowseList) -> Unit,
@@ -438,7 +444,12 @@ private fun ShelfBrowseContent(
             ) { HeroCarousel(hero, spec, onOpen, returnKeyPrefix = "browse-hero") }
         }
         item(key = "tabs") {
-            FlixTabs(selected = if (isMovies) 1 else 2, labels = listOf("Featured", "Movies", "TV Shows", "TV Guide"), onSelect = onTab)
+            FlixTabs(
+                selected = if (isMovies) 1 else 2,
+                labels = if (showGuideTab) listOf("Featured", "Movies", "TV Shows", "TV Guide")
+                         else listOf("Featured", "Movies", "TV Shows"),
+                onSelect = onTab
+            )
         }
         style.lists.forEach { (list, label) ->
             val movies = when (list) {

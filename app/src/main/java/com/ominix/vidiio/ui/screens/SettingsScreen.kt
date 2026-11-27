@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -36,12 +37,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.ominix.vidiio.BuildConfig
+import com.ominix.vidiio.data.model.KidsMaturity
 import com.ominix.vidiio.data.repository.AppTheme
 import com.ominix.vidiio.data.repository.ColorTheme
 import com.ominix.vidiio.data.repository.HomeStyle
@@ -56,6 +60,23 @@ import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.tv.tvDialogMenuToRail
 import com.ominix.vidiio.ui.theme.*
 import com.ominix.vidiio.ui.viewmodel.SettingsViewModel
+
+@Composable
+private fun PinField(label: String, value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = { raw -> onValueChange(raw.filter(Char::isDigit).take(4)) },
+        label = { Text(label) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.NumberPassword,
+            imeAction = ImeAction.Done
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .tvDialogFocus(opensKeyboard = true)
+    )
+}
 
 @Composable
 private fun SectionHeader(title: String) {
@@ -172,6 +193,10 @@ fun SettingsScreen(
     val preferredAudioLanguage by viewModel.preferredAudioLanguage.collectAsState()
     val allProfiles by viewModel.allProfiles.collectAsState()
     val activeProfileId by viewModel.activeProfileId.collectAsState()
+    val hasParentPin by viewModel.hasParentPin.collectAsState()
+    val pinConfigured = hasParentPin == true
+    val pinStateKnown = hasParentPin != null
+    val activeProfileIsKids = allProfiles.firstOrNull { it.id == activeProfileId }?.isKids == true
 
     val addonStoreEntries by viewModel.addonStoreEntries.collectAsState()
     val isAddonStoreLoading by viewModel.isAddonStoreLoading.collectAsState()
@@ -190,6 +215,10 @@ fun SettingsScreen(
 
     var showProfileDialog by rememberSaveable { mutableStateOf(false) }
     var showCreateProfileDialog by rememberSaveable { mutableStateOf(false) }
+    var showUnlockDialog by rememberSaveable { mutableStateOf(false) }
+    var showParentPinDialog by rememberSaveable { mutableStateOf(false) }
+    /** Profile whose kids level is being edited, by id: a saved id survives configuration changes. */
+    var kidsLevelProfileId by rememberSaveable { mutableStateOf<String?>(null) }
     var newProfileName by rememberSaveable { mutableStateOf("") }
     var newProfileIsKids by rememberSaveable { mutableStateOf(false) }
 
@@ -372,7 +401,24 @@ fun SettingsScreen(
                             title = "Switch Profile",
                             summary = "Current: $activeName · Create & manage profiles",
                             icon = Icons.Rounded.AccountCircle,
-                            onClick = { showProfileDialog = true }
+                            onClick = {
+                                // Leaving a Kids profile needs the parent PIN; while the stored
+                                // value is still unknown, ask rather than assume there is none.
+                                if (activeProfileIsKids && hasParentPin != false) showUnlockDialog = true
+                                else showProfileDialog = true
+                            }
+                        )
+                    }
+                    item(key = "app-parent-pin") {
+                        PreferenceItem(
+                            title = "Parent PIN",
+                            summary = when {
+                                !pinStateKnown -> "Reading…"
+                                pinConfigured -> "On · required to leave a Kids profile"
+                                else -> "Off · set a PIN to lock Kids profiles"
+                            },
+                            icon = Icons.Rounded.Lock,
+                            onClick = { if (pinStateKnown) showParentPinDialog = true }
                         )
                     }
                     item(key = "hdr-app-theme") { SectionHeader("PROFILES & APPEARANCE") }
@@ -746,6 +792,179 @@ fun SettingsScreen(
         }
     }
 
+    if (showUnlockDialog) {
+        var pin by remember { mutableStateOf("") }
+        var wrong by remember { mutableStateOf(false) }
+        AlertDialog(
+            onDismissRequest = { showUnlockDialog = false; returnFocus() },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Parent PIN") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Enter the PIN to leave Kids and manage profiles.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    PinField("PIN", pin) { pin = it; wrong = false }
+                    if (wrong) {
+                        Text(
+                            "That PIN is not correct.",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.unlockProfileManagement(pin) { ok ->
+                            if (ok) {
+                                showUnlockDialog = false
+                                showProfileDialog = true
+                            } else {
+                                wrong = true
+                                pin = ""
+                            }
+                        }
+                    },
+                    modifier = Modifier.tvDialogFocus()
+                ) { Text("Unlock") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showUnlockDialog = false; returnFocus() }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showParentPinDialog) {
+        var currentPin by remember { mutableStateOf("") }
+        var newPin by remember { mutableStateOf("") }
+        var confirmPin by remember { mutableStateOf("") }
+        var pinError by remember { mutableStateOf<String?>(null) }
+        AlertDialog(
+            onDismissRequest = { showParentPinDialog = false; returnFocus() },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text(if (pinConfigured) "Change Parent PIN" else "Set Parent PIN") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "Kids profiles stay locked until this PIN is entered.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp
+                    )
+                    if (pinConfigured) {
+                        PinField("Current PIN", currentPin) { currentPin = it; pinError = null }
+                    }
+                    PinField(if (pinConfigured) "New PIN" else "PIN", newPin) { newPin = it; pinError = null }
+                    PinField("Confirm PIN", confirmPin) { confirmPin = it; pinError = null }
+                    pinError?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val problem = when {
+                            newPin.length != 4 -> "The PIN must be 4 digits."
+                            newPin != confirmPin -> "The PINs don't match."
+                            else -> null
+                        }
+                        pinError = problem
+                        if (problem == null) {
+                            if (pinConfigured) {
+                                viewModel.verifyParentPin(currentPin) { ok ->
+                                    if (ok) {
+                                        viewModel.setParentPin(newPin)
+                                        showParentPinDialog = false
+                                        returnFocus()
+                                    } else {
+                                        pinError = "The current PIN is not correct."
+                                    }
+                                }
+                            } else {
+                                viewModel.setParentPin(newPin)
+                                showParentPinDialog = false
+                                returnFocus()
+                            }
+                        }
+                    },
+                    modifier = Modifier.tvDialogFocus()
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                Row {
+                    if (pinConfigured) {
+                        TextButton(onClick = {
+                            viewModel.verifyParentPin(currentPin) { ok ->
+                                if (ok) {
+                                    viewModel.setParentPin(null)
+                                    showParentPinDialog = false
+                                    returnFocus()
+                                } else {
+                                    pinError = "Enter the current PIN to remove it."
+                                }
+                            }
+                        }) { Text("Remove") }
+                    }
+                    TextButton(onClick = { showParentPinDialog = false; returnFocus() }) { Text("Cancel") }
+                }
+            }
+        )
+    }
+
+    allProfiles.firstOrNull { it.id == kidsLevelProfileId }?.let { levelProfile ->
+        AlertDialog(
+            onDismissRequest = { kidsLevelProfileId = null; returnFocus() },
+            containerColor = MaterialTheme.colorScheme.surface,
+            title = { Text("Kids level · ${levelProfile.name}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    KidsMaturity.entries.forEach { level ->
+                        val selected = KidsMaturity.fromDb(levelProfile.kidsMaturity) == level
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .tvClickable(
+                                    onClick = {
+                                        viewModel.setKidsMaturity(levelProfile, level)
+                                        kidsLevelProfileId = null
+                                        returnFocus()
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ),
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                            } else {
+                                Color.White.copy(alpha = 0.08f)
+                            }
+                        ) {
+                            Column(Modifier.padding(14.dp)) {
+                                Text(
+                                    text = if (selected) "${level.label}  ✓" else level.label,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
+                                )
+                                Text(
+                                    text = level.summary,
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { kidsLevelProfileId = null; returnFocus() }) { Text("Done") }
+            }
+        )
+    }
+
     if (showProfileDialog) {
         val shape = RoundedCornerShape(20.dp)
         androidx.compose.ui.window.Dialog(
@@ -790,10 +1009,16 @@ fun SettingsScreen(
                                 .onFocusChanged { itemFocused = it.isFocused }
                                 .tvClickable(
                                     onClick = {
-                                        viewModel.switchProfile(profile.id)
-                                        showProfileDialog = false
-                                        returnFocus()
-                                        android.widget.Toast.makeText(context, "Switched to ${profile.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                        viewModel.switchProfile(profile.id) { switched ->
+                                            showProfileDialog = false
+                                            returnFocus()
+                                            if (switched) {
+                                                android.widget.Toast.makeText(context, "Switched to ${profile.name}", android.widget.Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                // The unlock window expired while the dialog was open.
+                                                showUnlockDialog = true
+                                            }
+                                        }
                                     },
                                     shape = itemShape
                                 ),
@@ -807,7 +1032,10 @@ fun SettingsScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
                                     Box(
                                         modifier = Modifier
                                             .size(28.dp)
@@ -823,31 +1051,40 @@ fun SettingsScreen(
                                         )
                                     }
                                     Spacer(Modifier.width(12.dp))
-                                    Column {
+                                    Column(Modifier.weight(1f)) {
                                         Text(
                                             text = profile.name,
                                             color = if (isChosen || itemFocused) Color.Black else Color.White,
                                             fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         if (profile.isKids) {
                                             Text(
-                                                text = "Kids Mode",
+                                                text = "Kids Mode · ${KidsMaturity.fromDb(profile.kidsMaturity).label}",
                                                 color = if (isChosen || itemFocused) Color.Black.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primary,
                                                 fontSize = 11.sp,
-                                                fontWeight = FontWeight.SemiBold
+                                                fontWeight = FontWeight.SemiBold,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                         }
                                     }
-                                }
-                                if (isChosen) {
-                                    Icon(
-                                        Icons.Rounded.Check,
-                                        contentDescription = "Active",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
+                                    }
+                                    if (profile.isKids) {
+                                        TextButton(onClick = { kidsLevelProfileId = profile.id }) {
+                                            Text("Level", color = if (itemFocused) Color.Black else Color.White, fontSize = 12.sp)
+                                        }
+                                    }
+                                    if (isChosen) {
+                                        Icon(
+                                            Icons.Rounded.Check,
+                                            contentDescription = "Active",
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                             }
                         }
                     }
@@ -880,6 +1117,9 @@ fun SettingsScreen(
         val createName = createProfileNameDraft
         var createIsKids by remember { mutableStateOf(false) }
         var selectedColorHex by remember { mutableStateOf(0xFFE50914) }
+        var createPin by remember { mutableStateOf("") }
+        var createPinConfirm by remember { mutableStateOf("") }
+        var createPinError by remember { mutableStateOf<String?>(null) }
 
         val avatarColors = listOf(0xFFE50914, 0xFF0063E5, 0xFF1CE783, 0xFF9C27B0, 0xFFFF9800, 0xFF00BCD4)
 
@@ -890,7 +1130,10 @@ fun SettingsScreen(
             textContentColor = MaterialTheme.colorScheme.onSurface,
             title = { Text("Create New Profile") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
                     OutlinedTextField(
                         value = createName,
                         onValueChange = { createProfileNameDraft = it },
@@ -938,6 +1181,20 @@ fun SettingsScreen(
                             onCheckedChange = { createIsKids = it }
                         )
                     }
+
+                    if (createIsKids && pinStateKnown && !pinConfigured) {
+                        Text("Set a parent PIN", fontWeight = FontWeight.Bold)
+                        Text(
+                            "A new Kids profile is locked from the first tap: this PIN is needed to leave it.",
+                            fontSize = 12.sp,
+                            color = Color.Gray
+                        )
+                        PinField("4-digit PIN", createPin) { createPin = it; createPinError = null }
+                        PinField("Confirm PIN", createPinConfirm) { createPinConfirm = it; createPinError = null }
+                        createPinError?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
+                    }
                 }
             },
             confirmButton = {
@@ -945,11 +1202,29 @@ fun SettingsScreen(
                     onClick = {
                         val input = createName.trim()
                         if (input.isNotBlank()) {
-                            viewModel.createProfile(input, selectedColorHex, createIsKids)
-                            createProfileNameDraft = ""
-                            showCreateProfileDialog = false
-                            returnFocus()
-                            android.widget.Toast.makeText(context, "Profile '$input' created", android.widget.Toast.LENGTH_SHORT).show()
+                            val pinProblem = if (createIsKids && pinStateKnown && !pinConfigured) {
+                                when {
+                                    createPin.length != 4 -> "The PIN must be 4 digits."
+                                    createPin != createPinConfirm -> "The PINs don't match."
+                                    else -> null
+                                }
+                            } else null
+                            createPinError = pinProblem
+                            if (pinProblem == null) {
+                                if (createIsKids && pinStateKnown && !pinConfigured) {
+                                    viewModel.setParentPin(createPin)
+                                }
+                                viewModel.createProfile(input, selectedColorHex, createIsKids) { created ->
+                                    if (created) {
+                                        createProfileNameDraft = ""
+                                        showCreateProfileDialog = false
+                                        returnFocus()
+                                        android.widget.Toast.makeText(context, "Profile '$input' created", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        createPinError = "Unlock profile management with the parent PIN first."
+                                    }
+                                }
+                            }
                         }
                     }
                 ) { Text("Create") }

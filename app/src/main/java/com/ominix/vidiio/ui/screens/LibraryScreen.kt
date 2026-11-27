@@ -58,6 +58,8 @@ fun LibraryScreen(
     onOpen: (VidiioRoute) -> Unit,
     /** Name of the active profile, shown as a chip so it is clear whose list this is. */
     profileName: String? = null,
+    /** Live TV has no age ratings, so a kids profile does not get the entry at all. */
+    isKidsProfile: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var shown by remember { mutableStateOf(false) }
@@ -113,12 +115,14 @@ fun LibraryScreen(
         }
 
         SectionLabel("Watch", shown, 0)
-        LibraryEntry(shown, 1, Icons.Rounded.LiveTv, "Live TV", "Live channels and sports") { onOpen(VidiioRoute.LiveTv) }
-        LibraryEntry(shown, 2, Icons.Rounded.Favorite, "My List", "Titles you saved") { onOpen(VidiioRoute.Favorites) }
-        LibraryEntry(shown, 3, Icons.Rounded.Download, "Downloads", "Available offline") { onOpen(VidiioRoute.Downloads) }
+        if (!isKidsProfile) {
+            LibraryEntry(shown, 1, Icons.Rounded.LiveTv, "Live TV", "Live channels and sports") { onOpen(VidiioRoute.LiveTv) }
+        }
+        LibraryEntry(shown, if (isKidsProfile) 1 else 2, Icons.Rounded.Favorite, "My List", "Titles you saved") { onOpen(VidiioRoute.Favorites) }
+        LibraryEntry(shown, if (isKidsProfile) 2 else 3, Icons.Rounded.Download, "Downloads", "Available offline") { onOpen(VidiioRoute.Downloads) }
 
-        SectionLabel("App", shown, 4)
-        LibraryEntry(shown, 5, Icons.Rounded.Settings, "Settings", "Playback, subtitles, sources and more") { onOpen(VidiioRoute.Settings) }
+        SectionLabel("App", shown, if (isKidsProfile) 3 else 4)
+        LibraryEntry(shown, if (isKidsProfile) 4 else 5, Icons.Rounded.Settings, "Settings", "Playback, subtitles, sources and more") { onOpen(VidiioRoute.Settings) }
     }
 }
 

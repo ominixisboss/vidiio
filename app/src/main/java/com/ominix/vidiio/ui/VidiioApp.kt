@@ -82,12 +82,14 @@ fun VidiioApp() {
 
     // Whose list is this? Profiles live in Settings, but the answer should be visible while browsing.
     val profiles by application.profileRepository.allProfiles
-        .collectAsState(initial = emptyList<com.ominix.vidiio.data.model.UserProfile>())
+        .collectAsState(initial = null)
     val activeProfileId by settingsRepository.activeProfileIdFlow.collectAsState(initial = "default")
-    val activeProfileName = profiles.firstOrNull { it.id == activeProfileId }?.name
+    val activeProfile = profiles?.firstOrNull { it.id == activeProfileId }
+    val activeProfileName = activeProfile?.name
     // Anime (AniList), Live TV and the TV Guide carry no TMDB age rating, so kids profiles do not
-    // get their navigation entries or routes.
-    val activeIsKids = profiles.firstOrNull { it.id == activeProfileId }?.isKids == true
+    // get their navigation entries or routes. Until the profile is known the restricted answer is
+    // assumed, so the restricted destinations never flash for a kids profile at launch.
+    val activeIsKids = activeProfile?.isKids ?: true
 
     val homeStyle by settingsRepository.homeStyleFlow
         .collectAsState(initial = com.ominix.vidiio.data.repository.HomeStyle.VIDIIO)
@@ -154,6 +156,7 @@ fun VidiioApp() {
                         else -> navigator.navigate(VidiioRoute.TvGuide)
                     }
                 },
+                showGuideTab = !activeIsKids,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -213,6 +216,7 @@ fun VidiioApp() {
                         else -> navigator.navigate(VidiioRoute.TvGuide)
                     }
                 },
+                showGuideTab = !activeIsKids,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -220,6 +224,7 @@ fun VidiioApp() {
             LibraryScreen(
                 onOpen = { route -> navigator.navigate(route) },
                 profileName = activeProfileName,
+                isKidsProfile = activeIsKids,
                 modifier = Modifier.fillMaxSize()
             )
         }

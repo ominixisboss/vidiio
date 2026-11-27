@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import android.util.Log
 import kotlinx.coroutines.CancellationException
+import java.security.MessageDigest
 
 import kotlinx.coroutines.flow.flowOf
 
@@ -121,6 +122,8 @@ class SettingsRepository(private val context: Context) {
         val METADATA_ADDONS = stringSetPreferencesKey("metadata_addons")
         val PREFERRED_AUDIO_LANGUAGE = stringPreferencesKey("preferred_audio_language")
         val ACTIVE_PROFILE_ID = stringPreferencesKey("active_profile_id")
+        /** SHA-256 of the parent PIN; the PIN itself is never stored. */
+        val PARENT_PIN_HASH = stringPreferencesKey("parent_pin_hash")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -265,6 +268,26 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.ACTIVE_PROFILE_ID] = id
         }
+    }
+
+    /** Null when no parent PIN has been set, so profile management stays open. */
+    val parentPinHashFlow: Flow<String?> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.PARENT_PIN_HASH]
+    }
+
+    suspend fun setParentPin(pin: String?) {
+        context.dataStore.edit { preferences ->
+            if (pin == null) {
+                preferences.remove(PreferencesKeys.PARENT_PIN_HASH)
+            } else {
+                preferences[PreferencesKeys.PARENT_PIN_HASH] = hashParentPin(pin)
+            }
+        }
+    }
+
+    suspend fun verifyParentPin(pin: String): Boolean {
+        val stored = context.dataStore.data.first()[PreferencesKeys.PARENT_PIN_HASH] ?: return false
+        return stored.equals(hashParentPin(pin), ignoreCase = true)
     }
 
     val metadataAddonsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
@@ -518,6 +541,12 @@ class SettingsRepository(private val context: Context) {
 }
 
 private const val TAG = "SettingsRepository"
+
+/** Salted so the stored value is not a plain hash of a four-digit number. */
+internal fun hashParentPin(pin: String): String =
+    MessageDigest.getInstance("SHA-256")
+        .digest("vidiio-parent-pin:$pin".toByteArray(Charsets.UTF_8))
+        .joinToString("") { byte -> (byte.toInt() and 0xff).toString(16).padStart(2, '0') }
 
 /** A playlist (M3U) or single stream the viewer added to Live TV. */
 data class LiveLink(val name: String, val url: String)

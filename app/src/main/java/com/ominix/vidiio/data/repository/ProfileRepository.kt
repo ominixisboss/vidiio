@@ -1,6 +1,7 @@
 package com.ominix.vidiio.data.repository
 
 import com.ominix.vidiio.data.db.UserProfileDao
+import com.ominix.vidiio.data.model.KidsMaturity
 import com.ominix.vidiio.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -22,6 +23,13 @@ class ProfileRepository(
         isDefault = true
     )
 
+    /**
+     * When a correct parent PIN was last entered, so one prompt covers switching, creating and
+     * editing without asking again for every tap. Expires, so a PIN entry cannot be reused later.
+     */
+    @Volatile
+    private var unlockedAt = 0L
+
     val allProfiles: Flow<List<UserProfile>> = userProfileDao.getAllProfiles()
         .onStart {
             if (userProfileDao.getProfileById(defaultProfile.id) == null) {
@@ -41,33 +49,70 @@ class ProfileRepository(
         return defaultProfile
     }
 
-    suspend fun switchProfile(id: String) {
-        settingsRepository.setActiveProfileId(id)
+    suspend fun hasParentPin(): Boolean = settingsRepository.parentPinHashFlow.first() != null
+
+    /**
+     * True when profiles may be managed from the active Kids profile: no PIN is configured, or
+     * the PIN was entered within the last few minutes. Adult profiles never need the PIN.
+     */
+    private suspend fun canManageProfiles(): Boolean {
+        if (!getActiveProfile().isKids) return true
+        if (!hasParentPin()) return true
+        return System.currentTimeMillis() - unlockedAt in 0 until UNLOCK_WINDOW_MS
     }
 
-    suspend fun createProfile(name: String, avatarColorHex: Long, isKids: Boolean): UserProfile {
+    /** Checks a parent PIN and, when correct, opens profile management for a short while. */
+    suspend fun unlockProfileManagement(pin: String): Boolean {
+        if (!getActiveProfile().isKids || !hasParentPin()) return true
+        val valid = settingsRepository.verifyParentPin(pin)
+        if (valid) unlockedAt = System.currentTimeMillis()
+        return valid
+    }
+
+    /** Switching out of a locked Kids profile needs [unlockProfileManagement] first. */
+    suspend fun switchProfile(id: String): Boolean {
+        if (!canManageProfiles()) return false
+        settingsRepository.setActiveProfileId(id)
+        return true
+    }
+
+    /** Null when profile management is locked; the profile is not created in that case. */
+    suspend fun createProfile(name: String, avatarColorHex: Long, isKids: Boolean): UserProfile? {
+        if (!canManageProfiles()) return null
         val newProfile = UserProfile(
             id = UUID.randomUUID().toString(),
             name = name.trim().ifEmpty { "Profile" },
             avatarColorHex = avatarColorHex,
             avatarIconName = if (isKids) "face_kids" else "face_1",
             isKids = isKids,
-            isDefault = false
+            isDefault = false,
+            kidsMaturity = KidsMaturity.OLDER.dbValue
         )
         userProfileDao.insertProfile(newProfile)
-        switchProfile(newProfile.id)
+        // Already authorized above; calling switchProfile again would only re-check the gate.
+        settingsRepository.setActiveProfileId(newProfile.id)
         return newProfile
     }
 
-    suspend fun updateProfile(profile: UserProfile) {
+    /** Changing a profile (including a Kids level) also needs the gate when Kids is active. */
+    suspend fun updateProfile(profile: UserProfile): Boolean {
+        if (!canManageProfiles()) return false
         userProfileDao.updateProfile(profile)
+        return true
     }
 
-    suspend fun deleteProfile(id: String) {
+    suspend fun deleteProfile(id: String): Boolean {
+        if (!canManageProfiles()) return false
         val active = activeProfileId.first()
         userProfileDao.deleteProfile(id)
         if (active == id) {
-            switchProfile("default")
+            settingsRepository.setActiveProfileId("default")
         }
+        return true
+    }
+
+    private companion object {
+        /** Long enough to change a setting after unlocking, short enough not to outlive the parent. */
+        const val UNLOCK_WINDOW_MS = 5 * 60 * 1000L
     }
 }

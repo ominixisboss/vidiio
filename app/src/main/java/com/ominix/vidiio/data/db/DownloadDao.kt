@@ -7,8 +7,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DownloadDao {
-    @Query("SELECT * FROM download_tasks ORDER BY createdAt DESC")
-    fun getAllDownloads(): Flow<List<DownloadTask>>
+    @Query("SELECT * FROM download_tasks WHERE profileId = :profileId ORDER BY createdAt DESC")
+    fun getAllDownloads(profileId: String): Flow<List<DownloadTask>>
 
     @Query("SELECT * FROM download_tasks WHERE id = :id")
     suspend fun getDownloadById(id: Long): DownloadTask?

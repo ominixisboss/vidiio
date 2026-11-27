@@ -79,8 +79,12 @@ class VidiioApplication : Application() {
     val favoriteRepository: FavoriteRepository by lazy {
         FavoriteRepository(database.favoriteDao(), settingsRepository)
     }
-    val downloadRepository: DownloadRepository by lazy { DownloadRepository(database.downloadDao()) }
-    val downloadManager: DownloadManager by lazy { DownloadManager(this, downloadRepository) }
+    val downloadRepository: DownloadRepository by lazy {
+        DownloadRepository(database.downloadDao(), settingsRepository)
+    }
+    val downloadManager: DownloadManager by lazy {
+        DownloadManager(this, downloadRepository, settingsRepository)
+    }
     val watchProgressRepository: WatchProgressRepository by lazy {
         WatchProgressRepository(database.watchProgressDao(), settingsRepository)
     }
@@ -389,7 +393,8 @@ class VidiioApplication : Application() {
             sourceVerifier,
             traktService,
             simklService,
-            profileRepository
+            profileRepository,
+            database.kidsRatingDao()
         )
     }
 
@@ -401,7 +406,8 @@ class VidiioApplication : Application() {
 
         // Warm the lists Home, Movies and TV open with while the splash plays, so they appear at once.
         applicationScope.launch {
-            val kids = runCatching { profileRepository.getActiveProfile().isKids }.getOrDefault(false)
+            // If the profile cannot be read, skip the adult warm-up rather than prefetching adult shelves.
+            val kids = runCatching { profileRepository.getActiveProfile().isKids }.getOrDefault(true)
             runCatching { movieRepository.getHomeCategories() }
             // A kids profile's shelves are each filtered through TMDB's age ratings, so warming every
             // one of them on the splash would fire hundreds of lookups before the user asks for them.

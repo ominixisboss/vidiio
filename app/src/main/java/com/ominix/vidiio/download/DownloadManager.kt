@@ -6,17 +6,20 @@ import com.ominix.vidiio.data.model.DownloadStatus
 import com.ominix.vidiio.data.model.DownloadTask
 import com.ominix.vidiio.data.model.DownloadType
 import com.ominix.vidiio.data.repository.DownloadRepository
+import com.ominix.vidiio.data.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
 import kotlinx.coroutines.CancellationException
 
 class DownloadManager(
     private val context: Context,
-    private val repository: DownloadRepository
+    private val repository: DownloadRepository,
+    private val settingsRepository: SettingsRepository? = null,
 ) {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -36,6 +39,7 @@ class DownloadManager(
             else -> DownloadType.HTTP
         }
         scope.launch {
+            val profileId = settingsRepository?.activeProfileIdFlow?.first() ?: "default"
             val task = DownloadTask(
                 title = title,
                 url = url,
@@ -43,7 +47,8 @@ class DownloadManager(
                 status = DownloadStatus.QUEUED,
                 headersJson = headers?.takeIf { it.isNotEmpty() }?.let { org.json.JSONObject(it).toString() },
                 torrentFileIndex = torrentFileIndex,
-                torrentFileName = torrentFileName
+                torrentFileName = torrentFileName,
+                profileId = profileId
             )
             repository.insertDownload(task)
             startService()

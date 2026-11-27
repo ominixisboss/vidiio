@@ -21,7 +21,8 @@ import kotlinx.coroutines.CancellationException
 sealed interface SearchUiState {
     data object Idle : SearchUiState
     data object Loading : SearchUiState
-    data class Success(val results: List<Movie>) : SearchUiState
+    /** [unchecked] titles were hidden because their age rating could not be looked up. */
+    data class Success(val results: List<Movie>, val unchecked: Int = 0) : SearchUiState
     data class Error(val message: String) : SearchUiState
 }
 
@@ -67,8 +68,8 @@ class SearchViewModel(
             _uiState.value = SearchUiState.Loading
             try {
                 // searchOrThrow, not search: a failed request must not look like "no results".
-                val results = movieRepository.searchOrThrow(currentQuery)
-                _uiState.value = SearchUiState.Success(results)
+                val outcome = movieRepository.searchOrThrow(currentQuery)
+                _uiState.value = SearchUiState.Success(outcome.movies, outcome.unchecked)
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 Log.w(TAG, "SearchViewModel.search() failed", e)

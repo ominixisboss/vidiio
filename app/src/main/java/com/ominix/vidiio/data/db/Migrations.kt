@@ -100,6 +100,68 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
 }
 
 /**
+ * Kids profiles get a maturity ceiling, downloads become profile-owned, and age-rating
+ * answers get a cache table so a cold start does not re-ask TMDB about every title.
+ *
+ * The new columns are NOT NULL, so both tables are rebuilt rather than added with a
+ * default: Room then validates against exactly the schema the entities declare. Downloads were
+ * global before this version, so they stay with the default profile instead of appearing in
+ * every Kids profile; every old kids profile keeps the standard PG/TV-PG ceiling (1).
+ */
+private val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `user_profiles_new` (
+                `id` TEXT NOT NULL,
+                `name` TEXT NOT NULL,
+                `avatarColorHex` INTEGER NOT NULL,
+                `avatarIconName` TEXT NOT NULL,
+                `isKids` INTEGER NOT NULL,
+                `isDefault` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `kidsMaturity` INTEGER NOT NULL,
+                PRIMARY KEY(`id`)
+            )
+        """.trimIndent())
+        db.execSQL("INSERT INTO `user_profiles_new` SELECT `id`, `name`, `avatarColorHex`, `avatarIconName`, `isKids`, `isDefault`, `createdAt`, 1 FROM `user_profiles`")
+        db.execSQL("DROP TABLE `user_profiles`")
+        db.execSQL("ALTER TABLE `user_profiles_new` RENAME TO `user_profiles`")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `download_tasks_new` (
+                `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `title` TEXT NOT NULL,
+                `url` TEXT NOT NULL,
+                `type` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `progress` REAL NOT NULL,
+                `filePath` TEXT,
+                `totalSize` INTEGER NOT NULL,
+                `downloadedSize` INTEGER NOT NULL,
+                `createdAt` INTEGER NOT NULL,
+                `errorMessage` TEXT,
+                `headersJson` TEXT,
+                `torrentFileIndex` INTEGER,
+                `torrentFileName` TEXT,
+                `profileId` TEXT NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("INSERT INTO `download_tasks_new` (`id`, `title`, `url`, `type`, `status`, `progress`, `filePath`, `totalSize`, `downloadedSize`, `createdAt`, `errorMessage`, `headersJson`, `torrentFileIndex`, `torrentFileName`, `profileId`) SELECT `id`, `title`, `url`, `type`, `status`, `progress`, `filePath`, `totalSize`, `downloadedSize`, `createdAt`, `errorMessage`, `headersJson`, `torrentFileIndex`, `torrentFileName`, 'default' FROM `download_tasks`")
+        db.execSQL("DROP TABLE `download_tasks`")
+        db.execSQL("ALTER TABLE `download_tasks_new` RENAME TO `download_tasks`")
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `kids_rating_verdicts` (
+                `key` TEXT NOT NULL,
+                `allowed` INTEGER NOT NULL,
+                `checkedAt` INTEGER NOT NULL,
+                PRIMARY KEY(`key`)
+            )
+        """.trimIndent())
+    }
+}
+
+/**
  * Versions whose upgrade path is allowed to drop and recreate the database.
  *
  * Only the pre-schema-export versions belong here. Never extend this list to dodge
@@ -108,4 +170,4 @@ private val MIGRATION_6_7 = object : Migration(6, 7) {
 internal val LEGACY_DESTRUCTIVE_VERSIONS = intArrayOf(1, 2, 3, 4)
 
 /** All migrations, in order. */
-internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_5_6, MIGRATION_6_7)
+internal val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)

@@ -34,6 +34,8 @@ class VidiioDatabaseMigrationTest {
         helper.createDatabase(TEST_DB, PREVIOUS_VERSION).apply {
             execSQL("INSERT INTO `favorite_movies` (`id`, `title`, `posterUrl`, `synopsis`, `year`, `rating`, `type`, `source`, `profileId`, `addedAt`) VALUES ('tt1', 'Title', 'poster', NULL, 2020, 7.5, 'MOVIE', 'tmdb', 'default', 1)")
             execSQL("INSERT INTO `watch_progress` (`id`, `title`, `posterUrl`, `backdropUrl`, `synopsis`, `year`, `rating`, `type`, `source`, `imdbId`, `episodeId`, `episodeLabel`, `positionMs`, `durationMs`, `profileId`, `updatedAt`) VALUES ('tt1', 'Title', 'poster', NULL, NULL, 2020, 7.5, 'MOVIE', 'tmdb', NULL, NULL, NULL, 60000, 120000, 'default', 1)")
+            execSQL("INSERT INTO `download_tasks` (`id`, `title`, `url`, `type`, `status`, `progress`, `totalSize`, `downloadedSize`, `createdAt`) VALUES (1, 'Downloaded', 'https://example.com/a.mp4', 'HTTP', 'COMPLETED', 1.0, 10, 10, 1)")
+            execSQL("INSERT INTO `user_profiles` (`id`, `name`, `avatarColorHex`, `avatarIconName`, `isKids`, `isDefault`, `createdAt`) VALUES ('kids', 'Kids', 1, 'face_kids', 1, 0, 1)")
             close()
         }
 
@@ -51,12 +53,20 @@ class VidiioDatabaseMigrationTest {
             it.moveToFirst()
             assertEquals(1, it.getInt(0))
         }
+        db.query("SELECT `profileId` FROM `download_tasks` WHERE `id` = 1").use {
+            it.moveToFirst()
+            assertEquals("default", it.getString(0))
+        }
+        db.query("SELECT `kidsMaturity` FROM `user_profiles` WHERE `id` = 'kids'").use {
+            it.moveToFirst()
+            assertEquals(1, it.getInt(0))
+        }
         db.close()
     }
 
     private companion object {
         const val TEST_DB = "migration-test"
-        const val PREVIOUS_VERSION = 6
-        const val CURRENT_VERSION = 7
+        const val PREVIOUS_VERSION = 7
+        const val CURRENT_VERSION = 8
     }
 }

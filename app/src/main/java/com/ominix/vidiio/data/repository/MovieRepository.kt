@@ -1,7 +1,10 @@
 package com.ominix.vidiio.data.repository
 
 import com.ominix.vidiio.data.api.TMDBService
+import com.ominix.vidiio.data.db.KidsRatingDao
 import com.ominix.vidiio.data.model.Category
+import com.ominix.vidiio.data.model.KidsMaturity
+import com.ominix.vidiio.data.model.KidsRatingVerdict
 import com.ominix.vidiio.data.model.TOP10_LABEL
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.MovieType
@@ -19,6 +22,7 @@ import com.ominix.vidiio.data.stremio.toStreamSource
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -38,7 +42,8 @@ class MovieRepository(
     private val sourceVerifier: SourceVerifier,
     private val traktService: com.ominix.vidiio.data.api.TraktService? = null,
     private val simklService: com.ominix.vidiio.data.api.SimklService? = null,
-    private val profileRepository: ProfileRepository? = null
+    private val profileRepository: ProfileRepository? = null,
+    private val kidsRatingDao: KidsRatingDao? = null,
 ) {
 
     /** Probes one scraped source for whether it is actually playable. See [SourceVerifier]. */
@@ -83,73 +88,123 @@ class MovieRepository(
 
     fun invalidateCache() = listCache.clear()
 
-    /** US ratings already looked up, so a title seen on several shelves costs one request. */
+    /** Verdicts already looked up, so a title seen on several shelves costs one request. */
     private val kidsRatingCache = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
 
     /** Caps concurrent certification lookups: one Kids page opens a dozen shelves at once. */
     private val kidsLookupLimiter = Semaphore(6)
 
-    private suspend fun isKidsMode(): Boolean = try {
-        profileRepository?.getActiveProfile()?.isKids == true
-    } catch (e: Exception) {
-        if (e is CancellationException) throw e
-        false
-    }
+    private enum class KidsVerdict { ALLOWED, BLOCKED, UNCHECKED }
+
+    /** One search's allowed results, plus how many could not be checked because TMDB failed. */
+    data class SearchResult(val movies: List<Movie>, val unchecked: Int = 0)
 
     /**
-     * True when TMDB's US age rating puts [movie] at PG or below. Unrated titles, and titles from
-     * sources that carry no US rating at all, are excluded: a kids profile fails closed.
+     * The ceiling for the active profile, or null for an adult profile.
+     *
+     * If the profile cannot be read the answer is the stricter kids tier, never "adult": a
+     * database hiccup must not switch every filter off.
      */
-    private suspend fun isKidSafe(movie: Movie): Boolean {
-        val tmdbId = movie.id.toIntOrNull() ?: return false
-        if (movie.source != "tmdb") return false
-        val key = "${movie.type}-$tmdbId"
-        kidsRatingCache[key]?.let { return it }
-        val safe = try {
-            kidsLookupLimiter.withPermit {
-                when (movie.type) {
-                    MovieType.MOVIE -> {
-                        val certs = tmdbService.getMovieReleaseDates(tmdbId).results
-                            .firstOrNull { it.country == "US" }
-                            ?.releaseDates.orEmpty()
-                            .mapNotNull { it.certification?.trim()?.takeIf(String::isNotEmpty) }
-                        certs.isNotEmpty() && certs.all { it == "G" || it == "PG" }
-                    }
-                    MovieType.TV_SHOW -> {
-                        val rating = tmdbService.getTvContentRatings(tmdbId).results
-                            .firstOrNull { it.country == "US" }
-                            ?.rating?.trim()
-                        rating != null && KIDS_TV_RATINGS.any { rating == it || rating.startsWith("$it-") }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            false
-        }
-        kidsRatingCache[key] = safe
-        return safe
+    private suspend fun activeKidsMaturity(): KidsMaturity? = try {
+        val profile = profileRepository?.getActiveProfile()
+        if (profile?.isKids == true) KidsMaturity.fromDb(profile.kidsMaturity) else null
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        Log.w(TAG, "Could not read the active profile; keeping kids restrictions on", e)
+        KidsMaturity.LITTLE
     }
 
     /**
      * Whether the active profile may open [movie]. Adults may open anything; a kids profile only
-     * gets titles that carry a US rating at PG/TV-PG or below.
+     * gets titles whose US rating is within its ceiling. A title whose rating could not be
+     * checked is blocked, and the failure is not remembered.
      */
-    suspend fun isAllowedForActiveProfile(movie: Movie): Boolean =
-        !isKidsMode() || isKidSafe(movie)
+    suspend fun isAllowedForActiveProfile(movie: Movie): Boolean {
+        val maturity = activeKidsMaturity() ?: return true
+        return kidsVerdict(movie, maturity) == KidsVerdict.ALLOWED
+    }
 
-    /** Drops everything the active kids profile must not see. Answer cached per title. */
-    private suspend fun List<Movie>.forActiveProfile(): List<Movie> {
-        if (isEmpty() || !isKidsMode()) return this
+    /** Drops everything the active kids profile must not see. Answer cached per title and level. */
+    private suspend fun List<Movie>.forActiveProfile(): List<Movie> = filterForActiveProfile().movies
+
+    private suspend fun List<Movie>.filterForActiveProfile(): SearchResult {
+        if (isEmpty()) return SearchResult(this)
+        val maturity = activeKidsMaturity() ?: return SearchResult(this)
+        var unchecked = 0
         val allowed = mutableListOf<Movie>()
         for (batch in chunked(10)) {
             val verdicts = coroutineScope {
-                batch.map { movie -> async { movie to isKidSafe(movie) } }.awaitAll()
+                batch.map { movie -> async { movie to kidsVerdict(movie, maturity) } }.awaitAll()
             }
-            allowed += verdicts.filter { it.second }.map { it.first }
+            unchecked += verdicts.count { it.second == KidsVerdict.UNCHECKED }
+            allowed += verdicts.filter { it.second == KidsVerdict.ALLOWED }.map { it.first }
         }
-        return allowed
+        return SearchResult(allowed, unchecked)
     }
+
+    private suspend fun kidsVerdict(movie: Movie, maturity: KidsMaturity): KidsVerdict {
+        // Anything not from TMDB carries no age rating this app can verify.
+        if (movie.source != "tmdb") return KidsVerdict.BLOCKED
+        val tmdbId = movie.id.toIntOrNull() ?: return KidsVerdict.BLOCKED
+        val key = "${maturity.name}-${movie.type}-$tmdbId"
+
+        kidsRatingCache[key]?.let { cached ->
+            return if (cached) KidsVerdict.ALLOWED else KidsVerdict.BLOCKED
+        }
+
+        val dao = kidsRatingDao
+        if (dao != null) {
+            val stored = runCatching { dao.get(key) }.getOrNull()
+            if (stored != null && System.currentTimeMillis() - stored.checkedAt < KIDS_RATING_TTL_MS) {
+                kidsRatingCache[key] = stored.allowed
+                return if (stored.allowed) KidsVerdict.ALLOWED else KidsVerdict.BLOCKED
+            }
+        }
+
+        val allowed = lookupKidSafe(tmdbId, movie.type, maturity) ?: return KidsVerdict.UNCHECKED
+        kidsRatingCache[key] = allowed
+        if (dao != null) {
+            runCatching {
+                dao.put(KidsRatingVerdict(key, allowed, System.currentTimeMillis()))
+                dao.pruneBefore(System.currentTimeMillis() - KIDS_RATING_TTL_MS)
+            }
+        }
+        return if (allowed) KidsVerdict.ALLOWED else KidsVerdict.BLOCKED
+    }
+
+    /** One retry, because a dropped connection is not the same as an unrated title. */
+    private suspend fun lookupKidSafe(tmdbId: Int, type: MovieType, maturity: KidsMaturity): Boolean? {
+        repeat(2) { attempt ->
+            try {
+                return kidsLookupLimiter.withPermit { computeKidSafe(tmdbId, type, maturity) }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (attempt == 1) {
+                    Log.w(TAG, "Kids rating lookup failed for $type/$tmdbId", e)
+                    return null
+                }
+                delay(250)
+            }
+        }
+        return null
+    }
+
+    private suspend fun computeKidSafe(tmdbId: Int, type: MovieType, maturity: KidsMaturity): Boolean =
+        when (type) {
+            MovieType.MOVIE -> {
+                val releases = tmdbService.getMovieReleaseDates(tmdbId).results
+                    .firstOrNull { it.country == "US" }
+                    ?.releaseDates.orEmpty()
+                    .map { UsRelease(type = it.type, certification = it.certification) }
+                isMovieCertificationAllowed(representativeMovieCertification(releases), maturity)
+            }
+            MovieType.TV_SHOW -> {
+                val rating = tmdbService.getTvContentRatings(tmdbId).results
+                    .firstOrNull { it.country == "US" }
+                    ?.rating
+                isTvRatingAllowed(rating, maturity)
+            }
+        }
 
     @Suppress("UNCHECKED_CAST")
     private suspend fun <T : Any> cached(key: String, load: suspend () -> T): T {
@@ -159,9 +214,9 @@ class MovieRepository(
     }
 
     suspend fun getHomeCategories(): List<Category> {
-        val kids = isKidsMode()
-        return cached(if (kids) "home-kids" else "home") {
-            if (kids) loadKidsHomeCategories() else loadHomeCategories()
+        val maturity = activeKidsMaturity()
+        return cached(if (maturity != null) "home-kids-${maturity.name}" else "home") {
+            if (maturity != null) loadKidsHomeCategories(maturity) else loadHomeCategories()
         }
     }
 
@@ -169,45 +224,60 @@ class MovieRepository(
      * Kids Home only carries certified titles: films from TMDB discover with a US certification at
      * PG or below, and TV shows whose US content rating is TV-PG or gentler.
      */
-    private suspend fun loadKidsHomeCategories(): List<Category> = coroutineScope {
-        try {
-            fun movieRow(genres: String? = null) = async {
-                runCatching {
-                    tmdbService.discoverMoviesFiltered(
-                        withGenres = genres,
-                        certificationCountry = "US",
-                        certificationLte = "PG",
-                        includeAdult = false
-                    ).results.map { it.toMovie(MovieType.MOVIE) }.filter { it.posterUrl.isNotBlank() }
-                }.getOrDefault(emptyList())
+    private suspend fun loadKidsHomeCategories(maturity: KidsMaturity): List<Category> = coroutineScope {
+        fun movieRow(genres: String?, sort: String = "popularity.desc", minVotes: Int = 100) = async {
+            runCatching {
+                tmdbService.discoverMoviesFiltered(
+                    withGenres = genres,
+                    certificationCountry = "US",
+                    certificationLte = maturity.movieMax,
+                    includeAdult = false,
+                    sortBy = sort,
+                    voteCountGte = minVotes
+                ).results.map { it.toMovie(MovieType.MOVIE) }.filter { it.posterUrl.isNotBlank() }
             }
+        }
 
-            fun tvRow(genres: String) = async {
+        fun tvRow(genres: String, minVotes: Int = 20) = async {
+            runCatching {
+                tmdbService.discoverTvFiltered(withGenres = genres, voteCountGte = minVotes)
+                    .results.map { it.toMovie(MovieType.TV_SHOW) }
+                    .filter { it.posterUrl.isNotBlank() }
+                    .forActiveProfile()
+            }
+        }
+
+        val rows = listOf(
+            "Family Movies" to movieRow(null),
+            "Animated Movies" to movieRow("16"),
+            "Adventure for Kids" to movieRow("12"),
+            "Top Rated Family Movies" to movieRow(null, sort = "vote_average.desc", minVotes = 500),
+            "Family Comedies" to movieRow("35"),
+            "Kids TV Shows" to tvRow("10762"),
+            "Family TV Shows" to tvRow("10751"),
+            "Kid-Safe Anime" to async {
                 runCatching {
-                    tmdbService.discoverTvFiltered(withGenres = genres, voteCountGte = 20)
-                        .results.map { it.toMovie(MovieType.TV_SHOW) }
+                    tmdbService.discoverTV(
+                        withGenres = "16",
+                        withOriginalLanguage = "ja",
+                        sortBy = "popularity.desc",
+                        voteCountGte = 100
+                    ).results.map { it.toMovie(MovieType.TV_SHOW) }
                         .filter { it.posterUrl.isNotBlank() }
                         .forActiveProfile()
-                }.getOrDefault(emptyList())
-            }
+                }
+            },
+        )
 
-            val familyMovies = movieRow()
-            val animatedMovies = movieRow("16")
-            val familyComedies = movieRow("35")
-            val kidsShows = tvRow("10762")
-            val familyShows = tvRow("10751")
-
-            listOf(
-                Category("Family Movies", familyMovies.await()),
-                Category("Animated Movies", animatedMovies.await()),
-                Category("Kids TV Shows", kidsShows.await()),
-                Category("Family TV Shows", familyShows.await()),
-                Category("Family Comedies", familyComedies.await()),
-            ).filter { it.movies.isNotEmpty() }
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Log.e("MovieRepository", "Error fetching kids home", e)
-            emptyList()
+        val settled = rows.map { (name, answer) -> name to answer.await() }
+        // A Home that is empty because the network failed must be able to say so; only a
+        // successful-but-empty answer means there is genuinely nothing to show.
+        if (settled.all { it.second.isFailure }) {
+            throw settled.first().second.exceptionOrNull()
+                ?: IllegalStateException("Kids home could not be loaded")
+        }
+        settled.mapNotNull { (name, answer) ->
+            answer.getOrNull()?.takeIf { it.isNotEmpty() }?.let { Category(name, it) }
         }
     }
 
@@ -273,8 +343,8 @@ class MovieRepository(
 
     /** Trending titles on one streaming service, for the Movies (movie) or TV (series) page. */
     suspend fun streamingCatalog(kind: BrowseKind, serviceId: String): List<Movie> {
-        val kids = isKidsMode()
-        return cached(if (kids) "kids-svc-$kind-$serviceId" else "svc-$kind-$serviceId") {
+        val maturity = activeKidsMaturity()
+        return cached(if (maturity != null) "kids-${maturity.name}-svc-$kind-$serviceId" else "svc-$kind-$serviceId") {
             val type = if (kind == BrowseKind.MOVIES) "movie" else "series"
             addonManager.streamingCatalog(type, serviceId)
                 // Hand these over as ordinary TMDB titles when the addon names the TMDB id: the Details page then
@@ -292,8 +362,8 @@ class MovieRepository(
 
     /** One shelf on the Movies or TV page. */
     suspend fun browse(kind: BrowseKind, list: BrowseList): List<Movie> {
-        val kids = isKidsMode()
-        return cached(if (kids) "kids-browse-$kind-$list" else "browse-$kind-$list") {
+        val maturity = activeKidsMaturity()
+        return cached(if (maturity != null) "kids-${maturity.name}-browse-$kind-$list" else "browse-$kind-$list") {
             loadBrowse(kind, list, 1).forActiveProfile()
         }
     }
@@ -329,7 +399,7 @@ class MovieRepository(
      * do not outrank classics. Fetched in parallel and not cached here - the caller keeps it.
      */
     suspend fun halloweenTop100(): List<Movie> {
-        if (isKidsMode()) return emptyList()
+        if (activeKidsMaturity() != null) return emptyList()
         return coroutineScope {
             val pages = (1..HALLOWEEN_PAGES).map { page ->
                 async {
@@ -388,7 +458,7 @@ class MovieRepository(
     }.filter { it.posterUrl.isNotBlank() }.forActiveProfile()
 
     /** Bundled anime addons (One Pace) as shelves, for the Anime page. */
-    suspend fun getAnimeAddonCategories(): List<Category> = if (isKidsMode()) emptyList() else runCatching {
+    suspend fun getAnimeAddonCategories(): List<Category> = if (activeKidsMaturity() != null) emptyList() else runCatching {
         addonManager.getAnimeCatalogs().map { (name, metas) ->
             Category(name, metas.map { it.toMovie(forceType = MovieType.TV_SHOW) })
         }.filter { it.movies.isNotEmpty() }
@@ -399,16 +469,18 @@ class MovieRepository(
      * needs to tell "nothing matched" apart from "the request failed", otherwise being offline
      * looks exactly like a query with no results.
      */
-    suspend fun searchOrThrow(query: String): List<Movie> =
-        tmdbService.searchMulti(query).results.map { it.toMovie() }.forActiveProfile()
+    suspend fun searchOrThrow(query: String): SearchResult =
+        tmdbService.searchMulti(query).results.map { it.toMovie() }
+            .filterForActiveProfile()
+            .let { SearchResult(it.movies, it.unchecked) }
 
     /**
      * Titles like [movie], for the details screen's rail. Empty when TMDB has nothing to say, or
      * when the id did not come from TMDB at all (an addon id is not a number).
      */
     suspend fun similar(movie: Movie): List<Movie> = try {
-        val kids = isKidsMode()
-        cached(if (kids) "kids-similar-${movie.type}-${movie.id}" else "similar-${movie.type}-${movie.id}") {
+        val maturity = activeKidsMaturity()
+        cached(if (maturity != null) "kids-${maturity.name}-similar-${movie.type}-${movie.id}" else "similar-${movie.type}-${movie.id}") {
             val tmdbId = movie.id.toIntOrNull()
             if (tmdbId == null) {
                 emptyList()
@@ -432,7 +504,7 @@ class MovieRepository(
     }
 
     suspend fun search(query: String): List<Movie> = try {
-        searchOrThrow(query)
+        searchOrThrow(query).movies
     } catch (e: Exception) {
         if (e is CancellationException) throw e
         Log.e("MovieRepository", "Search error", e)
@@ -800,8 +872,9 @@ class MovieRepository(
 }
 
 private const val TAG = "MovieRepository"
-/** TV content ratings a kids profile may see, from TMDB's US content ratings. */
-private val KIDS_TV_RATINGS = setOf("TV-Y", "TV-Y7", "TV-G", "TV-PG")
+
+/** How long a cached age-rating answer stays valid. */
+private const val KIDS_RATING_TTL_MS = 30L * 24 * 60 * 60 * 1000
 
 /** TMDB keyword id for "halloween", and how many pages of it to read (20 films a page). */
 private const val HALLOWEEN_KEYWORD_ID = 3335

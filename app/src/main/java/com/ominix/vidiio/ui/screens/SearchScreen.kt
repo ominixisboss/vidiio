@@ -215,6 +215,18 @@ fun SearchScreen(
                                 onSelect = { selectedFilter = it },
                                 trailing = "${filteredResults.size}"
                             )
+                            if (state.unchecked > 0) {
+                                Text(
+                                    text = if (state.unchecked == 1) {
+                                        "1 title couldn't be checked and was hidden."
+                                    } else {
+                                        "${state.unchecked} titles couldn't be checked and were hidden."
+                                    },
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 12.sp,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
+                                )
+                            }
                             Spacer(modifier = Modifier.height(8.dp))
                             if (filteredResults.isEmpty()) {
                                 Box(
