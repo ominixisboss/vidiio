@@ -76,7 +76,14 @@ fun TvGuideScreen(
     val dayListState = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = 2)
     var opening by remember { androidx.compose.runtime.mutableStateOf(false) }
     val todayFocus = remember { androidx.compose.ui.focus.FocusRequester() }
+    // Only the first visit puts the remote on the date strip. Coming back from a show's details
+    // page, the page hands focus to the row that opened it; grabbing it here would undo that.
+    var firstVisit by androidx.compose.runtime.saveable.rememberSaveable {
+        androidx.compose.runtime.mutableStateOf(true)
+    }
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (!firstVisit) return@LaunchedEffect
+        firstVisit = false
         kotlinx.coroutines.delay(400)
         runCatching { todayFocus.requestFocus() }
     }
