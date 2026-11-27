@@ -101,12 +101,11 @@ fun SearchScreen(
                                 isSearchFocused = it.isFocused
                                 if (it.isFocused) focusMemory?.record(searchFocus)
                             }
-                            // The TV keyboard consumes the D-pad before onPreviewKeyEvent sees it,
-                            // so Left never reached the rail trigger while the keyboard was up.
-                            // Take Left here, before the keyboard, so the rail is reachable with
-                            // the keyboard showing as well as without it.
+                            // The TV keyboard owns the D-pad while it is up, so Left belongs to
+                            // the on-screen keys. Take only Menu here, before the keyboard sees
+                            // it, so the rail stays reachable while typing.
                             .onPreInterceptKeyBeforeSoftKeyboard { event ->
-                                if (!isTv || openRail == null || event.key != Key.DirectionLeft) {
+                                if (!isTv || openRail == null || event.key != Key.Menu) {
                                     return@onPreInterceptKeyBeforeSoftKeyboard false
                                 }
                                 if (event.type == KeyEventType.KeyDown) {
@@ -122,8 +121,9 @@ fun SearchScreen(
                                 if (!isTv || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                                 when {
                                     // The field takes Left for the cursor, so a remote without a Menu
-                                    // key had no way into the menu from here. While the keyboard is
-                                    // up the IME owns the keys, so this only sees Left once it is down.
+                                    // key gets into the menu with Left once the keyboard is down. While
+                                    // the keyboard is up the IME owns the D-pad, and Menu (taken above)
+                                    // is the way in.
                                     event.key == Key.DirectionLeft && openRail != null -> {
                                         keyboard?.hide()
                                         openRail()
