@@ -190,6 +190,26 @@ fun rememberDialogReturnFocus(): () -> Unit {
 }
 
 /**
+ * Hands the page controls behind a dialog to the focus memory when Menu closes it for the rail.
+ *
+ * A dialog opened from another dialog closes its parent, so the row it was opened from is gone
+ * with it - and that was the page control last focused. The opener stack still holds the row
+ * that opened the outer dialog; [TvFocusMemory.restore] tries it after the dead one, so leaving
+ * the rail lands where the viewer was instead of on the page's first control.
+ */
+@Composable
+fun rememberDialogMenuHandoff(): () -> Unit {
+    val opener = LocalTvDialogOpener.current
+    val focusMemory = LocalTvFocusMemory.current
+    return remember(opener, focusMemory) {
+        {
+            val candidates = opener?.take().orEmpty()
+            if (candidates.isNotEmpty()) focusMemory?.recordFallbacks(candidates)
+        }
+    }
+}
+
+/**
  * Remembers the control that opened the page now on top, so the page under it takes the remote back
  * there rather than to its own first control.
  *

@@ -50,6 +50,7 @@ import com.ominix.vidiio.data.repository.SubtitleEdge
 import com.ominix.vidiio.data.repository.SubtitleStyle
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalTvPageFocus
+import com.ominix.vidiio.ui.tv.rememberDialogMenuHandoff
 import com.ominix.vidiio.ui.tv.rememberDialogReturnFocus
 import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.tv.tvDialogMenuToRail
@@ -180,6 +181,9 @@ fun SettingsScreen(
     // Hands focus back to the row a dialog was opened from, or to the page when that row is gone.
     val returnFocus = rememberDialogReturnFocus()
     val focusPage = LocalTvPageFocus.current
+    // A dialog opened from another dialog takes that inner row with it; keep the row behind it so
+    // leaving the side rail does not land on the page's first control.
+    val handOffDialogFocus = rememberDialogMenuHandoff()
 
     // One section open at a time keeps the page short, so the remote never has far to scroll.
     var openSection by rememberSaveable { mutableStateOf<String?>(null) }
@@ -894,7 +898,7 @@ fun SettingsScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                             .tvDialogFocus(opensKeyboard = true)
-                            .tvDialogMenuToRail { showCreateProfileDialog = false }
+                            .tvDialogMenuToRail { handOffDialogFocus(); showCreateProfileDialog = false }
                     )
 
                     Text("Avatar Color", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
@@ -1069,7 +1073,7 @@ fun SettingsScreen(
                     placeholder = { Text("https://anime-kitsu.strem.fun/manifest.json") },
                     modifier = Modifier.fillMaxWidth()
                         .tvDialogFocus(opensKeyboard = true)
-                        .tvDialogMenuToRail { showAddMetadataDialog = false },
+                        .tvDialogMenuToRail { handOffDialogFocus(); showAddMetadataDialog = false },
                     singleLine = true
                 )
             },

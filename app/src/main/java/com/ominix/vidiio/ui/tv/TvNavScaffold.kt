@@ -74,15 +74,35 @@ val LocalTvPageFocus = compositionLocalOf<(() -> Unit)?> { null }
  */
 class TvFocusMemory {
     private var lastFocused: FocusRequester? = null
+    // Page controls to try when the remembered one is gone. A dialog opened from another dialog
+    // leaves a row that disappears with its parent, while the row behind it is still there.
+    private val fallbacks = ArrayDeque<FocusRequester>()
 
     fun record(requester: FocusRequester) {
         lastFocused = requester
+        fallbacks.clear()
     }
 
-    /** True when focus went back to the remembered control, false when that control is gone. */
+    /** Controls to try, most recent first, when [restore]'s remembered control is gone. */
+    fun recordFallbacks(candidates: List<FocusRequester>) {
+        fallbacks.clear()
+        fallbacks.addAll(candidates)
+    }
+
+    /** True when focus went back to a remembered control, false when none of them is there. */
     fun restore(): Boolean {
-        val requester = lastFocused ?: return false
-        return runCatching { requester.requestFocus() }.isSuccess
+        val candidates = buildList {
+            lastFocused?.let { add(it) }
+            addAll(fallbacks)
+        }
+        for (requester in candidates) {
+            if (runCatching { requester.requestFocus() }.getOrDefault(false)) {
+                lastFocused = requester
+                fallbacks.clear()
+                return true
+            }
+        }
+        return false
     }
 }
 
