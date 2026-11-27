@@ -42,6 +42,7 @@ import com.ominix.vidiio.ui.components.MovieItem
 import com.ominix.vidiio.ui.components.PosterGridSkeleton
 import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalIsTv
+import com.ominix.vidiio.ui.tv.LocalTvFocusMemory
 import com.ominix.vidiio.ui.tv.LocalTvRailOpener
 import com.ominix.vidiio.ui.viewmodel.SearchUiState
 import com.ominix.vidiio.ui.viewmodel.SearchViewModel
@@ -66,6 +67,9 @@ fun SearchScreen(
     val firstResultFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val openRail = LocalTvRailOpener.current
+    // With results on screen the page's first control is a filter chip, so leaving the rail needs
+    // to know that the field, not the chip, is where the remote was.
+    val focusMemory = LocalTvFocusMemory.current
     val hasResults = (uiState as? SearchUiState.Success)?.results?.isNotEmpty() == true
     // Opening Search from the bar should put the cursor in the field, not make you tap it first.
     // On a TV the remote stays on the menu, and a query carried in from Home already has results.
@@ -92,7 +96,10 @@ fun SearchScreen(
                             .fillMaxWidth()
                             .padding(end = 16.dp)
                             .focusRequester(searchFocus)
-                            .onFocusChanged { isSearchFocused = it.isFocused }
+                            .onFocusChanged {
+                                isSearchFocused = it.isFocused
+                                if (it.isFocused) focusMemory?.record(searchFocus)
+                            }
                             // A remote has no way past the field: the text field takes Down for
                             // cursor movement, so the results below are unreachable. Down leaves
                             // the field and lands on the first poster instead.
