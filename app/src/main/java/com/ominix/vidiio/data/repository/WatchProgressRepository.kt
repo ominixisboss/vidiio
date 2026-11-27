@@ -5,16 +5,28 @@ import com.ominix.vidiio.data.model.Episode
 import com.ominix.vidiio.data.model.Movie
 import com.ominix.vidiio.data.model.WatchProgress
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 
-class WatchProgressRepository(private val dao: WatchProgressDao) {
+/** Resume points and Continue Watching belong to the profile that watched, not the device. */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+class WatchProgressRepository(
+    private val dao: WatchProgressDao,
+    private val settingsRepository: SettingsRepository
+) {
+    private val profileId = settingsRepository.activeProfileIdFlow.distinctUntilChanged()
 
     /** Recently watched, newest first. Only entries that are actually mid-way through. */
-    val continueWatching: Flow<List<WatchProgress>> = dao.getRecent()
+    val continueWatching: Flow<List<WatchProgress>> =
+        profileId.flatMapLatest { dao.getRecent(it) }
 
     /** Every title with a saved position, for progress bars on posters. */
-    val all: Flow<List<WatchProgress>> = dao.getAll()
+    val all: Flow<List<WatchProgress>> =
+        profileId.flatMapLatest { dao.getAll(it) }
 
-    suspend fun get(id: String): WatchProgress? = dao.get(id)
+    suspend fun get(id: String): WatchProgress? =
+        dao.get(id, settingsRepository.activeProfileIdFlow.first())
 
     /**
      * Record playback position. Near the start (<30s) nothing is stored; near the end
@@ -24,8 +36,9 @@ class WatchProgressRepository(private val dao: WatchProgressDao) {
         if (durationMs <= 0L) return
         val fraction = positionMs.toFloat() / durationMs
         if (positionMs < 30_000L) return
+        val currentProfile = settingsRepository.activeProfileIdFlow.first()
         if (fraction > 0.92f) {
-            dao.delete(movie.id)
+            dao.delete(movie.id, currentProfile)
             return
         }
         dao.upsert(
@@ -44,10 +57,12 @@ class WatchProgressRepository(private val dao: WatchProgressDao) {
                 episodeLabel = episode?.let { "S${it.seasonNumber}:E${it.episodeNumber}" },
                 positionMs = positionMs,
                 durationMs = durationMs,
+                profileId = currentProfile,
                 updatedAt = System.currentTimeMillis()
             )
         )
     }
 
-    suspend fun remove(id: String) = dao.delete(id)
+    suspend fun remove(id: String) =
+        dao.delete(id, settingsRepository.activeProfileIdFlow.first())
 }

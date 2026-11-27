@@ -13,7 +13,7 @@ import com.ominix.vidiio.data.model.WatchProgress
 
 @Database(
     entities = [FavoriteMovie::class, DownloadTask::class, WatchProgress::class, UserProfile::class],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(DownloadConverters::class)

@@ -1,15 +1,15 @@
 package com.ominix.vidiio.data.model
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
 /**
  * One "Continue Watching" entry. Keyed by movie id (one row per title); for TV the row
  * tracks whichever episode was last played.
  */
-@Entity(tableName = "watch_progress")
+// One row per title per profile: each profile keeps its own resume point.
+@Entity(tableName = "watch_progress", primaryKeys = ["id", "profileId"])
 data class WatchProgress(
-    @PrimaryKey val id: String,
+    val id: String,
     val title: String,
     val posterUrl: String,
     val backdropUrl: String? = null,

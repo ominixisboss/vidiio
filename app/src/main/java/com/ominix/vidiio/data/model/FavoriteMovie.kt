@@ -1,11 +1,11 @@
 package com.ominix.vidiio.data.model
 
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
-@Entity(tableName = "favorite_movies")
+// A title can sit in several profiles' lists, so the row is keyed by both.
+@Entity(tableName = "favorite_movies", primaryKeys = ["id", "profileId"])
 data class FavoriteMovie(
-    @PrimaryKey val id: String,
+    val id: String,
     val title: String,
     val posterUrl: String,
     val synopsis: String? = null,

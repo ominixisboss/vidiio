@@ -76,11 +76,13 @@ class VidiioApplication : Application() {
 
     private val database: VidiioDatabase by lazy { VidiioDatabase.build(this) }
 
-    val favoriteRepository: FavoriteRepository by lazy { FavoriteRepository(database.favoriteDao()) }
+    val favoriteRepository: FavoriteRepository by lazy {
+        FavoriteRepository(database.favoriteDao(), settingsRepository)
+    }
     val downloadRepository: DownloadRepository by lazy { DownloadRepository(database.downloadDao()) }
     val downloadManager: DownloadManager by lazy { DownloadManager(this, downloadRepository) }
     val watchProgressRepository: WatchProgressRepository by lazy {
-        WatchProgressRepository(database.watchProgressDao())
+        WatchProgressRepository(database.watchProgressDao(), settingsRepository)
     }
 
     /** Embedded TorrServer engine used for movie/series torrent streaming (PlayTorrio-style). */
