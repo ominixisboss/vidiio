@@ -4,13 +4,30 @@ import com.ominix.vidiio.data.db.UserProfileDao
 import com.ominix.vidiio.data.model.UserProfile
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onStart
 import java.util.UUID
 
 class ProfileRepository(
     private val userProfileDao: UserProfileDao,
     private val settingsRepository: SettingsRepository
 ) {
+    // The profile the app starts on is a row like any other. It used to exist only as a fallback
+    // until a second profile was created, which then hid it and made switching back impossible.
+    private val defaultProfile = UserProfile(
+        id = "default",
+        name = "Main Profile",
+        avatarColorHex = 0xFFE50914,
+        avatarIconName = "face_1",
+        isKids = false,
+        isDefault = true
+    )
+
     val allProfiles: Flow<List<UserProfile>> = userProfileDao.getAllProfiles()
+        .onStart {
+            if (userProfileDao.getProfileById(defaultProfile.id) == null) {
+                userProfileDao.insertProfile(defaultProfile)
+            }
+        }
 
     val activeProfileId: Flow<String> = settingsRepository.activeProfileIdFlow
 
@@ -19,18 +36,9 @@ class ProfileRepository(
         val profile = userProfileDao.getProfileById(currentId)
         if (profile != null) return profile
 
-        // Default profile if not found
-        val main = UserProfile(
-            id = "default",
-            name = "Main Profile",
-            avatarColorHex = 0xFFE50914,
-            avatarIconName = "face_1",
-            isKids = false,
-            isDefault = true
-        )
-        userProfileDao.insertProfile(main)
-        settingsRepository.setActiveProfileId("default")
-        return main
+        userProfileDao.insertProfile(defaultProfile)
+        settingsRepository.setActiveProfileId(defaultProfile.id)
+        return defaultProfile
     }
 
     suspend fun switchProfile(id: String) {
