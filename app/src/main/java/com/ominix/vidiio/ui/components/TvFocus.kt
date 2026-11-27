@@ -49,6 +49,10 @@ import com.ominix.vidiio.ui.tv.LocalTvFocusReturn
  * the item up, which made every card in a row grow, overlap its neighbours and spill outside
  * the list's bounds as focus moved: that, plus the scroll that followed, was the "shaking".
  *
+ * A hold of OK runs [onLongClick]. The Menu key is deliberately left alone: it belongs to the TV
+ * side menu (see [com.ominix.vidiio.ui.tv.TvNavScaffold]), which a card must not be able to
+ * swallow, or the rail could not be reached from a row.
+ *
  * [focusScale] is accepted so existing call sites keep compiling, and is ignored.
  */
 @Suppress("UNUSED_PARAMETER")
@@ -103,15 +107,8 @@ fun Modifier.tvClickable(
         .onPreviewKeyEvent { event ->
             if (!enabled || openMenu == null) return@onPreviewKeyEvent false
             val confirm = event.key == Key.DirectionCenter || event.key == Key.Enter
-            val menuKey = event.key == Key.Menu
-            if (!confirm && !menuKey) return@onPreviewKeyEvent false
+            if (!confirm) return@onPreviewKeyEvent false
             when {
-                // Remotes with a menu button open the sheet without the hold, which is the
-                // reliable path when a remote does not repeat the OK key at all.
-                menuKey -> {
-                    if (event.type == KeyEventType.KeyDown) openMenu()
-                    true
-                }
                 // The first repeat of a held OK is the long press. Consume it and the release
                 // so the same hold cannot also fire the ordinary click.
                 event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount > 0 -> {
