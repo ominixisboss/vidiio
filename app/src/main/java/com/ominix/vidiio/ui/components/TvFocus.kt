@@ -33,6 +33,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.ominix.vidiio.ui.tv.LocalTvDialogOpener
+import com.ominix.vidiio.ui.tv.LocalTvFocusMemory
 import com.ominix.vidiio.ui.tv.LocalTvFocusReturn
 
 /**
@@ -69,6 +70,8 @@ fun Modifier.tvClickable(
     val interaction = remember { MutableInteractionSource() }
     // Recorded when this control is used to open a dialog, so focus can come back to it afterwards.
     val opener = LocalTvDialogOpener.current
+    // Remembered while focused, so leaving the side menu can put the remote back on this control.
+    val focusMemory = LocalTvFocusMemory.current
     // Registered while on screen, so leaving the player can find this card again by its key.
     val focusReturn = LocalTvFocusReturn.current
     val requester = remember { FocusRequester() }
@@ -104,6 +107,7 @@ fun Modifier.tvClickable(
     return this
         .clip(shape)
         .focusRequester(requester)
+        .onFocusChanged { if (it.isFocused) focusMemory?.record(requester) }
         .onPreviewKeyEvent { event ->
             if (!enabled || openMenu == null) return@onPreviewKeyEvent false
             val confirm = event.key == Key.DirectionCenter || event.key == Key.Enter
@@ -184,13 +188,20 @@ private fun DrawScope.drawFocusRing(shape: Shape, alpha: Float) {
 @Composable
 fun Modifier.tvFocusRing(shape: Shape): Modifier {
     var focused by remember { mutableStateOf(false) }
+    // Every ringed control is a focus target of its own, so it can be handed focus back.
+    val requester = remember { FocusRequester() }
+    val focusMemory = LocalTvFocusMemory.current
     val ring by animateFloatAsState(
         targetValue = if (focused) 1f else 0f,
         animationSpec = tween(120),
         label = "tvFocusRing"
     )
     return this
-        .onFocusChanged { focused = it.hasFocus }
+        .focusRequester(requester)
+        .onFocusChanged {
+            focused = it.hasFocus
+            if (it.isFocused) focusMemory?.record(requester)
+        }
         .drawWithContent {
             drawContent()
             if (ring > 0f) drawFocusRing(shape, ring)

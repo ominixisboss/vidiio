@@ -64,6 +64,30 @@ val LocalTvRailOpener = compositionLocalOf<(() -> Unit)?> { null }
  */
 val LocalTvPageFocus = compositionLocalOf<(() -> Unit)?> { null }
 
+/**
+ * Remembers the page control that had focus last, so leaving the side menu can hand the remote
+ * back to it instead of to the page's first control.
+ *
+ * The shared TV focus modifiers ([com.ominix.vidiio.ui.components.tvClickable] and
+ * [com.ominix.vidiio.ui.components.tvFocusRing]) record the control as it gains focus. The menu's
+ * own items never do, so opening the rail leaves the page's last control remembered.
+ */
+class TvFocusMemory {
+    private var lastFocused: FocusRequester? = null
+
+    fun record(requester: FocusRequester) {
+        lastFocused = requester
+    }
+
+    /** True when focus went back to the remembered control, false when that control is gone. */
+    fun restore(): Boolean {
+        val requester = lastFocused ?: return false
+        return runCatching { requester.requestFocus() }.isSuccess
+    }
+}
+
+val LocalTvFocusMemory = compositionLocalOf<TvFocusMemory?> { null }
+
 data class TvNavItem(
     val selected: Boolean,
     val icon: ImageVector,
@@ -118,6 +142,8 @@ fun TvNavScaffold(
     // Shared by every page under this scaffold: rows record the control that opened a dialog, so
     // focus can go back to it when the dialog closes.
     val dialogOpener = remember { TvDialogOpener() }
+    // The page control focus should return to when the rail closes.
+    val focusMemory = remember { TvFocusMemory() }
     // Stable identity: a new lambda on every recomposition would invalidate every page reading it.
     val openRail: () -> Unit = remember {
         {
@@ -141,7 +167,9 @@ fun TvNavScaffold(
     // right of it, so focus stayed on the item and the menu never closed. Go straight to the page.
     fun leaveRailToPage() {
         railOpen = false
-        runCatching { contentFocus.requestFocus() }
+        // Back to the control that had focus when the rail opened. If it is no longer there (the
+        // page changed while the rail was up), fall back to the page's first control.
+        if (!focusMemory.restore()) runCatching { contentFocus.requestFocus() }
     }
 
     // Hide once focus has been out of the rail for a moment. The first time, wait a little
@@ -223,8 +251,7 @@ fun TvNavScaffold(
                     if (railOpen && railHasFocus) {
                         leaveRailToPage()
                     } else {
-                        railOpen = true
-                        focusRailOnOpen = true
+                        openRail()
                     }
                     return@onKeyEvent true
                 }
@@ -240,8 +267,7 @@ fun TvNavScaffold(
                     if (railHasFocus) return@onKeyEvent true
                     val moved = focusManager.moveFocus(FocusDirection.Left)
                     if (!moved) {
-                        railOpen = true
-                        focusRailOnOpen = true
+                        openRail()
                     }
                     true
                 } else {
@@ -252,6 +278,7 @@ fun TvNavScaffold(
         CompositionLocalProvider(
             LocalTvRailOpener provides if (railEnabled) openRail else null,
             LocalTvPageFocus provides if (railEnabled) focusPage else null,
+            LocalTvFocusMemory provides focusMemory,
             LocalTvDialogOpener provides dialogOpener,
         ) {
             Box(
