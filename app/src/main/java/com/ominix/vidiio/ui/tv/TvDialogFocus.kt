@@ -9,13 +9,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreInterceptKeyBeforeSoftKeyboard
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -74,6 +81,32 @@ fun Modifier.tvDialogFocus(opensKeyboard: Boolean = false): Modifier {
         .focusRequester(requester)
         .onPlaced { placed = true }
         .onFocusChanged { focused = it.isFocused }
+}
+
+/**
+ * Takes Menu from the TV keyboard on a dialog's text field and opens the side rail.
+ *
+ * The on-screen keyboard takes every key before Compose sees it, so Menu has to be taken ahead of
+ * it, the same way the search field does. A dialog also has a window of its own, above the page and
+ * its rail, so the menu can only be reached once the dialog has gone: [onCloseDialog] hides it
+ * without handing the page focus back, and the rail takes the remote instead.
+ */
+@Composable
+fun Modifier.tvDialogMenuToRail(onCloseDialog: () -> Unit): Modifier {
+    if (!LocalIsTv.current) return this
+    val openRail = LocalTvRailOpener.current ?: return this
+    val keyboard = LocalSoftwareKeyboardController.current
+    // A recomposition while the dialog is up must not leave a stale dismissal behind.
+    val closeDialog = rememberUpdatedState(onCloseDialog)
+    return this.onPreInterceptKeyBeforeSoftKeyboard { event ->
+        if (event.key != Key.Menu) return@onPreInterceptKeyBeforeSoftKeyboard false
+        if (event.type == KeyEventType.KeyDown) {
+            keyboard?.hide()
+            closeDialog.value()
+            openRail()
+        }
+        true
+    }
 }
 
 /**

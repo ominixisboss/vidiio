@@ -52,6 +52,7 @@ import com.ominix.vidiio.ui.components.tvClickable
 import com.ominix.vidiio.ui.tv.LocalTvPageFocus
 import com.ominix.vidiio.ui.tv.rememberDialogReturnFocus
 import com.ominix.vidiio.ui.tv.tvDialogFocus
+import com.ominix.vidiio.ui.tv.tvDialogMenuToRail
 import com.ominix.vidiio.ui.theme.*
 import com.ominix.vidiio.ui.viewmodel.SettingsViewModel
 
@@ -861,7 +862,9 @@ fun SettingsScreen(
                         label = { Text("Profile Name") },
                         placeholder = { Text("e.g. Alex, Mom, Kids") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true)
+                        modifier = Modifier.fillMaxWidth()
+                            .tvDialogFocus(opensKeyboard = true)
+                            .tvDialogMenuToRail { showCreateProfileDialog = false }
                     )
 
                     Text("Avatar Color", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
@@ -1033,7 +1036,9 @@ fun SettingsScreen(
                     onValueChange = { metadataUrlToAdd = it },
                     label = { Text("Manifest URL (e.g. Cinemeta / Kitsu)") },
                     placeholder = { Text("https://anime-kitsu.strem.fun/manifest.json") },
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
+                    modifier = Modifier.fillMaxWidth()
+                        .tvDialogFocus(opensKeyboard = true)
+                        .tvDialogMenuToRail { showAddMetadataDialog = false },
                     singleLine = true
                 )
             },
@@ -1094,7 +1099,9 @@ fun SettingsScreen(
                     value = addonUrlToAdd,
                     onValueChange = { addonUrlToAdd = it },
                     label = { Text("Manifest URL") },
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
+                    modifier = Modifier.fillMaxWidth()
+                        .tvDialogFocus(opensKeyboard = true)
+                        .tvDialogMenuToRail { showAddAddonDialog = false },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1197,7 +1204,8 @@ fun SettingsScreen(
                 viewModel.uninstallAddonFromStore(url)
                 android.widget.Toast.makeText(context, "Addon removed", android.widget.Toast.LENGTH_SHORT).show()
             },
-            onDismiss = { showAddonStoreSheet = false; returnFocus() }
+            onDismiss = { showAddonStoreSheet = false; returnFocus() },
+            onMenuClose = { showAddonStoreSheet = false }
         )
     }
 
@@ -1209,7 +1217,8 @@ fun SettingsScreen(
                 if (normalized.substringBefore('?').endsWith("manifest.json")) viewModel.addLiveAddons(listOf(normalized))
                 else viewModel.addLiveLinks(listOf(com.ominix.vidiio.data.repository.LiveLink(name.ifBlank { url }, url)))
             },
-            onDismiss = { showAddLiveLinkDialog = false; returnFocus() }
+            onDismiss = { showAddLiveLinkDialog = false; returnFocus() },
+            onMenuClose = { showAddLiveLinkDialog = false }
         )
     }
 
@@ -1233,7 +1242,9 @@ fun SettingsScreen(
                         value = subtitleLanguagesToSet,
                         onValueChange = { subtitleLanguagesToSet = it },
                         label = { Text("e.g. en, es, fr") },
-                        modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
+                        modifier = Modifier.fillMaxWidth()
+                            .tvDialogFocus(opensKeyboard = true)
+                            .tvDialogMenuToRail { showSubtitleLanguagesDialog = false },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1274,7 +1285,9 @@ fun SettingsScreen(
                     value = apiKeyToSet,
                     onValueChange = { apiKeyToSet = it },
                     label = { Text("API Key") },
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true),
+                    modifier = Modifier.fillMaxWidth()
+                        .tvDialogFocus(opensKeyboard = true)
+                        .tvDialogMenuToRail { showApiKeyDialog = false },
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1317,14 +1330,19 @@ fun SettingsScreen(
                 showProxyDialog = false
                 returnFocus()
             },
-            onDismiss = { viewModel.clearProxyTestResult(); showProxyDialog = false; returnFocus() }
+            onDismiss = { viewModel.clearProxyTestResult(); showProxyDialog = false; returnFocus() },
+            onMenuClose = { viewModel.clearProxyTestResult(); showProxyDialog = false }
         )
     }
 }
 
 /** One Live TV addon, playlist or stream link, typed (or pasted) on the device. */
 @Composable
-private fun AddLiveLinkDialog(onAdd: suspend (String, String) -> Unit, onDismiss: () -> Unit) {
+private fun AddLiveLinkDialog(
+    onAdd: suspend (String, String) -> Unit,
+    onDismiss: () -> Unit,
+    onMenuClose: () -> Unit
+) {
     var name by rememberSaveable { mutableStateOf("") }
     var url by rememberSaveable { mutableStateOf("") }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -1334,8 +1352,9 @@ private fun AddLiveLinkDialog(onAdd: suspend (String, String) -> Unit, onDismiss
         title = { Text("Add link or addon") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true))
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose))
+                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true).tvDialogMenuToRail(onMenuClose))
                 Text(
                     "Addon links end in manifest.json. Playlists (M3U) and stream links (.m3u8, .mpd) also work. Web page links won't play.",
                     fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1508,7 +1527,8 @@ private fun ProxySettingsDialog(
     testResult: String?,
     onTest: (com.ominix.vidiio.data.repository.ProxyType, String, String, String, String) -> Unit,
     onSave: (com.ominix.vidiio.data.repository.ProxyType, String, String, String, String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onMenuClose: () -> Unit
 ) {
     var type by remember { mutableStateOf(initialType) }
     var host by remember { mutableStateOf(initialHost) }
@@ -1544,13 +1564,13 @@ private fun ProxySettingsDialog(
                     }
                 }
                 OutlinedTextField(host, { host = it }, label = { Text("Host") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true), colors = fieldColors)
+                    modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true).tvDialogMenuToRail(onMenuClose), colors = fieldColors)
                 OutlinedTextField(port, { port = it.filter(Char::isDigit).take(5) }, label = { Text("Port") },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(), colors = fieldColors)
+                    singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose), colors = fieldColors)
                 OutlinedTextField(user, { user = it }, label = { Text("Username (optional)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(), colors = fieldColors)
+                    modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose), colors = fieldColors)
                 OutlinedTextField(pass, { pass = it }, label = { Text("Password (optional)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(), colors = fieldColors)
+                    modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose), colors = fieldColors)
                 TextButton(
                     onClick = { onTest(type, host, port, user, pass) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
@@ -2063,7 +2083,8 @@ fun AddonStoreSheet(
     installedAddons: Set<String>,
     onInstall: (String) -> Unit,
     onUninstall: (String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onMenuClose: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
@@ -2127,7 +2148,7 @@ fun AddonStoreSheet(
                     onValueChange = { searchQuery = it },
                     placeholder = { Text("Search addons...") },
                     leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).tvDialogMenuToRail(onMenuClose),
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp)
                 )
