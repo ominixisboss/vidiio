@@ -898,7 +898,7 @@ fun SettingsScreen(
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                             .tvDialogFocus(opensKeyboard = true)
-                            .tvDialogMenuToRail { handOffDialogFocus(); showCreateProfileDialog = false }
+                            .tvDialogMenuToRail(onCloseDialog = { handOffDialogFocus(); showCreateProfileDialog = false })
                     )
 
                     Text("Avatar Color", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Gray)
@@ -1073,7 +1073,7 @@ fun SettingsScreen(
                     placeholder = { Text("https://anime-kitsu.strem.fun/manifest.json") },
                     modifier = Modifier.fillMaxWidth()
                         .tvDialogFocus(opensKeyboard = true)
-                        .tvDialogMenuToRail { handOffDialogFocus(); showAddMetadataDialog = false },
+                        .tvDialogMenuToRail(onCloseDialog = { handOffDialogFocus(); showAddMetadataDialog = false }),
                     singleLine = true
                 )
             },
@@ -1136,7 +1136,7 @@ fun SettingsScreen(
                     label = { Text("Manifest URL") },
                     modifier = Modifier.fillMaxWidth()
                         .tvDialogFocus(opensKeyboard = true)
-                        .tvDialogMenuToRail { showAddAddonDialog = false },
+                        .tvDialogMenuToRail(onCloseDialog = { showAddAddonDialog = false }),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1290,7 +1290,7 @@ fun SettingsScreen(
                         label = { Text("e.g. en, es, fr") },
                         modifier = Modifier.fillMaxWidth()
                             .tvDialogFocus(opensKeyboard = true)
-                            .tvDialogMenuToRail { showSubtitleLanguagesDialog = false },
+                            .tvDialogMenuToRail(onCloseDialog = { showSubtitleLanguagesDialog = false }),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1333,7 +1333,7 @@ fun SettingsScreen(
                     label = { Text("API Key") },
                     modifier = Modifier.fillMaxWidth()
                         .tvDialogFocus(opensKeyboard = true)
-                        .tvDialogMenuToRail { showApiKeyDialog = false },
+                        .tvDialogMenuToRail(onCloseDialog = { showApiKeyDialog = false }),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -2181,7 +2181,11 @@ fun AddonStoreSheet(
         properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            // Menu opens the rail from any control in the store, not only the search field.
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+                .tvDialogMenuToRail(fromAnyControl = true, onCloseDialog = onMenuClose),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surface
         ) {

@@ -20,6 +20,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreInterceptKeyBeforeSoftKeyboard
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -84,27 +85,40 @@ fun Modifier.tvDialogFocus(opensKeyboard: Boolean = false): Modifier {
 }
 
 /**
- * Takes Menu from the TV keyboard on a dialog's text field and opens the side rail.
+ * Takes Menu on a dialog's text field (before the keyboard does) and opens the side rail.
  *
  * The on-screen keyboard takes every key before Compose sees it, so Menu has to be taken ahead of
  * it, the same way the search field does. A dialog also has a window of its own, above the page and
  * its rail, so the menu can only be reached once the dialog has gone: [onCloseDialog] hides it
  * without handing the page focus back, and the rail takes the remote instead.
+ *
+ * [fromAnyControl] is for a dialog that opens on a button rather than a text field (the Addon
+ * Store): there is no keyboard hook to run, and the preview handler covers Menu anywhere in it.
  */
 @Composable
-fun Modifier.tvDialogMenuToRail(onCloseDialog: () -> Unit): Modifier {
+fun Modifier.tvDialogMenuToRail(
+    onCloseDialog: () -> Unit,
+    fromAnyControl: Boolean = false
+): Modifier {
     if (!LocalIsTv.current) return this
     val openRail = LocalTvRailOpener.current ?: return this
     val keyboard = LocalSoftwareKeyboardController.current
     // A recomposition while the dialog is up must not leave a stale dismissal behind.
     val closeDialog = rememberUpdatedState(onCloseDialog)
-    return this.onPreInterceptKeyBeforeSoftKeyboard { event ->
+    val openMenu = {
+        keyboard?.hide()
+        closeDialog.value()
+        openRail()
+    }
+    val withMenu = this.onPreInterceptKeyBeforeSoftKeyboard { event ->
         if (event.key != Key.Menu) return@onPreInterceptKeyBeforeSoftKeyboard false
-        if (event.type == KeyEventType.KeyDown) {
-            keyboard?.hide()
-            closeDialog.value()
-            openRail()
-        }
+        if (event.type == KeyEventType.KeyDown) openMenu()
+        true
+    }
+    if (!fromAnyControl) return withMenu
+    return withMenu.onPreviewKeyEvent { event ->
+        if (event.key != Key.Menu) return@onPreviewKeyEvent false
+        if (event.type == KeyEventType.KeyDown) openMenu()
         true
     }
 }
