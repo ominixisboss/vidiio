@@ -85,6 +85,9 @@ fun VidiioApp() {
         .collectAsState(initial = emptyList<com.ominix.vidiio.data.model.UserProfile>())
     val activeProfileId by settingsRepository.activeProfileIdFlow.collectAsState(initial = "default")
     val activeProfileName = profiles.firstOrNull { it.id == activeProfileId }?.name
+    // Anime (AniList), Live TV and the TV Guide carry no TMDB age rating, so kids profiles do not
+    // get their navigation entries or routes.
+    val activeIsKids = profiles.firstOrNull { it.id == activeProfileId }?.isKids == true
 
     val homeStyle by settingsRepository.homeStyleFlow
         .collectAsState(initial = com.ominix.vidiio.data.repository.HomeStyle.VIDIIO)
@@ -369,6 +372,17 @@ fun VidiioApp() {
     val isSearchScreen = currentRoute is VidiioRoute.Search
     val pointerEnabled = mouseToggle && !isPlayerScreen && !isSplashScreen && !isSearchScreen
 
+    // The entries are hidden above; this catches the Home shortcut, an old back stack and the
+    // moment the profile becomes a kids profile while one of these screens is already open.
+    LaunchedEffect(activeIsKids, currentRoute) {
+        if (!activeIsKids) return@LaunchedEffect
+        when (currentRoute) {
+            VidiioRoute.Anime, VidiioRoute.LiveTv -> navigator.navigate(VidiioRoute.Home)
+            VidiioRoute.TvGuide -> navigator.goBack()
+            else -> Unit
+        }
+    }
+
     // Back at the very base of a section would leave the app, and people press Back repeatedly
     // meaning "take me to the menu". So: from another section, Back goes Home; from Home it asks.
     var confirmExit by remember { mutableStateOf(false) }
@@ -436,12 +450,14 @@ fun VidiioApp() {
     val anime = item(VidiioRoute.Anime, top == VidiioRoute.Anime, Icons.Rounded.AutoAwesome, "Anime")
     val liveTv = item(VidiioRoute.LiveTv, top == VidiioRoute.LiveTv, Icons.Rounded.LiveTv, "Live TV")
     val search = item(VidiioRoute.Search(), top is VidiioRoute.Search, Icons.Rounded.Search, "Search")
-    val railItems = listOf(
-        home, movies, tv, anime, liveTv, search,
-        item(VidiioRoute.Favorites, top == VidiioRoute.Favorites, Icons.Rounded.Favorite, "My List"),
-        item(VidiioRoute.Downloads, top == VidiioRoute.Downloads, Icons.Rounded.Download, "Downloads"),
-        item(VidiioRoute.Settings, top == VidiioRoute.Settings, Icons.Rounded.Settings, "Settings"),
-    )
+    val railItems = buildList {
+        add(home); add(movies); add(tv)
+        if (!activeIsKids) { add(anime); add(liveTv) }
+        add(search)
+        add(item(VidiioRoute.Favorites, top == VidiioRoute.Favorites, Icons.Rounded.Favorite, "My List"))
+        add(item(VidiioRoute.Downloads, top == VidiioRoute.Downloads, Icons.Rounded.Download, "Downloads"))
+        add(item(VidiioRoute.Settings, top == VidiioRoute.Settings, Icons.Rounded.Settings, "Settings"))
+    }
     val useBottomBar = layoutType == NavigationSuiteType.NavigationBar
     // Navigation labels have to fit a fixed-width bar or rail. Cap them at 13.5sp effective: at
     // 1.5x the system font "Settings" ran off the right edge of the bar, "Downloads" filled the
@@ -463,9 +479,9 @@ fun VidiioApp() {
         add(item(VidiioRoute.Home, top == VidiioRoute.Home, Icons.Rounded.Home, "Home"))
         add(item(VidiioRoute.Movies, top == VidiioRoute.Movies, Icons.Rounded.Movie, "Movies"))
         add(item(VidiioRoute.TvShows, top == VidiioRoute.TvShows, Icons.Rounded.Tv, "TV"))
-        add(item(VidiioRoute.Anime, top == VidiioRoute.Anime, Icons.Rounded.AutoAwesome, "Anime"))
+        if (!activeIsKids) add(item(VidiioRoute.Anime, top == VidiioRoute.Anime, Icons.Rounded.AutoAwesome, "Anime"))
         // A landscape phone's bar is wide enough for Live TV; the portrait bar's six tabs are not.
-        if (adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
+        if (!activeIsKids && adaptiveInfo.windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
             add(item(VidiioRoute.LiveTv, top == VidiioRoute.LiveTv, Icons.Rounded.LiveTv, "Live TV"))
         }
         add(item(VidiioRoute.Search(), top is VidiioRoute.Search, Icons.Rounded.Search, "Search"))

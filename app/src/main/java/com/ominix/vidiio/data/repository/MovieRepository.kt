@@ -131,6 +131,13 @@ class MovieRepository(
         return safe
     }
 
+    /**
+     * Whether the active profile may open [movie]. Adults may open anything; a kids profile only
+     * gets titles that carry a US rating at PG/TV-PG or below.
+     */
+    suspend fun isAllowedForActiveProfile(movie: Movie): Boolean =
+        !isKidsMode() || isKidSafe(movie)
+
     /** Drops everything the active kids profile must not see. Answer cached per title. */
     private suspend fun List<Movie>.forActiveProfile(): List<Movie> {
         if (isEmpty() || !isKidsMode()) return this

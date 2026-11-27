@@ -52,6 +52,7 @@ import com.ominix.vidiio.ui.components.SourceHealthBadge
 import com.ominix.vidiio.ui.components.tvFocusRing
 import com.ominix.vidiio.ui.components.GlassCard
 import com.ominix.vidiio.ui.components.RiveLoader
+import com.ominix.vidiio.ui.tv.tvDialogFocus
 import com.ominix.vidiio.ui.viewmodel.DetailsUiState
 import com.ominix.vidiio.ui.viewmodel.DetailsViewModel
 
@@ -135,6 +136,12 @@ fun DetailsScreen(
                 is DetailsUiState.Loading -> {
                     DetailsLoadingPlaceholder(
                         movie = initialMovie,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                is DetailsUiState.Blocked -> {
+                    KidsBlockedState(
+                        onBack = onBack,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -352,6 +359,38 @@ fun DetailsScreen(
             onDismiss = { showSourceSelector = false },
             viewModel = viewModel
         )
+    }
+}
+
+/** Shown instead of an adult title's details when a kids profile is active. */
+@Composable
+private fun KidsBlockedState(onBack: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.Lock,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(48.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Not available in Kids profiles",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "This title is rated above PG or has no US age rating.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(24.dp))
+        Button(onClick = onBack, modifier = Modifier.tvDialogFocus()) { Text("Back") }
     }
 }
 

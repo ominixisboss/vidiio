@@ -12,6 +12,7 @@ import com.ominix.vidiio.data.model.toFavoriteMovie
 import com.ominix.vidiio.data.repository.DownloadRepository
 import com.ominix.vidiio.data.repository.FavoriteRepository
 import com.ominix.vidiio.data.repository.MovieRepository
+import com.ominix.vidiio.data.repository.ProfileRepository
 import com.ominix.vidiio.data.repository.SettingsRepository
 import com.ominix.vidiio.data.repository.WatchProgressRepository
 import com.ominix.vidiio.download.DownloadManager
@@ -19,7 +20,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -35,10 +38,14 @@ private data class DetailsExtras(
     val favorite: Boolean,
     val error: String?,
     val note: String?,
+    val blocked: Boolean,
 )
 
 sealed interface DetailsUiState {
     data object Loading : DetailsUiState
+
+    /** The active kids profile may not open this title; nothing about it is shown or playable. */
+    data object Blocked : DetailsUiState
     data class Success(
         val movie: Movie,
         val streamSources: List<StreamSource>,
@@ -72,7 +79,8 @@ class DetailsViewModel(
     addonManager: AddonManager,
     movie: Movie,
     initialEpisodeId: String? = null,
-    torrServerEngine: com.ominix.vidiio.torrent.TorrServerEngine? = null
+    torrServerEngine: com.ominix.vidiio.torrent.TorrServerEngine? = null,
+    private val profileRepository: ProfileRepository
 ) : ViewModel() {
 
     private val session = MediaSession(
@@ -102,6 +110,9 @@ class DetailsViewModel(
 
     private val _isFavorite = MutableStateFlow(false)
 
+    /** True while the active profile is a kids profile that may not open this title. */
+    private val _blocked = MutableStateFlow(false)
+
     val enabledSources: StateFlow<Set<String>> = settingsRepository.sourcesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
@@ -110,11 +121,12 @@ class DetailsViewModel(
         session.streamSources,
         session.subtitles,
         session.selectedEpisode,
-        combine(session.isSearchingSources, _isFavorite, session.error, session.sourcesNote) { searching, favorite, error, note ->
-            DetailsExtras(searching, favorite, error, note)
+        combine(session.isSearchingSources, _isFavorite, session.error, session.sourcesNote, _blocked) { searching, favorite, error, note, blocked ->
+            DetailsExtras(searching, favorite, error, note, blocked)
         }
     ) { resolvedMovie, sources, subtitles, episode, extras ->
         when {
+            extras.blocked -> DetailsUiState.Blocked
             extras.error != null -> DetailsUiState.Error(extras.error)
             resolvedMovie == null -> DetailsUiState.Loading
             else -> DetailsUiState.Success(
@@ -140,6 +152,18 @@ class DetailsViewModel(
                 }
             }
             .launchIn(viewModelScope)
+
+        // Re-check on every profile change: an adult Details page left in the back stack must not
+        // stay usable after switching to a kids profile. Kids are hidden first (fail closed), then
+        // shown only if the rating check passes.
+        viewModelScope.launch {
+            combine(session.movie, profileRepository.activeProfileId) { resolved, _ -> resolved }
+                .filterNotNull()
+                .collectLatest { resolved ->
+                    if (profileRepository.getActiveProfile().isKids) _blocked.value = true
+                    _blocked.value = !movieRepository.isAllowedForActiveProfile(resolved)
+                }
+        }
     }
 
     /**

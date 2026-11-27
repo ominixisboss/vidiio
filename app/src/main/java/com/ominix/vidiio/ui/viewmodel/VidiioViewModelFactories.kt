@@ -129,7 +129,8 @@ object VidiioViewModelFactories {
                 app.addonManager,
                 movie,
                 initialEpisodeId,
-                app.torrServerEngine
+                app.torrServerEngine,
+                app.profileRepository
             )
         }
     }
