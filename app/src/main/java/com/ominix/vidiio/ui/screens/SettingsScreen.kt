@@ -208,6 +208,35 @@ fun SettingsScreen(
     var showSubtitleLanguagesDialog by rememberSaveable { mutableStateOf(false) }
     var subtitleLanguagesToSet by rememberSaveable { mutableStateOf("") }
 
+    // Text typed in a dialog survives Menu closing it for the side rail; Cancel and Save start clean.
+    var createProfileNameDraft by rememberSaveable { mutableStateOf("") }
+    var liveLinkNameDraft by rememberSaveable { mutableStateOf("") }
+    var liveLinkUrlDraft by rememberSaveable { mutableStateOf("") }
+    var proxyDraftActive by rememberSaveable { mutableStateOf(false) }
+    var proxyDraftTypeName by rememberSaveable { mutableStateOf("") }
+    var proxyDraftHost by rememberSaveable { mutableStateOf("") }
+    var proxyDraftPort by rememberSaveable { mutableStateOf("") }
+    var proxyDraftUser by rememberSaveable { mutableStateOf("") }
+    var proxyDraftPass by rememberSaveable { mutableStateOf("") }
+    var addonStoreSearchDraft by rememberSaveable { mutableStateOf("") }
+
+    fun clearProxyDraft() {
+        proxyDraftActive = false
+    }
+
+    // Reopening after Menu keeps what was typed; otherwise start from the saved proxy settings.
+    fun openProxyDialog() {
+        if (!proxyDraftActive) {
+            proxyDraftActive = true
+            proxyDraftTypeName = proxyType.name
+            proxyDraftHost = proxyHost
+            proxyDraftPort = if (proxyPort > 0) proxyPort.toString() else ""
+            proxyDraftUser = proxyUser
+            proxyDraftPass = proxyPass
+        }
+        showProxyDialog = true
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
@@ -548,7 +577,7 @@ fun SettingsScreen(
                             title = "Custom Proxy settings",
                             summary = "Host, port, credentials — test connection",
                             icon = Icons.Rounded.Tune,
-                            onClick = { showProxyDialog = true }
+                            onClick = { openProxyDialog() }
                         )
                     }
                 }
@@ -842,14 +871,15 @@ fun SettingsScreen(
     }
 
     if (showCreateProfileDialog) {
-        var createName by remember { mutableStateOf("") }
+        // Hoisted out of the dialog: Menu closes it to show the rail and must not lose the name.
+        val createName = createProfileNameDraft
         var createIsKids by remember { mutableStateOf(false) }
         var selectedColorHex by remember { mutableStateOf(0xFFE50914) }
 
         val avatarColors = listOf(0xFFE50914, 0xFF0063E5, 0xFF1CE783, 0xFF9C27B0, 0xFFFF9800, 0xFF00BCD4)
 
         AlertDialog(
-            onDismissRequest = { showCreateProfileDialog = false; returnFocus() },
+            onDismissRequest = { createProfileNameDraft = ""; showCreateProfileDialog = false; returnFocus() },
             containerColor = MaterialTheme.colorScheme.surface,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             textContentColor = MaterialTheme.colorScheme.onSurface,
@@ -858,7 +888,7 @@ fun SettingsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     OutlinedTextField(
                         value = createName,
-                        onValueChange = { createName = it },
+                        onValueChange = { createProfileNameDraft = it },
                         label = { Text("Profile Name") },
                         placeholder = { Text("e.g. Alex, Mom, Kids") },
                         singleLine = true,
@@ -911,6 +941,7 @@ fun SettingsScreen(
                         val input = createName.trim()
                         if (input.isNotBlank()) {
                             viewModel.createProfile(input, selectedColorHex, createIsKids)
+                            createProfileNameDraft = ""
                             showCreateProfileDialog = false
                             returnFocus()
                             android.widget.Toast.makeText(context, "Profile '$input' created", android.widget.Toast.LENGTH_SHORT).show()
@@ -919,7 +950,7 @@ fun SettingsScreen(
                 ) { Text("Create") }
             },
             dismissButton = {
-                TextButton(onClick = { showCreateProfileDialog = false; returnFocus() }) { Text("Cancel") }
+                TextButton(onClick = { createProfileNameDraft = ""; showCreateProfileDialog = false; returnFocus() }) { Text("Cancel") }
             }
         )
     }
@@ -1196,6 +1227,8 @@ fun SettingsScreen(
             entries = addonStoreEntries,
             isLoading = isAddonStoreLoading,
             installedAddons = stremioAddons + liveAddons,
+            searchQuery = addonStoreSearchDraft,
+            onSearchQueryChange = { addonStoreSearchDraft = it },
             onInstall = { url ->
                 viewModel.installAddonFromStore(url)
                 android.widget.Toast.makeText(context, "Addon installed", android.widget.Toast.LENGTH_SHORT).show()
@@ -1204,20 +1237,29 @@ fun SettingsScreen(
                 viewModel.uninstallAddonFromStore(url)
                 android.widget.Toast.makeText(context, "Addon removed", android.widget.Toast.LENGTH_SHORT).show()
             },
-            onDismiss = { showAddonStoreSheet = false; returnFocus() },
+            onDismiss = { addonStoreSearchDraft = ""; showAddonStoreSheet = false; returnFocus() },
             onMenuClose = { showAddonStoreSheet = false }
         )
     }
 
     if (showAddLiveLinkDialog) {
         AddLiveLinkDialog(
+            name = liveLinkNameDraft,
+            onNameChange = { liveLinkNameDraft = it },
+            url = liveLinkUrlDraft,
+            onUrlChange = { liveLinkUrlDraft = it },
             onAdd = { name, url ->
                 // A Stremio manifest is a Live TV addon; anything else is a playlist or stream.
                 val normalized = url.replaceFirst(Regex("^stremio://", RegexOption.IGNORE_CASE), "https://")
                 if (normalized.substringBefore('?').endsWith("manifest.json")) viewModel.addLiveAddons(listOf(normalized))
                 else viewModel.addLiveLinks(listOf(com.ominix.vidiio.data.repository.LiveLink(name.ifBlank { url }, url)))
             },
-            onDismiss = { showAddLiveLinkDialog = false; returnFocus() },
+            onDismiss = {
+                liveLinkNameDraft = ""
+                liveLinkUrlDraft = ""
+                showAddLiveLinkDialog = false
+                returnFocus()
+            },
             onMenuClose = { showAddLiveLinkDialog = false }
         )
     }
@@ -1317,20 +1359,30 @@ fun SettingsScreen(
 
     if (showProxyDialog) {
         ProxySettingsDialog(
-            initialType = proxyType,
-            initialHost = proxyHost,
-            initialPort = if (proxyPort > 0) proxyPort.toString() else "",
-            initialUser = proxyUser,
-            initialPass = proxyPass,
+            draft = ProxyDraft(
+                type = com.ominix.vidiio.data.repository.ProxyType.valueOf(proxyDraftTypeName),
+                host = proxyDraftHost,
+                port = proxyDraftPort,
+                user = proxyDraftUser,
+                pass = proxyDraftPass
+            ),
+            onDraftChange = {
+                proxyDraftTypeName = it.type.name
+                proxyDraftHost = it.host
+                proxyDraftPort = it.port
+                proxyDraftUser = it.user
+                proxyDraftPass = it.pass
+            },
             testResult = viewModel.proxyTestResult.collectAsState().value,
-            onTest = { t, h, p, u, pw -> viewModel.testProxy(t, h, p.toIntOrNull() ?: 0, u, pw) },
-            onSave = { t, h, p, u, pw ->
-                viewModel.saveProxy(true, t, h, p.toIntOrNull() ?: 0, u, pw)
+            onTest = { d -> viewModel.testProxy(d.type, d.host, d.port.toIntOrNull() ?: 0, d.user, d.pass) },
+            onSave = { d ->
+                viewModel.saveProxy(true, d.type, d.host, d.port.toIntOrNull() ?: 0, d.user, d.pass)
                 viewModel.clearProxyTestResult()
+                clearProxyDraft()
                 showProxyDialog = false
                 returnFocus()
             },
-            onDismiss = { viewModel.clearProxyTestResult(); showProxyDialog = false; returnFocus() },
+            onDismiss = { clearProxyDraft(); viewModel.clearProxyTestResult(); showProxyDialog = false; returnFocus() },
             onMenuClose = { viewModel.clearProxyTestResult(); showProxyDialog = false }
         )
     }
@@ -1339,12 +1391,14 @@ fun SettingsScreen(
 /** One Live TV addon, playlist or stream link, typed (or pasted) on the device. */
 @Composable
 private fun AddLiveLinkDialog(
+    name: String,
+    onNameChange: (String) -> Unit,
+    url: String,
+    onUrlChange: (String) -> Unit,
     onAdd: suspend (String, String) -> Unit,
     onDismiss: () -> Unit,
     onMenuClose: () -> Unit
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var url by rememberSaveable { mutableStateOf("") }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val valid = listOf("http://", "https://", "stremio://").any { url.trim().startsWith(it, ignoreCase = true) }
     AlertDialog(
@@ -1352,8 +1406,8 @@ private fun AddLiveLinkDialog(
         title = { Text("Add link or addon") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose))
-                OutlinedTextField(value = url, onValueChange = { url = it }, label = { Text("Addon, playlist or stream link") }, singleLine = true,
+                OutlinedTextField(value = name, onValueChange = onNameChange, label = { Text("Name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose))
+                OutlinedTextField(value = url, onValueChange = onUrlChange, label = { Text("Addon, playlist or stream link") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true).tvDialogMenuToRail(onMenuClose))
                 Text(
                     "Addon links end in manifest.json. Playlists (M3U) and stream links (.m3u8, .mpd) also work. Web page links won't play.",
@@ -1516,25 +1570,29 @@ fun ExpandableSettingsSection(
     }
 }
 
+/** What is in the Proxy dialog, hoisted so Menu closing it for the rail keeps the typed values. */
+private data class ProxyDraft(
+    val type: com.ominix.vidiio.data.repository.ProxyType,
+    val host: String,
+    val port: String,
+    val user: String,
+    val pass: String
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProxySettingsDialog(
-    initialType: com.ominix.vidiio.data.repository.ProxyType,
-    initialHost: String,
-    initialPort: String,
-    initialUser: String,
-    initialPass: String,
+    draft: ProxyDraft,
+    onDraftChange: (ProxyDraft) -> Unit,
     testResult: String?,
-    onTest: (com.ominix.vidiio.data.repository.ProxyType, String, String, String, String) -> Unit,
-    onSave: (com.ominix.vidiio.data.repository.ProxyType, String, String, String, String) -> Unit,
+    onTest: (ProxyDraft) -> Unit,
+    onSave: (ProxyDraft) -> Unit,
     onDismiss: () -> Unit,
     onMenuClose: () -> Unit
 ) {
-    var type by remember { mutableStateOf(initialType) }
-    var host by remember { mutableStateOf(initialHost) }
-    var port by remember { mutableStateOf(initialPort) }
-    var user by remember { mutableStateOf(initialUser) }
-    var pass by remember { mutableStateOf(initialPass) }
+    val type = draft.type
+    val host = draft.host
+    val port = draft.port
 
     val fieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = MaterialTheme.colorScheme.primary,
@@ -1558,21 +1616,21 @@ private fun ProxySettingsDialog(
                     com.ominix.vidiio.data.repository.ProxyType.entries.forEach { t ->
                         FilterChip(
                             selected = type == t,
-                            onClick = { type = t },
+                            onClick = { onDraftChange(draft.copy(type = t)) },
                             label = { Text(if (t == com.ominix.vidiio.data.repository.ProxyType.SOCKS5) "SOCKS5" else "HTTP") }
                         )
                     }
                 }
-                OutlinedTextField(host, { host = it }, label = { Text("Host") }, singleLine = true,
+                OutlinedTextField(host, { onDraftChange(draft.copy(host = it)) }, label = { Text("Host") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().tvDialogFocus(opensKeyboard = true).tvDialogMenuToRail(onMenuClose), colors = fieldColors)
-                OutlinedTextField(port, { port = it.filter(Char::isDigit).take(5) }, label = { Text("Port") },
+                OutlinedTextField(port, { onDraftChange(draft.copy(port = it.filter(Char::isDigit).take(5))) }, label = { Text("Port") },
                     singleLine = true, modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose), colors = fieldColors)
-                OutlinedTextField(user, { user = it }, label = { Text("Username (optional)") }, singleLine = true,
+                OutlinedTextField(draft.user, { onDraftChange(draft.copy(user = it)) }, label = { Text("Username (optional)") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose), colors = fieldColors)
-                OutlinedTextField(pass, { pass = it }, label = { Text("Password (optional)") }, singleLine = true,
+                OutlinedTextField(draft.pass, { onDraftChange(draft.copy(pass = it)) }, label = { Text("Password (optional)") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth().tvDialogMenuToRail(onMenuClose), colors = fieldColors)
                 TextButton(
-                    onClick = { onTest(type, host, port, user, pass) },
+                    onClick = { onTest(draft) },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) { Text("Test connection") }
                 testResult?.let {
@@ -1587,7 +1645,7 @@ private fun ProxySettingsDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { onSave(type, host, port, user, pass) },
+                onClick = { onSave(draft) },
                 enabled = host.isNotBlank() && (port.toIntOrNull() ?: 0) in 1..65535,
                 colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary)
             ) { Text("Save & enable") }
@@ -2081,12 +2139,13 @@ fun AddonStoreSheet(
     entries: List<com.ominix.vidiio.data.model.stremio.StremioDirectoryEntry>,
     isLoading: Boolean,
     installedAddons: Set<String>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onInstall: (String) -> Unit,
     onUninstall: (String) -> Unit,
     onDismiss: () -> Unit,
     onMenuClose: () -> Unit
 ) {
-    var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
     var webPromptUrl by remember { mutableStateOf<Pair<String, String>?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -2145,7 +2204,7 @@ fun AddonStoreSheet(
 
                 OutlinedTextField(
                     value = searchQuery,
-                    onValueChange = { searchQuery = it },
+                    onValueChange = onSearchQueryChange,
                     placeholder = { Text("Search addons...") },
                     leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
                     modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).tvDialogMenuToRail(onMenuClose),
