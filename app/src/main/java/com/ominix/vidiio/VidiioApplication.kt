@@ -388,7 +388,8 @@ class VidiioApplication : Application() {
             addonManager,
             sourceVerifier,
             traktService,
-            simklService
+            simklService,
+            profileRepository
         )
     }
 
@@ -400,12 +401,17 @@ class VidiioApplication : Application() {
 
         // Warm the lists Home, Movies and TV open with while the splash plays, so they appear at once.
         applicationScope.launch {
+            val kids = runCatching { profileRepository.getActiveProfile().isKids }.getOrDefault(false)
             runCatching { movieRepository.getHomeCategories() }
-            for (kind in com.ominix.vidiio.data.repository.BrowseKind.entries) {
-                runCatching {
-                    kotlinx.coroutines.coroutineScope {
-                        com.ominix.vidiio.data.repository.BrowseList.entries.forEach { list ->
-                            launch { movieRepository.browse(kind, list) }
+            // A kids profile's shelves are each filtered through TMDB's age ratings, so warming every
+            // one of them on the splash would fire hundreds of lookups before the user asks for them.
+            if (!kids) {
+                for (kind in com.ominix.vidiio.data.repository.BrowseKind.entries) {
+                    runCatching {
+                        kotlinx.coroutines.coroutineScope {
+                            com.ominix.vidiio.data.repository.BrowseList.entries.forEach { list ->
+                                launch { movieRepository.browse(kind, list) }
+                            }
                         }
                     }
                 }

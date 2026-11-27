@@ -35,7 +35,7 @@ object VidiioViewModelFactories {
     }
 
     fun browse(app: VidiioApplication, kind: com.ominix.vidiio.data.repository.BrowseKind): ViewModelProvider.Factory = viewModelFactory {
-        initializer { MediaBrowseViewModel(kind, app.movieRepository) }
+        initializer { MediaBrowseViewModel(kind, app.movieRepository, app.settingsRepository) }
     }
 
     fun tvGuide(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
@@ -60,7 +60,7 @@ object VidiioViewModelFactories {
     }
 
     fun search(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {
-        initializer { SearchViewModel(app.movieRepository, app.watchProgressRepository) }
+        initializer { SearchViewModel(app.movieRepository, app.watchProgressRepository, app.settingsRepository) }
     }
 
     fun favorites(app: VidiioApplication): ViewModelProvider.Factory = viewModelFactory {

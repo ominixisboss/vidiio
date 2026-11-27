@@ -1,6 +1,8 @@
 package com.ominix.vidiio.data.api
 
 import com.ominix.vidiio.data.model.tmdb.TMDBMovie
+import com.ominix.vidiio.data.model.tmdb.TMDBContentRatingsResponse
+import com.ominix.vidiio.data.model.tmdb.TMDBReleaseDatesResponse
 import com.ominix.vidiio.data.model.tmdb.TMDBResponse
 import com.ominix.vidiio.data.model.tmdb.TMDBSeason
 import retrofit2.http.GET
@@ -75,6 +77,12 @@ interface TMDBService {
         @Query("page") page: Int = 1
     ): TMDBResponse<TMDBMovie>
 
+    @GET("movie/{movie_id}/release_dates")
+    suspend fun getMovieReleaseDates(@Path("movie_id") movieId: Int): TMDBReleaseDatesResponse
+
+    @GET("tv/{tv_id}/content_ratings")
+    suspend fun getTvContentRatings(@Path("tv_id") tvId: Int): TMDBContentRatingsResponse
+
     @GET("tv/{tv_id}/season/{season_number}")
     suspend fun getTVSeasonDetails(
         @Path("tv_id") tvId: Int,
@@ -100,6 +108,9 @@ interface TMDBService {
         @Query("primary_release_date.lte") releaseLte: String? = null,
         @Query("sort_by") sortBy: String = "popularity.desc",
         @Query("vote_count.gte") voteCountGte: Int? = 100,
+        @Query("certification_country") certificationCountry: String? = null,
+        @Query("certification.lte") certificationLte: String? = null,
+        @Query("include_adult") includeAdult: Boolean? = null,
         @Query("page") page: Int = 1
     ): TMDBResponse<TMDBMovie>
 

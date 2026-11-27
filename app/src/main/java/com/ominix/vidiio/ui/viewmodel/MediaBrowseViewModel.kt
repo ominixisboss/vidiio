@@ -12,6 +12,7 @@ import com.ominix.vidiio.data.repository.Decade
 import com.ominix.vidiio.data.repository.Mood
 import com.ominix.vidiio.data.repository.MovieRepository
 import com.ominix.vidiio.data.repository.Provider
+import com.ominix.vidiio.data.repository.SettingsRepository
 import com.ominix.vidiio.data.repository.StreamingService
 import com.ominix.vidiio.data.repository.BrowseOptions
 import kotlinx.coroutines.CancellationException
@@ -20,6 +21,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -57,6 +60,7 @@ data class Genre(val id: Int, val name: String)
 class MediaBrowseViewModel(
     val kind: BrowseKind,
     private val repository: MovieRepository,
+    private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(BrowseState())
@@ -70,6 +74,19 @@ class MediaBrowseViewModel(
 
     init {
         load(force = false)
+        // A profile switch can change which titles are allowed, so drop what is on screen and reload.
+        viewModelScope.launch {
+            settingsRepository.activeProfileIdFlow.drop(1).distinctUntilChanged().collect {
+                _state.update {
+                    it.copy(
+                        trending = null, popular = null, fresh = null, soon = null, topRated = null,
+                        filterResults = null, service = null, serviceResults = null,
+                        serviceShelves = emptyMap()
+                    )
+                }
+                load(force = true)
+            }
+        }
     }
 
     fun refresh() = load(force = true)

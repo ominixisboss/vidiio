@@ -73,3 +73,32 @@ data class TMDBEpisode(
 data class TMDBExternalIds(
     @Json(name = "imdb_id") val imdbId: String?
 )
+
+/** US age certifications for one film, from movie/{id}/release_dates. */
+@JsonClass(generateAdapter = true)
+data class TMDBReleaseDatesResponse(
+    @Json(name = "results") val results: List<TMDBReleaseDates> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class TMDBReleaseDates(
+    @Json(name = "iso_3166_1") val country: String? = null,
+    @Json(name = "release_dates") val releaseDates: List<TMDBReleaseDate> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class TMDBReleaseDate(
+    @Json(name = "certification") val certification: String? = null
+)
+
+/** TV content ratings by country, from tv/{id}/content_ratings. */
+@JsonClass(generateAdapter = true)
+data class TMDBContentRatingsResponse(
+    @Json(name = "results") val results: List<TMDBContentRating> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class TMDBContentRating(
+    @Json(name = "iso_3166_1") val country: String? = null,
+    @Json(name = "rating") val rating: String? = null
+)

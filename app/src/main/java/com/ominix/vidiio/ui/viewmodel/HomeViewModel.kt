@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import android.util.Log
@@ -67,6 +69,13 @@ class HomeViewModel(
 
     init {
         refresh()
+        // Switching profile changes what Home may show (a kids profile is filtered), so reload it.
+        viewModelScope.launch {
+            settingsRepository.activeProfileIdFlow.drop(1).distinctUntilChanged().collect {
+                movieRepository.invalidateCache()
+                refresh()
+            }
+        }
     }
 
     fun refresh(isPullToRefresh: Boolean = false) {
