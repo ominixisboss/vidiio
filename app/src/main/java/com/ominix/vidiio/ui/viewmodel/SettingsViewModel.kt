@@ -135,6 +135,24 @@ class SettingsViewModel(
         }
     }
 
+    val excludeCamStreams: StateFlow<Boolean> = settingsRepository.excludeCamStreamsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setExcludeCamStreams(enabled: Boolean) {
+        viewModelScope.launch {
+            settingsRepository.setExcludeCamStreams(enabled)
+        }
+    }
+
+    val pinnedCatalogs: StateFlow<Set<String>> = settingsRepository.pinnedCatalogsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    fun togglePinCatalog(catalogName: String) {
+        viewModelScope.launch {
+            settingsRepository.togglePinCatalog(catalogName)
+        }
+    }
+
     fun toggleCharlotteVpn(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.enableCharlotteVpn(enabled)

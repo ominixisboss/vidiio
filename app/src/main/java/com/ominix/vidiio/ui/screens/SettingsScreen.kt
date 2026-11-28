@@ -153,6 +153,7 @@ fun SettingsScreen(
     val subtitleLanguages by viewModel.subtitleLanguages.collectAsState()
     val subtitleStyle by viewModel.subtitleStyle.collectAsState()
     val subtitlesEnabledByDefault by viewModel.subtitlesEnabledByDefault.collectAsState()
+    val excludeCamStreams by viewModel.excludeCamStreams.collectAsState()
     val assNativeStyling by viewModel.assNativeStyling.collectAsState()
     val proxyEnabled by viewModel.proxyEnabled.collectAsState()
     val proxyType by viewModel.proxyType.collectAsState()
@@ -415,6 +416,15 @@ fun SettingsScreen(
                         QualitySelectionRow(
                             currentQuality = playbackQuality,
                             onQualitySelected = { viewModel.setPlaybackQuality(it) }
+                        )
+                    }
+                    item(key = "pb-cam") {
+                        SwitchPreferenceItem(
+                            title = "Filter Out CAM / TS Rips",
+                            summary = if (excludeCamStreams) "On — hides low-quality CAM and Telesync theater recordings" else "Off — shows all available links including CAMs",
+                            icon = Icons.Rounded.FilterList,
+                            checked = excludeCamStreams,
+                            onCheckedChange = { viewModel.setExcludeCamStreams(it) }
                         )
                     }
                     item(key = "pb-cache") {

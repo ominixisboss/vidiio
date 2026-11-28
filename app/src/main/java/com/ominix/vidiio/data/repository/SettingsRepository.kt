@@ -122,6 +122,8 @@ class SettingsRepository(private val context: Context) {
         val PREFERRED_AUDIO_LANGUAGE = stringPreferencesKey("preferred_audio_language")
         val ACTIVE_PROFILE_ID = stringPreferencesKey("active_profile_id")
         val XTREAM_ACCOUNTS = stringSetPreferencesKey("xtream_accounts")
+        val EXCLUDE_CAM_STREAMS = booleanPreferencesKey("exclude_cam_streams")
+        val PINNED_CATALOGS = stringSetPreferencesKey("pinned_catalogs")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -255,6 +257,31 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPreferredAudioLanguage(lang: String) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.PREFERRED_AUDIO_LANGUAGE] = lang
+        }
+    }
+
+    val excludeCamStreamsFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.EXCLUDE_CAM_STREAMS] ?: true
+    }
+
+    suspend fun setExcludeCamStreams(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.EXCLUDE_CAM_STREAMS] = enabled
+        }
+    }
+
+    val pinnedCatalogsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.PINNED_CATALOGS] ?: setOf("One Pace Arcs", "Trending Netflix Shows")
+    }
+
+    suspend fun togglePinCatalog(catalogName: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.PINNED_CATALOGS] ?: setOf("One Pace Arcs", "Trending Netflix Shows")
+            if (current.contains(catalogName)) {
+                preferences[PreferencesKeys.PINNED_CATALOGS] = current - catalogName
+            } else {
+                preferences[PreferencesKeys.PINNED_CATALOGS] = current + catalogName
+            }
         }
     }
 

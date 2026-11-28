@@ -619,6 +619,23 @@ fun SourceSelectorBottomSheet(
 }
 
 @Composable
+private fun BadgeChip(text: String, color: Color, textColor: Color) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(color)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = text,
+            color = textColor,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
 fun SourceItem(
     source: StreamSource,
     health: SourceHealth?,
@@ -667,6 +684,29 @@ fun SourceItem(
                     source.seeders?.let {
                         Text(text = " • ", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(text = "👥 $it", color = Color.Green, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    if (source.isDebridCached) {
+                        BadgeChip(text = "RD+ Cached", color = Color(0xFF2E7D32), textColor = Color.White)
+                    }
+                    if (source.is4K) {
+                        BadgeChip(text = "4K UHD", color = Color(0xFFFFB300), textColor = Color.Black)
+                    }
+                    if (source.isDolbyVision) {
+                        BadgeChip(text = "DV", color = Color(0xFFD81B60), textColor = Color.White)
+                    } else if (source.isHdr) {
+                        BadgeChip(text = "HDR", color = Color(0xFF8E24AA), textColor = Color.White)
+                    }
+                    if (source.isDolbyAtmos) {
+                        BadgeChip(text = "Atmos 7.1", color = Color(0xFF1E88E5), textColor = Color.White)
+                    }
+                    if (source.isRemux) {
+                        BadgeChip(text = "REMUX", color = Color(0xFFF57C00), textColor = Color.White)
                     }
                 }
                 SourceHealthBadge(health = health, modifier = Modifier.padding(top = 2.dp))

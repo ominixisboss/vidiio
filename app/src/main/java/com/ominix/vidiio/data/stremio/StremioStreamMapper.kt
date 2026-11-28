@@ -87,6 +87,15 @@ fun StremioStream.toStreamSource(): StreamSource? {
         append(streamTitle ?: streamName ?: filename ?: "Stremio")
     }.replace('\n', ' ').trim().ifBlank { "Stremio" }
 
+    val fullText = "$label $displayName ${streamTitle.orEmpty()} ${filename.orEmpty()}".uppercase()
+    val is4k = fullText.contains("4K") || fullText.contains("2160P") || fullText.contains("UHD")
+    val isHdr = fullText.contains("HDR") || fullText.contains("HDR10")
+    val isDv = fullText.contains("DV") || fullText.contains("DOLBY VISION") || fullText.contains("DOVI")
+    val isAtmos = fullText.contains("ATMOS") || fullText.contains("7.1") || fullText.contains("TRUEHD")
+    val isRemux = fullText.contains("REMUX")
+    val isCam = fullText.contains("CAM") || fullText.contains("HDCAM") || fullText.contains("TELESYNC") || fullText.contains("TS-RIP")
+    val isDebrid = fullText.contains("[RD+]") || fullText.contains("[AD+]") || fullText.contains("[PM+]") || fullText.contains("⚡")
+
     return StreamSource(
         url = streamUrl,
         sourceName = "Stremio",
@@ -100,6 +109,13 @@ fun StremioStream.toStreamSource(): StreamSource? {
         seeders = SEEDERS_RE.find(label)?.groupValues?.get(1)?.toIntOrNull(),
         headers = headers,
         fileIndex = fileIdx,
-        fileName = filename
+        fileName = filename,
+        is4K = is4k,
+        isHdr = isHdr,
+        isDolbyVision = isDv,
+        isDolbyAtmos = isAtmos,
+        isRemux = isRemux,
+        isCam = isCam,
+        isDebridCached = isDebrid
     )
 }

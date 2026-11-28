@@ -17,5 +17,12 @@ data class StreamSource(
     val headers: Map<String, String>? = null,
     /** For multi-file torrents: the addon-chosen file index (0-based) and/or name. */
     val fileIndex: Int? = null,
-    val fileName: String? = null
+    val fileName: String? = null,
+    val is4K: Boolean = false,
+    val isHdr: Boolean = false,
+    val isDolbyVision: Boolean = false,
+    val isDolbyAtmos: Boolean = false,
+    val isRemux: Boolean = false,
+    val isCam: Boolean = false,
+    val isDebridCached: Boolean = false
 )
