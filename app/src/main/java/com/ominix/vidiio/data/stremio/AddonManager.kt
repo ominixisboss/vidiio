@@ -312,9 +312,9 @@ class AddonManager(
     /** Catalogs from the bundled anime addons only (shown inside the Anime area of Home). */
     suspend fun getAnimeCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
         getInstalledAddons()
-            .filter { (it.url.contains("OnePace", ignoreCase = true) || it.manifest.types.orEmpty().any { t -> t.lowercase() == "anime" }) && !it.manifest.catalogs.isNullOrEmpty() }
+            .filter { (it.url.contains("onepace", ignoreCase = true) || it.manifest.name.contains("one pace", ignoreCase = true) || it.manifest.types.orEmpty().any { t -> t.lowercase() == "anime" }) && !it.manifest.catalogs.isNullOrEmpty() }
             .flatMap { addon ->
-                addon.manifest.catalogs!!.filter { c -> c.type.lowercase() == "anime" || addon.url.contains("OnePace", ignoreCase = true) }.map { catalog ->
+                addon.manifest.catalogs!!.filter { c -> c.type.lowercase() == "anime" || addon.url.contains("onepace", ignoreCase = true) || addon.manifest.name.contains("one pace", ignoreCase = true) }.map { catalog ->
                     async {
                         runCatching {
                             val url = "${addon.baseUrl}catalog/${catalog.type}/${catalog.id}.json"
@@ -482,7 +482,7 @@ class AddonManager(
             "https://cyberflix.elfhosted.com/manifest.json",
             "https://comet.elfhosted.com/manifest.json",
             "https://mediafusion.elfhosted.com/manifest.json",
-            "https://fedew04.github.io/OnePaceStremio/manifest.json",
+            "https://onepace.e6ip.com/eyJkZWJyaWRTZXJ2aWNlcyI6W3sic2VydmljZSI6InAycCJ9XX0=/manifest.json",
             "https://addon.notorrent2.workers.dev/manifest.json",
             "https://opensubtitles-v3.strem.io/manifest.json",
             "https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6ImFsbCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
