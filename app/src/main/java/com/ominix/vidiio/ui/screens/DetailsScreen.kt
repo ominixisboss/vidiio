@@ -691,6 +691,36 @@ fun SourceItem(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     modifier = Modifier.padding(top = 4.dp)
                 ) {
+                    val pName = when {
+                        source.serverName.contains("Plavio", true) || source.sourceName.contains("Plavio", true) -> "PlavioHD"
+                        source.serverName.contains("Torrentio", true) || source.sourceName.contains("Torrentio", true) -> "Torrentio"
+                        source.serverName.contains("KnightCrawler", true) -> "KnightCrawler"
+                        source.serverName.contains("CyberFlix", true) -> "CyberFlix"
+                        source.serverName.contains("Comet", true) -> "Comet"
+                        source.serverName.contains("MediaFusion", true) -> "MediaFusion"
+                        source.serverName.contains("Knaben", true) -> "Knaben"
+                        source.serverName.contains("TorrentGalaxy", true) -> "TorrentGalaxy"
+                        source.serverName.contains("1337x", true) -> "1337x"
+                        source.serverName.contains("YTS", true) -> "YTS"
+                        source.sourceName.isNotBlank() && source.sourceName != "Stremio" -> source.sourceName
+                        else -> null
+                    }
+                    val pColor = when (pName) {
+                        "PlavioHD" -> Color(0xFF7B1FA2)
+                        "Torrentio" -> Color(0xFF1565C0)
+                        "KnightCrawler" -> Color(0xFFC62828)
+                        "CyberFlix" -> Color(0xFFF57F17)
+                        "Comet" -> Color(0xFFE65100)
+                        "MediaFusion" -> Color(0xFF2E7D32)
+                        "Knaben" -> Color(0xFF00838F)
+                        "TorrentGalaxy" -> Color(0xFFD81B60)
+                        "1337x" -> Color(0xFFEF6C00)
+                        "YTS" -> Color(0xFF0097A7)
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                    pName?.let {
+                        BadgeChip(text = it, color = pColor, textColor = Color.White)
+                    }
                     if (source.isDebridCached) {
                         BadgeChip(text = "RD+ Cached", color = Color(0xFF2E7D32), textColor = Color.White)
                     }

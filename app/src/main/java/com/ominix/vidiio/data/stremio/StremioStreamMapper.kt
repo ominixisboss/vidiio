@@ -46,7 +46,7 @@ private val QUALITY_RE = Regex("""\b(2160p|4k|1080p|720p|480p|360p|CAM|HDCAM|WEB
  *    chosen file index/name preserved so the exact file is streamed/downloaded.
  */
 @Suppress("UNCHECKED_CAST")
-fun StremioStream.toStreamSource(): StreamSource? {
+fun StremioStream.toStreamSource(addonName: String? = null): StreamSource? {
     val bh = behaviorHints ?: emptyMap()
 
     val proxyHeaders = ((bh["proxyHeaders"] as? Map<String, Any?>)?.get("request")) as? Map<String, Any?>
@@ -96,10 +96,12 @@ fun StremioStream.toStreamSource(): StreamSource? {
     val isCam = fullText.contains("CAM") || fullText.contains("HDCAM") || fullText.contains("TELESYNC") || fullText.contains("TS-RIP")
     val isDebrid = fullText.contains("[RD+]") || fullText.contains("[AD+]") || fullText.contains("[PM+]") || fullText.contains("⚡")
 
+    val providerName = addonName ?: streamName ?: "Stremio"
+
     return StreamSource(
         url = streamUrl,
-        sourceName = "Stremio",
-        sourceId = "stremio",
+        sourceName = providerName,
+        sourceId = providerName.lowercase().replace(" ", "_"),
         serverName = displayName,
         isM3u8 = streamUrl.substringBefore('?').endsWith(".m3u8", true),
         quality = QUALITY_RE.find(label)?.value?.uppercase() ?: QUALITY_RE.find(streamTitle.orEmpty())?.value?.uppercase(),
