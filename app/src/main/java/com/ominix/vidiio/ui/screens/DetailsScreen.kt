@@ -693,20 +693,22 @@ fun SourceItem(
                 ) {
                     val pName = when {
                         source.serverName.contains("Plavio", true) || source.sourceName.contains("Plavio", true) -> "PlavioHD"
+                        source.serverName.contains("Pengu", true) || source.sourceName.contains("Pengu", true) || source.url.contains("pengu.uk", true) -> "PenguPlay"
                         source.serverName.contains("Torrentio", true) || source.sourceName.contains("Torrentio", true) -> "Torrentio"
-                        source.serverName.contains("KnightCrawler", true) -> "KnightCrawler"
-                        source.serverName.contains("CyberFlix", true) -> "CyberFlix"
-                        source.serverName.contains("Comet", true) -> "Comet"
-                        source.serverName.contains("MediaFusion", true) -> "MediaFusion"
-                        source.serverName.contains("Knaben", true) -> "Knaben"
-                        source.serverName.contains("TorrentGalaxy", true) -> "TorrentGalaxy"
-                        source.serverName.contains("1337x", true) -> "1337x"
-                        source.serverName.contains("YTS", true) -> "YTS"
+                        source.serverName.contains("KnightCrawler", true) || source.sourceName.contains("KnightCrawler", true) -> "KnightCrawler"
+                        source.serverName.contains("CyberFlix", true) || source.sourceName.contains("CyberFlix", true) -> "CyberFlix"
+                        source.serverName.contains("Comet", true) || source.sourceName.contains("Comet", true) -> "Comet"
+                        source.serverName.contains("MediaFusion", true) || source.sourceName.contains("MediaFusion", true) -> "MediaFusion"
+                        source.serverName.contains("Knaben", true) || source.sourceName.contains("Knaben", true) -> "Knaben"
+                        source.serverName.contains("TorrentGalaxy", true) || source.sourceName.contains("TorrentGalaxy", true) -> "TorrentGalaxy"
+                        source.serverName.contains("1337x", true) || source.sourceName.contains("1337x", true) -> "1337x"
+                        source.serverName.contains("YTS", true) || source.sourceName.contains("YTS", true) -> "YTS"
                         source.sourceName.isNotBlank() && source.sourceName != "Stremio" -> source.sourceName
                         else -> null
                     }
                     val pColor = when (pName) {
                         "PlavioHD" -> Color(0xFF7B1FA2)
+                        "PenguPlay" -> Color(0xFF3F51B5)
                         "Torrentio" -> Color(0xFF1565C0)
                         "KnightCrawler" -> Color(0xFFC62828)
                         "CyberFlix" -> Color(0xFFF57F17)
