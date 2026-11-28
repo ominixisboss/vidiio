@@ -44,9 +44,9 @@
 
 Pre-compiled production APKs are available on the [GitHub Releases](https://github.com/ominixisboss/vidiio/releases) page:
 
-* **`vidiio-v2.0.2-universal.apk`** — Universal APK compatible with all Fire TV Sticks, Google TV, Android TV boxes, and phones.
-* **`vidiio-v2.0.2-arm64-v8a.apk`** — 64-bit APK for Fire TV 4K, Shield TV, and modern Android TV devices.
-* **`vidiio-v2.0.2-armeabi-v7a.apk`** — 32-bit APK for Fire TV Stick Lite and legacy devices.
+* **`vidiio-v2.0.3-universal.apk`** — Universal APK compatible with all Fire TV Sticks, Google TV, Android TV boxes, and phones.
+* **`vidiio-v2.0.3-arm64-v8a.apk`** — 64-bit APK for Fire TV 4K, Shield TV, and modern Android TV devices.
+* **`vidiio-v2.0.3-armeabi-v7a.apk`** — 32-bit APK for Fire TV Stick Lite and legacy devices.
 
 ---
 
