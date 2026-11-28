@@ -83,7 +83,11 @@ class AddonManager(
      * links with it - the addon that needed the time was the one that lost everything.
      */
     suspend fun getStreams(type: String, id: String): AddonStreams = coroutineScope {
-        val streamAddons = getInstalledAddons().filter { it.manifest.hasResource("stream") }
+        // Select Sources can switch an addon off without uninstalling it.
+        val disabledSources = settingsRepository.sourcesFlow.first()
+        val streamAddons = getInstalledAddons().filter { addon ->
+            addon.manifest.hasResource("stream") && !disabledSources.contains("disabled_${addon.url}")
+        }
         val answers = streamAddons.map { addon ->
             async {
                 val offered = try {
@@ -341,9 +345,9 @@ class AddonManager(
     /** Catalogs from the bundled anime addons only (shown inside the Anime area of Home). */
     suspend fun getAnimeCatalogs(): List<Pair<String, List<StremioMeta>>> = coroutineScope {
         getInstalledAddons()
-            .filter { (it.url.contains("OnePace", ignoreCase = true) || it.manifest.types.orEmpty().any { t -> t.lowercase() == "anime" }) && !it.manifest.catalogs.isNullOrEmpty() }
+            .filter { (it.url.contains("onepace", ignoreCase = true) || it.manifest.name.contains("one pace", ignoreCase = true) || it.manifest.types.orEmpty().any { t -> t.lowercase() == "anime" }) && !it.manifest.catalogs.isNullOrEmpty() }
             .flatMap { addon ->
-                addon.manifest.catalogs!!.filter { c -> c.type.lowercase() == "anime" || addon.url.contains("OnePace", ignoreCase = true) }.map { catalog ->
+                addon.manifest.catalogs!!.filter { c -> c.type.lowercase() == "anime" || addon.url.contains("onepace", ignoreCase = true) || addon.manifest.name.contains("one pace", ignoreCase = true) }.map { catalog ->
                     async {
                         runCatching {
                             val url = "${addon.baseUrl}catalog/${catalog.type}/${catalog.id}.json"
@@ -544,32 +548,15 @@ class AddonManager(
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(
-            "https://fedew04.github.io/OnePaceStremio/manifest.json",
-            "https://7a82163c306e-stremio-netflix-catalog-addon.baby-beamup.club/bmZ4LGRucCxhbXAsYXRwLGhibSxwbXAscGNwLGhsdTo6VVM6MTc5NDc4ODc1MzUzMjowOjA6VVM%3D/manifest.json",
+            "https://torrentio.strem.fun/manifest.json",
+            "https://knightcrawler.elfhosted.com/manifest.json",
+            "https://cyberflix.elfhosted.com/manifest.json",
+            "https://comet.elfhosted.com/manifest.json",
+            "https://mediafusion.elfhosted.com/manifest.json",
+            "https://onepace.e6ip.com/eyJkZWJyaWRTZXJ2aWNlcyI6W3sic2VydmljZSI6InAycCJ9XX0=/manifest.json",
             "https://addon.notorrent2.workers.dev/manifest.json",
-            // Subtitles, working out of the box. Verified: declares the subtitles
-            // resource, needs no configuration, and serves both movie and series ids
-            // (tt0133093 -> 27 results, tt0903747:1:1 -> 89).
-            //
-            // Deliberately not dexter21767's opensubtitles addon, which sets
-            // behaviorHints.configurationRequired and returns an empty list for every
-            // query until it is configured through its own web page.
             "https://opensubtitles-v3.strem.io/manifest.json",
-            // opensubtitles PRO, pre-configured for English. Its config segment holds
-            // only preferences ({"langs":["english"],"source":"all",...}) and no
-            // credential, so it is safe to ship. Verified: 56 results for tt0133093,
-            // 11 for tt26657236, 15 for a series episode. It 302s to another host,
-            // which OkHttp follows.
             "https://opensubtitlesv3-pro.dexter21767.com/eyJsYW5ncyI6WyJlbmdsaXNoIl0sInNvdXJjZSI6ImFsbCIsImFpVHJhbnNsYXRlZCI6dHJ1ZSwiYXV0b0FkanVzdG1lbnQiOnRydWV9/manifest.json",
-            // SubSource, pre-configured for English. Verified: 134 results for
-            // tt0133093, 7 for tt26657236.
-            //
-            // NOTE: unlike the two above, this URL's config segment carries an account
-            // key, not just preferences. Bundled at the owner's explicit request. It is
-            // therefore public - in this repo's history and in every APK - so rotating it
-            // means editing this line and shipping a new build, and anyone with the APK
-            // can use it. If that stops being acceptable, drop this entry and add the
-            // addon per-device in Settings instead, where it lives only in DataStore.
             "https://subsource.strem.top/c2tfMGE1MWViZmRmNjA0MzVmZWEwNDdlYWQzYTQ3ZmFmYTZjNGRjY2E3NWE3OTMyZTQ0NDVlMWJlZTIwMGQ2NTcyYy9lbmdsaXNoL2hpSW5jbHVkZS90eXBlOjAv/manifest.json"
         )
     }
