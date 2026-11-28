@@ -260,6 +260,14 @@ fun SettingsScreen(
 
                 // --- INTEGRATIONS & SOURCES ---
                 item(key = "hdr-integrations") { SectionHeader("INTEGRATIONS & SOURCES") }
+                item(key = "sec-allinone") {
+                    SettingCardRow(
+                        title = "All in One Vidiio",
+                        icon = Icons.Rounded.AutoAwesome,
+                        statusText = if (selectedSources.contains("allinone_vidiio")) "Active (40+ Sources)" else "Disabled",
+                        onClick = { openSection = "allinone" }
+                    )
+                }
                 item(key = "sec-metadata") {
                     SettingCardRow(
                         title = "Metadata Source",
@@ -543,9 +551,54 @@ fun SettingsScreen(
                     }
                 }
 
+                if (openSection == "allinone") {
+                    item(key = "hdr-aio-title") { SectionHeader("ALL IN ONE VIDIIO EXTENSION SUITE") }
+                    item(key = "aio-info") {
+                        PreferenceItem(
+                            title = "All in One Vidiio Suite",
+                            summary = "Source: https://github.com/NuvioPlugin/All-in-One-Nuvio.git \u00b7 40+ Integrated Providers",
+                            icon = Icons.Rounded.AutoAwesome,
+                            onClick = null
+                        )
+                    }
+                    item(key = "aio-toggle") {
+                        SwitchPreferenceItem(
+                            title = "Enable All in One Vidiio Suite",
+                            summary = "Search 40+ scrapers & providers for movies, TV shows and anime",
+                            icon = Icons.Rounded.Extension,
+                            checked = selectedSources.contains("allinone_vidiio"),
+                            onCheckedChange = { viewModel.toggleSource("allinone_vidiio") }
+                        )
+                    }
+                    item(key = "hdr-aio-providers") { SectionHeader("INCLUDED PROVIDERS (40+)") }
+                    val nuvioProviders = listOf(
+                        "AllAnime" to "Anime & Movies (AllAnime)",
+                        "4KHDHub" to "4K & 1080p Direct Links (4KHDHub)",
+                        "1Shows" to "Movies & TV Shows in 4K/1080p (1Shows)",
+                        "All-Wish" to "TV Episodes & Series (All-Wish)",
+                        "AnimeKai" to "Anime Streams (AnimeKai)",
+                        "AniZone" to "High Quality Multi-Audio Anime (AniZone)",
+                        "FlixHQ" to "Popular Movies & Shows (FlixHQ)",
+                        "VidSrcPro" to "High-Speed 4K & 1080p (VidSrcPro)",
+                        "AutoEmbed" to "Direct Fast Embeds (AutoEmbed)",
+                        "FilmPalace" to "HD Movie Streams (FilmPalace)",
+                        "CineZone" to "Multi-Server Streaming (CineZone)",
+                        "MultiEmbed" to "Fast Direct Streams (MultiEmbed)"
+                    )
+                    items(nuvioProviders, key = { "nuvio-${it.first}" }) { (pId, pName) ->
+                        PreferenceItem(
+                            title = pName,
+                            summary = "Included in All in One Vidiio Suite",
+                            icon = Icons.Rounded.Check,
+                            onClick = null
+                        )
+                    }
+                }
+
                 if (openSection == "sources") {
-                    item(key = "hdr-src-builtin") { SectionHeader("BUILT-IN TORRENT SCRAPERS") }
+                    item(key = "hdr-src-builtin") { SectionHeader("BUILT-IN SCRAPERS & EXTENSIONS") }
                     val builtinSources = listOf(
+                        "allinone_vidiio" to "All in One Vidiio (40+ Provider Suite)",
                         "knaben" to "Knaben (Torrent Scraper)",
                         "tg" to "TorrentGalaxy (Torrent Scraper)",
                         "1337x" to "1337x (Torrent Scraper)",
