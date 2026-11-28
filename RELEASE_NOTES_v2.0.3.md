@@ -8,30 +8,36 @@
 
 ## 🌟 What's New in Vidiio 2.0.3
 
-### 1. 🏷️ Smart Stream Link Badges & Quality Indicators
-- **High-Quality Badges:** Automatically identifies and labels stream links with crisp visual badges:
-  - **`RD+ Cached`** (Debrid cached streams)
-  - **`4K UHD`** (4K 2160p resolution)
-  - **`DV` / `HDR`** (Dolby Vision & HDR10+)
-  - **`Atmos 7.1`** (Dolby Atmos & 7.1 Surround)
-  - **`REMUX`** (Uncompressed Remux quality)
-  - **`👥 Seeders`** (Live seeders count)
+### 1. 🏷️ Provider Source Badges & Quality Indicators
+- **Provider Badges:** Displays clear source badges on every stream link:
+  - **`PlavioHD`** (Multi-source 4K/HD aggregator)
+  - **`Torrentio`** (BitTorrent & Debrid streams)
+  - **`KnightCrawler`** (Fast multi-source provider)
+  - **`CyberFlix`** / **`Comet`** / **`MediaFusion`** (Stream addons)
+  - **`Knaben`** / **`TorrentGalaxy`** / **`1337x`** / **`YTS`** (Torrent scrapers)
+- **Quality Badges:** Visual tags for **`4K UHD`**, **`DV`** (Dolby Vision), **`HDR`**, **`Atmos 7.1`**, **`REMUX`**, **`RD+ Cached`**, and live seeders count.
 
 ### 2. 🚫 CAM & Theater Recording Filter
 - **CAM / TS Rip Filter:** Added a toggle setting under **Playback Settings** (`Filter Out CAM / TS Rips`). When enabled (ON by default), low-quality CAM, HDCAM, and Telesync theater recordings are automatically hidden.
 
-### 3. 💬 Multi-Addon Subtitle Auto-Search
-- Concurrently queries OpenSubtitles v3, SubSource, SubDL, and all installed subtitle addons at the same time, automatically selecting matching subtitle tracks on playback start.
+### 3. 🍿 PlavioHD Integration & Prioritization
+- **Bundled PlavioHD Addon:** Pre-configured PlavioHD addon (`https://hd.plavio.site/u/.../manifest.json`) aggregating 50+ providers (*4KHDHub, 4KMirror, AniKage, AniZone, Castle, CineCalidad, CineVood, Cinezo, Codestream, Dexter, Dulo, Einthusan, HDHindi, HDHub4u, HDMovie4, HackStore, HindMovie, HindiLinks, Kinara, KissKH, KmMovies, LaMovie, MalluMV, Mapple, MaxVOD, MovieBox, MovieLinkBD, Movies4u, MoviesBazar, MoviesDrive, MoviesHunt, MoviesMod, Movy, MultiMovies, NetMirror, Nxsha, Obejrzyj, OndaSpanish, Play4u, RogMovies, SoraStream, SpaceDom, TamilBlasters, ToonWorld4All, UHDMovies, VAplayer, VegaMovies, VidBolt, VidFast, Vidlink, Vidrock, Way2Movies, WorldFree4u, Zeefliz4k*).
+- **Prioritize PlavioHD Links:** Toggle setting under **Settings -> Addons** lists PlavioHD streams at the top.
 
 ### 4. 📺 Interactive EPG Timeline Grid & Xtream Codes IPTV
 - **EPG Timeline Grid:** View live TV shows in a full-screen time grid (`7:00 PM`, `7:30 PM`, `8:00 PM`...) with channel logos and live indicator badges. Toggle between **EPG Grid** and **Schedule List** on the TV Guide screen.
 - **Xtream Codes IPTV:** Added **Add Xtream Codes IPTV Account** in Settings -> Live TV to log in via Server URL, Username & Password with automated category mapping and EPG loading.
 
-### 5. 🏴‍☠️ Updated One Pace Stremio Addon
-- Updated One Pace Stremio addon manifest URL to `https://onepace.e6ip.com/eyJkZWJyaWRTZXJ2aWNlcyI6W3sic2VydmljZSI6InAycCJ9XX0=/manifest.json`.
+### 5. 💬 Multi-Addon Subtitle Auto-Search
+- Concurrently queries OpenSubtitles v3, SubSource, SubDL, and all installed subtitle addons at the same time, automatically selecting matching subtitle tracks on playback start.
 
-### 6. 🔍 Multi-ID Stream Addon Querying
-- Concurrently queries Stremio stream addons using IMDb IDs (`tt0944947:1:1`), TMDb IDs (`tmdb:1399:1:1`), and Addon-Native IDs.
+### 6. 🛡️ Built-in International VPN Locations
+- **1-Tap Global Server Nodes:** Encrypt scraper, torrent tracker, and stream traffic through 5 fast proxy nodes:
+  - 🇺🇸 **Charlotte, NC** (United States)
+  - 🇨🇦 **Montreal** (Canada)
+  - 🇬🇧 **London** (United Kingdom)
+  - 🇩🇪 **Frankfurt** (Germany)
+  - 🇯🇵 **Tokyo** (Japan)
 
 ---
 
