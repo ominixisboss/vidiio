@@ -1,8 +1,12 @@
 package com.ominix.vidiio.data.repository
 
 import android.os.SystemClock
+import android.util.Log
 import com.ominix.vidiio.data.model.StreamSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -59,9 +63,9 @@ data class SourceHealth(
 class SourceVerifier(client: OkHttpClient) {
 
     private val probeClient: OkHttpClient = client.newBuilder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
-        .callTimeout(8, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .callTimeout(12, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
         .build()
@@ -75,7 +79,22 @@ class SourceVerifier(client: OkHttpClient) {
             isTorrent(url) -> judgeTorrent(source.seeders)
             isEmbed(url) -> SourceHealth(SourceStatus.UNKNOWN, note = "Web player")
             !url.startsWith("http", ignoreCase = true) -> SourceHealth(SourceStatus.UNKNOWN)
-            else -> gate.withPermit { probe(source) }
+            // The body is read here, not just the headers. Called from viewModelScope this ran
+            // on the main thread, and Android's StrictMode threw NetworkOnMainThreadException
+            // as soon as the probe had to wait for bytes that were not already buffered - which
+            // is exactly what happens with a slow-but-good link (PixelDrain), while instant
+            // error pages sailed through. Swallowed as "Unverified", it sorted those sources
+            // under every torrent.
+            else -> withContext(Dispatchers.IO) {
+                gate.withPermit {
+                    val first = probe(source)
+                    if (!shouldRetry(first)) return@withPermit first
+                    // A slow first byte is not a verdict on the link: a host that takes a few
+                    // seconds on a cold connection often answers at once the second time.
+                    delay(RETRY_DELAY_MS)
+                    probe(source)
+                }
+            }
         }
     }
 
@@ -113,7 +132,13 @@ class SourceVerifier(client: OkHttpClient) {
                 else -> SourceHealth(SourceStatus.UNKNOWN, note = "Slow")
             }
         } catch (e: Exception) {
-            SourceHealth(SourceStatus.UNKNOWN)
+            // Host only: some addon URLs carry a credential in their path. Previously this
+            // failure was silent, so a bug in the probe looked like "the link may not work".
+            Log.w(
+                "SourceVerifier",
+                "probe of ${source.url.substringBefore('?').substringAfter("://").substringBefore('/')} failed: ${e.javaClass.simpleName}",
+            )
+            SourceHealth(SourceStatus.UNKNOWN, note = "Probe failed")
         }
     }
 
@@ -139,6 +164,19 @@ class SourceVerifier(client: OkHttpClient) {
     companion object {
         private const val MAX_CONCURRENT_PROBES = 6
         private const val PROBE_BYTES = 2047
+        private const val RETRY_DELAY_MS = 600L
+
+        /**
+         * True when a probe result says nothing definite about the link, so it is worth asking
+         * again: the read timed out ("Slow"), the host was busy, or the call failed in a way
+         * that is not an HTTP verdict (no note). A 4xx/5xx or a page that is not media is a
+         * real answer and is not retried.
+         */
+        fun shouldRetry(health: SourceHealth): Boolean =
+            health.status == SourceStatus.UNKNOWN && health.note !in DEFINITE_REFUSALS
+
+        /** Refusals that are stable answers about the file rather than a passing problem. */
+        private val DEFINITE_REFUSALS = setOf("HTTP 401", "HTTP 403", "Web player")
 
         fun isTorrent(url: String): Boolean =
             url.startsWith("magnet:", ignoreCase = true) ||

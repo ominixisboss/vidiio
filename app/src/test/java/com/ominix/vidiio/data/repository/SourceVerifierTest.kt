@@ -72,6 +72,19 @@ class SourceVerifierTest {
     }
 
     @Test
+    fun `only inconclusive probes are retried`() {
+        // A slow first byte or a busy host can answer at once the second time.
+        assertTrue(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.UNKNOWN, note = "Slow")))
+        assertTrue(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.UNKNOWN, note = "Busy")))
+        assertTrue(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.UNKNOWN)))
+        // A refusal or a verdict is an answer: asking again just wastes the viewer's time.
+        assertFalse(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.UNKNOWN, note = "HTTP 401")))
+        assertFalse(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.UNKNOWN, note = "HTTP 403")))
+        assertFalse(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.WORKING, latencyMs = 120)))
+        assertFalse(SourceVerifier.shouldRetry(SourceHealth(SourceStatus.DEAD, note = "HTTP 404")))
+    }
+
+    @Test
     fun `torrent and embed detection`() {
         assertTrue(SourceVerifier.isTorrent("magnet:?xt=urn:btih:abc"))
         assertTrue(SourceVerifier.isTorrent("https://example.com/file.torrent?x=1"))

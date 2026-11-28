@@ -111,6 +111,22 @@ class MediaSession(
         _sourceHealth.update { it + (url to health) }
     }
 
+    /**
+     * Records that a source is actually playing, which outranks anything a probe could see.
+     *
+     * The probe only gets one look at a link, and a CDN that is slow to first byte or refuses
+     * a bare Range request can leave a perfectly good stream marked "Unverified" - below
+     * torrents it starts faster than. Once frames are on screen there is no longer any doubt,
+     * so the badge turns green and the source moves to the top of the list.
+     */
+    fun markSourcePlaying(url: String) {
+        val known = _sourceHealth.value[url]
+        if (known?.status == SourceStatus.WORKING) return
+        _sourceHealth.update {
+            it + (url to SourceHealth(SourceStatus.WORKING, latencyMs = known?.latencyMs, note = "Playing"))
+        }
+    }
+
     /** Whether sources that failed their check are listed anyway. Off by default. */
     private val _showUnavailable = MutableStateFlow(false)
     val showUnavailable: StateFlow<Boolean> = _showUnavailable.asStateFlow()
@@ -162,6 +178,9 @@ class MediaSession(
     private var scrapingJob: Job? = null
     private val probeJobs = mutableListOf<Job>()
 
+    /** The addon set the current source list was scraped with; null until the first emission. */
+    private var scrapedWithAddons: Set<String>? = null
+
     /** Checks a newly found source in the background; the list re-sorts as results land. */
     private fun probe(source: StreamSource) {
         if (_sourceHealth.value.containsKey(source.url)) return
@@ -195,6 +214,19 @@ class MediaSession(
         }
     }
 
+    /**
+     * Forget everything found for the current configuration. Called when the installed
+     * addon set changes: those sources and their probes belong to addons the viewer no
+     * longer has (or predate one they just added), so they must not linger in the picker.
+     */
+    private fun clearFoundSources() {
+        cancelProbes()
+        prefetched = false
+        _sourceHealth.value = emptyMap()
+        _allFoundSources.value = emptyList()
+        _sourcesNote.value = null
+    }
+
     init {
         loadDetails()
         observeSettings()
@@ -204,16 +236,23 @@ class MediaSession(
     private fun observeSettings() {
         scope.launch {
             // Single scrape trigger: (re)scrape when the movie first loads, the selected
-            // episode changes, or the enabled-source set changes - and nothing else.
-            // DataStore re-emits the same value on startup, so distinctUntilChanged is what
-            // stops startScraping from cancelling itself in a loop.
+            // episode changes, the enabled-source set changes, or an addon is added or
+            // removed in Settings - and nothing else. DataStore re-emits the same value on
+            // startup, so distinctUntilChanged is what stops startScraping from cancelling
+            // itself in a loop.
             combine(
                 _movie.filterNotNull(),
                 _selectedEpisode,
                 settingsRepository.sourcesFlow,
-            ) { movie, episode, enabled -> Triple(movie, episode, enabled) }
+                settingsRepository.stremioAddonsFlow,
+            ) { movie, episode, enabled, addons -> Triple(movie, episode, enabled to addons) }
                 .distinctUntilChanged()
-                .collectLatest { (movie, episode, _) ->
+                .collectLatest { (movie, episode, configuration) ->
+                    val addons = configuration.second
+                    // A changed addon set invalidates the whole picker, not just the next
+                    // search: drop the old list and stop probes that were checking it.
+                    if (scrapedWithAddons != null && scrapedWithAddons != addons) clearFoundSources()
+                    scrapedWithAddons = addons
                     if (!isLive) startScraping(movie, episode)
                 }
         }
@@ -315,11 +354,7 @@ class MediaSession(
 
     fun selectEpisode(episode: Episode) {
         scrapingJob?.cancel()
-        prefetched = false
-        cancelProbes()
-        _sourceHealth.value = emptyMap()
-        _allFoundSources.value = emptyList()
-        _sourcesNote.value = null
+        clearFoundSources()
         _selectedEpisode.value = episode
         // observeSettings() re-scrapes on the episode change.
     }

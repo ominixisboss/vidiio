@@ -290,6 +290,9 @@ class PlayerViewModel(
     /** Sources that failed to decode on this device, so the fallback never loops back to them. */
     private val skippedUrls = mutableSetOf<String>()
 
+    /** Sources that have actually played here, so the session only promotes each one once. */
+    private val promotedUrls = mutableSetOf<String>()
+
     /** URLs already re-opened as HLS once, so a link that fails in both forms is not retried forever. */
     private val hlsRetryUrls = mutableSetOf<String>()
 
@@ -626,6 +629,18 @@ class PlayerViewModel(
                 }
 
                 val playing = player.isPlaying
+
+                // Frames on screen are proof no probe can match. A link that the checker left
+                // "Unverified" (a slow first byte, a refused Range request) is verified now, so
+                // it stops sorting below torrents it in fact starts faster than.
+                val currentSource = _state.value.selectedSource
+                if (playing && currentSource != null && position >= PROVEN_AFTER_MS &&
+                    (live || vodDuration >= PLACEHOLDER_MAX_MS)
+                ) {
+                    if (promotedUrls.add(currentSource.url)) {
+                        session.markSourcePlaying(currentSource.url)
+                    }
+                }
 
                 // Halfway through, get the next episode ready in the background.
                 if (playing && vodDuration > 0L && position > vodDuration * 0.35) prefetchNextEpisode()
@@ -1063,6 +1078,9 @@ private const val CREDITS_SAMPLE_MS = 1_000L
 
 /** An addon stream shorter than this is a placeholder clip, not the film. */
 private const val PLACEHOLDER_MAX_MS = 75_000L
+
+/** How long a stream must actually play before it counts as verified. */
+private const val PROVEN_AFTER_MS = 3_000L
 
 /** Saved progress shorter than this is not worth asking about; playback just starts from the beginning. */
 private const val RESUME_PROMPT_MIN_MS = 30_000L

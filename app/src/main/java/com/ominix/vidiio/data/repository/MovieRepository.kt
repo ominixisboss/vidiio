@@ -709,7 +709,16 @@ class MovieRepository(
         /** Called when the addon search has something to explain, e.g. PenguPlay's sign-in clip. */
         onNote: ((String) -> Unit)? = null,
     ): Flow<StreamSource> = kotlinx.coroutines.flow.flow {
-        val key = "${movie.id}:${episode?.seasonNumber}:${episode?.episodeNumber}"
+        // The cache belongs to the configured scrapers and addons as well as the episode.
+        // Without this, adding an addon in Settings within the cache window kept serving
+        // the old list, so the new addon's stream paths were never looked up.
+        val key = sourceCacheKey(
+            movieId = movie.id,
+            seasonNumber = episode?.seasonNumber,
+            episodeNumber = episode?.episodeNumber,
+            enabledSources = settingsRepository.sourcesFlow.first(),
+            addonUrls = settingsRepository.stremioAddonsFlow.first(),
+        )
         val hit = sourceCache[key]
         if (hit != null && System.currentTimeMillis() - hit.foundAt < SOURCE_TTL_MS) {
             // The note is cached too: a re-scrape served from here must not drop the explanation
@@ -884,6 +893,28 @@ private const val HALLOWEEN_KEYWORD_ID = 3335
 private const val HALLOWEEN_PAGES = 12
 private const val LIST_TTL_MS = 5 * 60 * 1000L
 private const val SOURCE_TTL_MS = 10 * 60 * 1000L
+
+/**
+ * Cache identity for one source search: the title, the episode, and the installed
+ * scraper/addon configuration.
+ *
+ * The configuration belongs in the key because adding an addon in Settings must not
+ * keep serving the list cached before it existed - the key changes, the old entry is
+ * missed, and every installed addon is queried.
+ */
+internal fun sourceCacheKey(
+    movieId: String,
+    seasonNumber: Int?,
+    episodeNumber: Int?,
+    enabledSources: Collection<String>,
+    addonUrls: Collection<String>,
+): String = buildString {
+    append(movieId)
+    append(':').append(seasonNumber)
+    append(':').append(episodeNumber)
+    append('|').append(enabledSources.sorted().joinToString(","))
+    append('|').append(addonUrls.sorted().joinToString(","))
+}
 
 /**
  * Orders candidate Halloween films best-first by weighted rating and keeps the top 100. Pure, so it
