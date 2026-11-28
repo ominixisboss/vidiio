@@ -374,7 +374,6 @@ class VidiioApplication : Application() {
                 TorrentGalaxyScraper(okHttpClient),
                 OneThreeThreeSevenXScraper(okHttpClient),
                 YtsScraper(okHttpClient),
-                com.ominix.vidiio.data.scraper.AllInOneVidiioScraper(okHttpClient)
             ),
             settingsRepository,
             addonManager,

@@ -214,7 +214,7 @@ class SettingsRepository(private val context: Context) {
     }
 
     val sourcesFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
-        preferences[PreferencesKeys.SOURCES] ?: setOf("allinone_vidiio", "knaben", "tg", "1337x", "yts")
+        preferences[PreferencesKeys.SOURCES] ?: setOf("knaben", "tg", "1337x", "yts")
     }
 
     val stremioAddonsFlow: Flow<Set<String>> = context.dataStore.data.map { preferences ->
