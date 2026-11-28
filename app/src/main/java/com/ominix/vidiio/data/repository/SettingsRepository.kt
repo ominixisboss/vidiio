@@ -121,6 +121,7 @@ class SettingsRepository(private val context: Context) {
         val METADATA_ADDONS = stringSetPreferencesKey("metadata_addons")
         val PREFERRED_AUDIO_LANGUAGE = stringPreferencesKey("preferred_audio_language")
         val ACTIVE_PROFILE_ID = stringPreferencesKey("active_profile_id")
+        val XTREAM_ACCOUNTS = stringSetPreferencesKey("xtream_accounts")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -384,6 +385,45 @@ class SettingsRepository(private val context: Context) {
         val DEFAULT_SUBTITLE_LANGUAGES = listOf("en")
         const val CHARLOTTE_NC_VPN_HOST = "charlotte-nc.vpn.vidiio.app"
         const val CHARLOTTE_NC_VPN_PORT = 1080
+    }
+
+    val xtreamAccountsFlow: Flow<List<com.ominix.vidiio.data.live.XtreamAccount>> = context.dataStore.data.map { preferences ->
+        val raw = preferences[PreferencesKeys.XTREAM_ACCOUNTS].orEmpty()
+        raw.mapNotNull { jsonStr ->
+            runCatching {
+                val json = org.json.JSONObject(jsonStr)
+                com.ominix.vidiio.data.live.XtreamAccount(
+                    id = json.optString("id"),
+                    name = json.optString("name"),
+                    serverUrl = json.optString("serverUrl"),
+                    username = json.optString("username"),
+                    password = json.optString("password"),
+                    isActive = json.optBoolean("isActive", true)
+                )
+            }.getOrNull()
+        }
+    }
+
+    suspend fun addXtreamAccount(account: com.ominix.vidiio.data.live.XtreamAccount) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.XTREAM_ACCOUNTS].orEmpty()
+            val json = org.json.JSONObject().apply {
+                put("id", account.id)
+                put("name", account.name)
+                put("serverUrl", account.serverUrl)
+                put("username", account.username)
+                put("password", account.password)
+                put("isActive", account.isActive)
+            }.toString()
+            preferences[PreferencesKeys.XTREAM_ACCOUNTS] = current + json
+        }
+    }
+
+    suspend fun removeXtreamAccount(id: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[PreferencesKeys.XTREAM_ACCOUNTS].orEmpty()
+            preferences[PreferencesKeys.XTREAM_ACCOUNTS] = current.filterNot { it.contains(id) }.toSet()
+        }
     }
 
     suspend fun setSources(sources: Set<String>) {

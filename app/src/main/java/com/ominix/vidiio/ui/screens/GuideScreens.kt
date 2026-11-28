@@ -92,9 +92,23 @@ fun TvGuideScreen(
         }
     }
 
+    var guideViewMode by remember { androidx.compose.runtime.mutableStateOf("grid") }
+
     Column(modifier.fillMaxSize().background(FlixBackground).statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             FlixHeader("TV Guide", Modifier.weight(1f))
+            Text(
+                text = if (guideViewMode == "grid") "Schedule List" else "EPG Grid",
+                color = FlixAccent,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .tvClickable(onClick = {
+                        guideViewMode = if (guideViewMode == "grid") "list" else "grid"
+                    }, shape = RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            )
             Text(
                 "Today",
                 color = if (state.date == today) FlixAccent else Color.White,
@@ -171,21 +185,38 @@ fun TvGuideScreen(
                 )
             }
             else -> {
-                val timeFormat = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
-                val groups = remember(shows) { shows.groupBy { it.time?.withMinute(0)?.withSecond(0) } }
-                LazyColumn(contentPadding = PaddingValues(bottom = 40.dp)) {
-                    groups.forEach { (slot, entries) ->
-                        item(key = "slot-${slot ?: "stream"}") {
-                            Text(
-                                text = slot?.format(timeFormat) ?: "Streaming",
-                                color = FlixAccent,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(start = 14.dp, top = 16.dp, bottom = 4.dp)
-                            )
-                        }
-                        items(entries, key = { "g-${it.showName}" }) { entry ->
-                            GuideRow(entry, timeFormat, onClick = { open(entry) })
+                if (guideViewMode == "grid") {
+                    val channelsData = remember(shows) {
+                        shows.groupBy { it.channel ?: "General Network" }
+                            .map { (chName, entries) ->
+                                EpgChannelData(
+                                    channelName = chName,
+                                    channelLogo = entries.firstOrNull()?.posterUrl,
+                                    entries = entries
+                                )
+                            }
+                    }
+                    EpgGridComponent(
+                        channels = channelsData,
+                        onSelectEntry = { open(it) }
+                    )
+                } else {
+                    val timeFormat = remember { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT) }
+                    val groups = remember(shows) { shows.groupBy { it.time?.withMinute(0)?.withSecond(0) } }
+                    LazyColumn(contentPadding = PaddingValues(bottom = 40.dp)) {
+                        groups.forEach { (slot, entries) ->
+                            item(key = "slot-${slot ?: "stream"}") {
+                                Text(
+                                    text = slot?.format(timeFormat) ?: "Streaming",
+                                    color = FlixAccent,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.padding(start = 14.dp, top = 16.dp, bottom = 4.dp)
+                                )
+                            }
+                            items(entries, key = { "g-${it.showName}" }) { entry ->
+                                GuideRow(entry, timeFormat, onClick = { open(entry) })
+                            }
                         }
                     }
                 }

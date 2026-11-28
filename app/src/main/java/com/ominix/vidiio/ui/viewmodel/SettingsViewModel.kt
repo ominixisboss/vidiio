@@ -141,6 +141,21 @@ class SettingsViewModel(
         }
     }
 
+    val xtreamAccounts: StateFlow<List<com.ominix.vidiio.data.live.XtreamAccount>> = settingsRepository.xtreamAccountsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addXtreamAccount(account: com.ominix.vidiio.data.live.XtreamAccount) {
+        viewModelScope.launch {
+            settingsRepository.addXtreamAccount(account)
+        }
+    }
+
+    fun removeXtreamAccount(id: String) {
+        viewModelScope.launch {
+            settingsRepository.removeXtreamAccount(id)
+        }
+    }
+
     val metadataAddons: StateFlow<Set<String>> = settingsRepository.metadataAddonsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
