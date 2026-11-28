@@ -299,6 +299,13 @@ class SettingsViewModel(
         viewModelScope.launch { settingsRepository.setPrioritizePengu(enabled) }
     }
 
+    val prioritizePlavioHd: StateFlow<Boolean> = settingsRepository.prioritizePlavioHdFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    fun setPrioritizePlavioHd(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setPrioritizePlavioHd(enabled) }
+    }
+
     fun setMouseToggle(enabled: Boolean) {
         viewModelScope.launch {
             settingsRepository.setMouseToggle(enabled)

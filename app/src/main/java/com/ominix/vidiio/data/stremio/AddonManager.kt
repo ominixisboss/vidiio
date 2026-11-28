@@ -477,6 +477,7 @@ class AddonManager(
 
         /** Permanently bundled addons the user can't remove. */
         val BUILTIN_ADDON_URLS = listOf(
+            "https://hd.plavio.site/u/5zP1MPHJmrtERopyN56FZg/manifest.json",
             "https://torrentio.strem.fun/manifest.json",
             "https://knightcrawler.elfhosted.com/manifest.json",
             "https://cyberflix.elfhosted.com/manifest.json",

@@ -124,6 +124,7 @@ class SettingsRepository(private val context: Context) {
         val XTREAM_ACCOUNTS = stringSetPreferencesKey("xtream_accounts")
         val EXCLUDE_CAM_STREAMS = booleanPreferencesKey("exclude_cam_streams")
         val PINNED_CATALOGS = stringSetPreferencesKey("pinned_catalogs")
+        val PRIORITIZE_PLAVIOHD = booleanPreferencesKey("prioritize_plaviohd")
     }
 
     val playbackQualityFlow: Flow<String> = context.dataStore.data.map { preferences ->
@@ -203,6 +204,17 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPrioritizePengu(enabled: Boolean) {
         context.dataStore.edit { preferences ->
             preferences[PreferencesKeys.PRIORITIZE_PENGU] = enabled
+        }
+    }
+
+    /** List and auto-pick streams from the PlavioHD addon ahead of other sources. */
+    val prioritizePlavioHdFlow: Flow<Boolean> = context.dataStore.data.map { preferences ->
+        preferences[PreferencesKeys.PRIORITIZE_PLAVIOHD] ?: true
+    }
+
+    suspend fun setPrioritizePlavioHd(enabled: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[PreferencesKeys.PRIORITIZE_PLAVIOHD] = enabled
         }
     }
 

@@ -145,6 +145,7 @@ fun SettingsScreen(
     val avoidCameraCutout by viewModel.avoidCameraCutout.collectAsState()
     val mouseToggle by viewModel.mouseToggle.collectAsState()
     val prioritizePengu by viewModel.prioritizePengu.collectAsState()
+    val prioritizePlavioHd by viewModel.prioritizePlavioHd.collectAsState()
     val selectedSources by viewModel.selectedSources.collectAsState()
     val stremioAddons by viewModel.stremioAddons.collectAsState()
     val liveLinks by viewModel.liveLinks.collectAsState()
@@ -584,6 +585,15 @@ fun SettingsScreen(
 
                 if (openSection == "addons") {
                     item(key = "hdr-addons") { SectionHeader("STREMIO ADDONS") }
+                    item(key = "addon-plaviohd") {
+                        SwitchPreferenceItem(
+                            title = "Prioritize PlavioHD links",
+                            summary = "List and auto-play PlavioHD 4K/HD streams first",
+                            icon = Icons.Rounded.PlayCircle,
+                            checked = prioritizePlavioHd,
+                            onCheckedChange = { viewModel.setPrioritizePlavioHd(it) }
+                        )
+                    }
                     item(key = "addon-pengu") {
                         SwitchPreferenceItem(
                             title = "Prioritize Pengu links",
