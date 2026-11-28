@@ -91,6 +91,9 @@ class DetailsViewModel(
     val enabledSources: StateFlow<Set<String>> = settingsRepository.sourcesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val stremioAddons: StateFlow<Set<String>> = settingsRepository.stremioAddonsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     val uiState: StateFlow<DetailsUiState> = combine(
         session.movie,
         session.streamSources,

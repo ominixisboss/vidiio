@@ -562,7 +562,11 @@ fun SourceSelectorBottomSheet(
 ) {
     val sheetState = rememberModalBottomSheetState()
     val enabledSources by viewModel.enabledSources.collectAsState()
-    
+    val stremioAddons by viewModel.stremioAddons.collectAsState()
+
+    fun addonLabel(url: String): String =
+        runCatching { java.net.URI(url).host }.getOrNull()?.takeIf { it.isNotBlank() } ?: url.take(30)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -576,34 +580,46 @@ fun SourceSelectorBottomSheet(
                 .navigationBarsPadding()
         ) {
             Text(
-                text = "Select Sources",
+                text = "Select Sources & Addons",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 12.dp)
             )
-            
-            val sources = listOf(
-                "knaben" to "Knaben",
-                "tg" to "TorrentGalaxy"
+
+            val builtinSources = listOf(
+                "knaben" to "Knaben (Torrent Scraper)",
+                "tg" to "TorrentGalaxy (Torrent Scraper)",
+                "1337x" to "1337x (Torrent Scraper)",
+                "yts" to "YTS (Movies Scraper)"
             )
-            
-            LazyColumn {
-                items(sources.size) { index ->
-                    val (id, name) = sources[index]
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                item {
+                    Text(
+                        "BUILT-IN TORRENT SCRAPERS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                }
+
+                items(builtinSources.size) { index ->
+                    val (id, name) = builtinSources[index]
                     val isEnabled = enabledSources.contains(id)
-                    
+
                     GlassCard(
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = 2.dp),
                         onClick = { viewModel.toggleSource(id) },
                         alpha = 0.05f
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                            Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
                             Checkbox(
                                 checked = isEnabled,
                                 onCheckedChange = { viewModel.toggleSource(id) },
@@ -612,8 +628,47 @@ fun SourceSelectorBottomSheet(
                         }
                     }
                 }
+
+                if (stremioAddons.isNotEmpty()) {
+                    item {
+                        Text(
+                            "INSTALLED STREMIO STREAM ADDONS",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)
+                        )
+                    }
+
+                    val addonsList = stremioAddons.toList()
+                    items(addonsList.size) { index ->
+                        val url = addonsList[index]
+                        val name = "${addonLabel(url)} (Stream Addon)"
+                        val isDisabled = enabledSources.contains("disabled_$url")
+
+                        GlassCard(
+                            modifier = Modifier.padding(vertical = 2.dp),
+                            onClick = { viewModel.toggleSource("disabled_$url") },
+                            alpha = 0.05f
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                Checkbox(
+                                    checked = !isDisabled,
+                                    onCheckedChange = { viewModel.toggleSource("disabled_$url") },
+                                    colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                        }
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
