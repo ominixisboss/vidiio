@@ -722,12 +722,23 @@ fun SourceItem(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                val domain = remember(source.url) {
+                    runCatching {
+                        if (source.url.startsWith("magnet:")) "magnet"
+                        else java.net.URI(source.url).host?.removePrefix("www.")?.lowercase()
+                    }.getOrNull()
+                }
+
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = source.sourceName,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall
                     )
+                    domain?.takeIf { it.isNotBlank() }?.let { dom ->
+                        Text(text = " • ", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(text = dom, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                    }
                     source.quality?.let {
                         Text(text = " • ", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(text = it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)

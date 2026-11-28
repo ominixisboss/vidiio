@@ -214,10 +214,18 @@ fun SourcesPanel(
                         else -> MaterialTheme.colorScheme.primary
                     }
 
+                    val domain = remember(source.url) {
+                        runCatching {
+                            if (source.url.startsWith("magnet:")) "magnet"
+                            else java.net.URI(source.url).host?.removePrefix("www.")?.lowercase()
+                        }.getOrNull()
+                    }
+
                     ListItem(
                         headlineContent = { Text(source.serverName, fontWeight = FontWeight.Bold) },
                         supportingContent = { 
                             val info = mutableListOf<String>()
+                            domain?.takeIf { it.isNotBlank() }?.let { info.add(it) }
                             source.quality?.let { info.add(it) }
                             source.size?.let { info.add(it) }
                             source.seeders?.let { info.add("👥 $it") }
